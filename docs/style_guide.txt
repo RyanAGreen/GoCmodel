@@ -1,0 +1,9 @@
+Generally, Python uses:
+
+Snake case for variables and module: variable_name, my_module.py
+
+Camel case for class name: MyClass
+
+Camel case with spaces for jupyter notebook: Analyze Brain Data.ipynb
+
+You might know that Python generally uses 4 spaces for indentation, and that files are expected to be at most 80 columns long. These and many other elements of style are written in PEP 8. Code that adheres to style tends to be easier to read.
