@@ -21,7 +21,7 @@ class SrBoxModel():
         self.state0 = np.array([120e15, 0.39*120e15, RtoF(0.70918)*120e15])
         
     
-    def StrontiumCycle(self,t,state):
+    def StrontiumCycle(self,t,state): 
             dSrdt = np.zeros(3)
             F_in = self.fluxes[0] 
             F_out = self.fluxes[1]
@@ -53,20 +53,20 @@ class SrBoxModel():
         self.result1 = self.result.y
         
 
-    def Experiment1(self, tmax):
-        self.fluxes[0] = 174e9 # ~3x modern input (mol/yr)
-        t = np.linspace(0, tmax, 10) #t0, tmax, nsteps
-        self.result = scipy.integrate.solve_ivp(self.BoxModel, [0,tmax], self.state0, method ='RK45', t_eval=t, vectorized = True)
-        self.time = self.result.t
-        self.result2 = self.result.y
-        
-    def Experiment2(self, tmax):
-        self.fluxes[0] = 174e9 # ~3x modern input (mol/yr)
-        self.fluxes[2] = 0.21 # lower d88_in for shelf carbonate weathering
-        t = np.linspace(0, tmax, 10) #t0, tmax, nsteps
-        self.result = scipy.integrate.solve_ivp(self.BoxModel, [0,tmax], self.state0, method ='RK45', t_eval=t, vectorized = True)
-        self.time = self.result.t
-        self.result3 = self.result.y
+    # def Experiment1(self, tmax):
+    #     self.fluxes[0] = 174e9 # ~3x modern input (mol/yr)
+    #     t = np.linspace(0, tmax, 10) #t0, tmax, nsteps
+    #     self.result = scipy.integrate.solve_ivp(self.BoxModel, [0,tmax], self.state0, method ='RK45', t_eval=t, vectorized = True)
+    #     self.time = self.result.t
+    #     self.result2 = self.result.y
+    #
+    # def Experiment2(self, tmax):
+    #     self.fluxes[0] = 174e9 # ~3x modern input (mol/yr)
+    #     self.fluxes[2] = 0.21 # lower d88_in for shelf carbonate weathering
+    #     t = np.linspace(0, tmax, 10) #t0, tmax, nsteps
+    #     self.result = scipy.integrate.solve_ivp(self.BoxModel, [0,tmax], self.state0, method ='RK45', t_eval=t, vectorized = True)
+    #     self.time = self.result.t
+    #     self.result3 = self.result.y
         
             
     def MakePlot(self, plotname):
@@ -103,7 +103,7 @@ class SrBoxModel():
 if __name__ == "__main__":
     ModelInstance = SrBoxModel()
     ModelInstance.RunBoxModel(100000)
-    ModelInstance.Experiment1(100000)
-    ModelInstance.Experiment2(100000)
+#    ModelInstance.Experiment1(100000)
+#    ModelInstance.Experiment2(100000)
     ModelInstance.MakePlot("../results/CombinedPlot1.pdf")
         
