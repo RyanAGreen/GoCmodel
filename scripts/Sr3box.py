@@ -1,0 +1,271 @@
+from IPython import get_ipython
+get_ipython().magic('reset -sf')
+
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy
+from scipy import integrate
+
+def RtoF(R): # conversion of isotope ratios to fractional abundances
+    # convert isotope ratio to fractional abundance of isotope
+    return R/(1+R)
+def FtoR(F): # conversion of isotope fractional abundances to ratios
+    # convert fractional abundance of isotope to isotope ratio
+    return F/(1-F)
+ 
+class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr tracers
+     
+    def __init__(self):
+        # set up transport matrix for 3 box ocean
+        self.ocean_mass = 1.4*10**21 # kg
+        self.m0 = 0.4*0.15*self.ocean_mass # kg, high lat surface box
+        self.m1 = 0.4*0.85*self.ocean_mass # kg, low lat surface box
+        self.m2 = (1-0.04)*self.ocean_mass # kg, deep ocean box
+        self.m = np.array([self.m0,self.m1,self.m2]) # mass vector
+
+        self.SvM = np.array([[ 0,20,10], 
+                            [  0, 0,20], 
+                            [ 30, 0, 0]]) # Sv matrix
+        
+        self.TM4concentrations, self.TM4inventories = self.makeTM()
+
+        
+        # initialize biological pump export
+        self.Nsurf = 2 
+        self.Ninterior  = 1 
+        self.EM = np.array([[-1,0,0],[0,-1,0],[1,1,0]]) # Export matrix; fraction of export from surface (column) to interior (row)
+        
+        self.time = None 
+        
+
+        # construct initial state     
+        # isotopes use concentration (or inventory) * delta or concentration (or inventory) * fractional abundance
+        # rows = # of boxes, columns = # of tracers
+        self.state0 = (np.array([1e-6,1e-7,2.3e-6])*self.m).reshape(3,1) # dissolved phosphorous, inventory (mol)
+        self.state0 = np.append(self.state0, (self.m*(45000e15/12.01)/self.m.sum()).reshape(3,1), axis = 1)  # DIC, inventory (mol)
+        self.state0 = np.append(self.state0, (np.array([34,36,35])).reshape(3,1), axis = 1) # salinity, concentration (g/kg or ppt or PSU)
+        self.state0 = np.append(self.state0, (np.array([340, 320, 177])*self.m/1e6).reshape(3,1), axis = 1) # dissolved oxygen, inventory (mol)
+        self.state0 = np.append(self.state0, (np.array([1, 1, 32])*self.m/1e6).reshape(3,1), axis = 1) # NO3-, inventory (mol)
+        self.state0 = np.append(self.state0, (self.m*(120e15)/self.m.sum()).reshape(3,1), axis = 1) # strontium, inventory (mol)
+        self.state0 = np.append(self.state0, (np.array([0.39, 0.39, 0.39])*self.state0[:,5]).reshape(3,1), axis = 1) # d88Sr, permil * Sr inventory
+        self.state0 = np.append(self.state0, (np.array([RtoF(0.7091), RtoF(0.7091), RtoF(0.7091)])*self.state0[:,5]).reshape(3,1), axis = 1) # f87Sr, fractional abundance * Sr inventory
+        self.state0 = np.append(self.state0, (np.array([4, 30, 4])).reshape(3,1), axis = 1) # temperature, deg C
+        
+        
+        # state must be 1-D for integrate function (x,) where x = rows*columns
+        self.state0 = self.state0.reshape(27,)
+                                    
+
+    def makeTM(self):
+        # makeTM() returns a NxN matrix defining the fractional mixing system of equations, representing 1 year of ocean circulation
+        # 
+        # Function inputs:
+        # 1. m: ocean box mass vector (kg) e.g. [m1, m2, m3] for 3 box ocean
+        # 2. SvM: Sverdrup matrix of fluxes (Sv) e.g [[0, f1-0, f2-0], [f0-1, 0, f2-1], [f0-2, f1-2, 0]] where fx-y is flux from box x to box y
+        #
+        # This function converts SvM to mass (kg) fluxes per timestep (units = yrs) and the mass lost from each box is calculated
+        # as the sum of each column (sum along rows). The fraction of each ocean box's mass retained after moving fluxes is given 
+        # by the diagonal of the transport matrix. Unique transport matrices are needed for concentration and inventory fluxes 
+        # (TM_ForConcentrations, TM_ForInventories). The difference in the transport matrices is the definition of "fractional fluxes" 
+        # which describe the transport from one box to another with respect to the size (mass) of the receiving box (for concentration)
+        # or with respect to the giving box (for inventory). The new concentration of a given box is equal to the sum of the fractions 
+        # of contributing boxes multiplied by their respective concentrations (i.e. mixing equation where the new concentration of
+        # box0 = fraction of box0 remaining * concentration of box0 + fraction of box0 contributed by box1 * concentration of box1).
+        # The new inventory of a given box is equal to the sum of the contributions from all boxes (i.e. the new inventory of box0 = 
+        # fraction of box0 remaining * box0 inventory + fraction of box1 given to box0 * box1 inventory)
+        
+        dt = 1 # timestep (yr)
+        flux = self.SvM*(10**9*3.154*10**7)*dt  # kg moved in 1 timestep
+        m_lost = np.sum(flux, axis=0) # sum of all mass fluxes out of each box
+        fraction_retained = (self.m-m_lost)/self.m # fraction of mass retained in each box
+
+        fractional_fluxes = flux/self.m.reshape((len(self.m),1)) # divide flux array rows by mass for concentration
+        fractional_fluxes_inv = flux/self.m.T # divide flux array columns by mass for inventory
+        TM_ForConcentrations = fractional_fluxes + np.diag(fraction_retained) # TM_ForConcentrations is NxN matrix defining the fractional mixing system of equations for concentration units, representing 1 year of ocean circulation 
+        TM_ForInventories = fractional_fluxes_inv + np.diag(fraction_retained) # TM_ForInventories is NxN matrix defining the fractional mixing system of equations for inventory units, representing 1 year of ocean circulation 
+        return TM_ForConcentrations, TM_ForInventories
+
+ 
+    def TestTM(self):   
+        UnitTracer = np.array([1,1,1])
+        print("before 1k steps the UnitTracer is:", UnitTracer)
+        print("before 1k steps the UnitTracer inventory is:", (UnitTracer*self.m).sum())
+
+        for year in range(1,1001):
+            UnitTracer = self.TM4concentrations@UnitTracer 
+        print("after 1k steps the UnitTracer is:", UnitTracer)
+        print("after 1k steps the UnitTracer inventory is:", (UnitTracer*self.m).sum())
+        
+        
+        MassTracer = self.m
+        print("before 1k steps the MassTracer is:", MassTracer)
+        print("before 1k steps the MassTracer inventory is:", (MassTracer).sum())
+        for year in range(1,1001):
+            MassTracer = self.TM4inventories@MassTracer
+
+        print("after 1k steps the MassTracer is:", MassTracer)
+        print("after 1k steps the MassTracer inventory is:", (MassTracer).sum())
+        
+        
+    def TestModel(self):
+        TestState = np.copy(self.state0).reshape(3,9)
+        dTSdt = self.BoxModel(0,TestState).reshape(3,9)
+        print("TestState:", TestState)
+        print("dTSdt:", dTSdt)
+        
+    
+    def ComputeExportP(self, state):
+        ExportP = np.zeros(3).T
+
+        P = state.reshape(3,9)[:,0]/self.m[:] # mol/kg P
+        SetP = np.array([1e-6,1e-7])
+        for s in range(0,self.Nsurf):  
+            timescale = 20 # year
+            if P[s]-SetP[s] >0:
+                ExportP[s] = (P[s]-SetP[s])/timescale*self.m[s] # mol surfacePO4/year
+
+            else:
+                #print(P[s],SetP[s],P[s]-SetP[s])
+                pass # not enough nutrients to sustain productivity
+        return self.EM @ ExportP
+
+
+    def StrontiumCycle(self,t,state):
+        dSrdt = np.zeros((3,3))
+        SrInv = state.reshape(3,9)[:,5]
+        d88sw = state.reshape(3,9)[:,6]
+        f87sw = state.reshape(3,9)[:,7]
+        
+        d88_sw_deep = d88sw[2]/SrInv[2]
+        f87_sw_deep = f87sw[2]/SrInv[2]
+        
+        # modern (interglacial) fluxes
+        F_in = 56e9 # mol/yr
+        F_in_LS = (self.m[1]/(self.m[0]+self.m[1]))*F_in # mol/yr
+        F_in_HS = (self.m[0]/(self.m[0]+self.m[1]))*F_in # mol/yr
+        d88_in = 0.32 # permil
+        f87_in = RtoF(0.7116) 
+        epsilon = -0.18 # permil, fractionation between seawater & carbonate
+        F_out = 150e9 # mol/yr
+        
+        dSrdt[:,0] = [F_in_HS, F_in_LS, -F_out]
+        dSrdt[:,1] = [d88_in*F_in_HS, (d88_in*F_in_LS), -(d88_sw_deep+epsilon)*F_out]
+        dSrdt[:,2] = [f87_in*F_in_HS, (f87_in*F_in_LS), -(f87_sw_deep)*F_out]
+
+        return dSrdt
+        
+        
+    def BoxModel(self,t,state):
+        # when the length of the state vector length is not equal to the TM matrix width (# of col),
+        # .reshape() must be used on the state array and flux arrays so that rows equal TM matrix columns
+                  
+        EP = self.ComputeExportP(state) 
+        SR = self.StrontiumCycle(t, state)
+        
+        d_dt = (self.TM4inventories@state.reshape(3,9))-state.reshape(3,9) # CIRCULATION 3 boxes with 8 tracers     
+        d_dt[:,2] = (self.TM4concentrations@state.reshape(3,9)[:,2])-state.reshape(3,9)[:,2] # CIRCULATION works different for Salinity (concentration)
+        d_dt[:,8] = 0 # reset temperature
+        d_dt[:,0] += 1 * EP # P export
+        d_dt[:,1] += 106 * EP # DIC export
+        d_dt[:,4] += 16 * EP # N export
+              
+        d_dt[:,5] += SR[:,0] # Sr inventory
+        d_dt[:,6] += SR[:,1] # d88Sr * Sr inventory
+        d_dt[:,7] += SR[:,2] # f87Sr * Sr inventory
+        
+        return   d_dt 
+
+        
+
+    def RunBoxModel(self,tmax):
+        # run box model with ODE solver
+        t = np.linspace(0, tmax, 1000) #t0, tmax, nsteps
+
+        self.result = scipy.integrate.solve_ivp(self.BoxModel, [0,tmax], self.state0, method ='RK45', t_eval=t, vectorized = True) # should we allow user to specific nsteps for this function?
+        self.time = self.result.t
+
+       
+    def MakePlot(self):
+        fig, ax = plt.subplots(9, figsize = (16,20))
+     
+        ax[0].plot(self.time, self.result.y[0,:]/self.m[0], label='H surface P')
+        ax[1].plot(self.time, self.result.y[1,:]/self.m[0], label='H surface C')
+        ax[2].plot(self.time, self.result.y[2,:], label='H surface S')
+        ax[3].plot(self.time, self.result.y[3,:]/self.m[0], label='H surface O2')
+        ax[4].plot(self.time, self.result.y[4,:]/self.m[0], label='H surface NO3-')
+        ax[5].plot(self.time, self.result.y[5,:]/self.m[0], label='H surface Sr')
+        ax[6].plot(self.time, self.result.y[6,:]/self.result.y[5,:], label='H surface d88_86Sr')
+        ax[7].plot(self.time, FtoR(self.result.y[7,:]/self.result.y[5,:]), label='H surface 87_86Sr')
+        ax[8].plot(self.time, self.result.y[8,:], label='H surface temp')
+                
+        ax[0].plot(self.time, self.result.y[9,:]/self.m[1], linestyle='dotted', label='L surface P')
+        ax[1].plot(self.time, self.result.y[10,:]/self.m[1], linestyle='dotted', label='L surface C')
+        ax[2].plot(self.time, self.result.y[11,:], linestyle='dotted', label='L surface S')
+        ax[3].plot(self.time, self.result.y[12,:]/self.m[1], linestyle='dotted', label='L surface O2')
+        ax[4].plot(self.time, self.result.y[13,:]/self.m[1], linestyle='dotted', label='L surface NO3-')
+        ax[5].plot(self.time, self.result.y[14,:]/self.m[1], linestyle='dotted', label='L surface Sr')
+        ax[6].plot(self.time, self.result.y[15,:]/self.result.y[14,:], linestyle='dotted', label='L surface d88_86Sr')
+        ax[7].plot(self.time, FtoR(self.result.y[16,:]/self.result.y[14,:]), linestyle='dotted', label='L surface 87_86Sr')
+        ax[8].plot(self.time, self.result.y[17,:], linestyle='dotted', label='L surface temp')
+
+        ax[0].plot(self.time, self.result.y[18,:]/self.m[2], linestyle='dashed', label='deep P')
+        ax[1].plot(self.time, self.result.y[19,:]/self.m[2], linestyle='dashed', label='deep C')
+        ax[2].plot(self.time, self.result.y[20,:], linestyle='dashed', label='deep S')
+        ax[3].plot(self.time, self.result.y[21,:]/self.m[2], linestyle='dashed', label='deep O2')
+        ax[4].plot(self.time, self.result.y[22,:]/self.m[2], linestyle='dashed', label='deep NO3-')
+        ax[5].plot(self.time, self.result.y[23,:]/self.m[2], linestyle='dashed', label='deep Sr')
+        ax[6].plot(self.time, self.result.y[24,:]/self.result.y[23,:], linestyle='dashed', label='deep d88_86Sr')
+        ax[7].plot(self.time, FtoR(self.result.y[25,:]/self.result.y[23,:]), linestyle='dashed', label='deep 87_86Sr')
+        ax[8].plot(self.time, self.result.y[26,:], linestyle='dashed', label='deep temp')
+        
+        ax[0].legend(loc = 1)
+        ax[1].legend(loc = 1)
+        ax[2].legend(loc = 1)
+        ax[3].legend(loc = 1)
+        ax[4].legend(loc = 1)
+        ax[5].legend(loc = 1)
+        ax[6].legend(loc = 1)
+        ax[7].legend(loc = 1)
+        ax[8].legend(loc = 1)
+        
+        
+        ax[0].set_xlabel('t:years')
+        ax[0].set_ylabel('P mol/kg')
+        ax[0].set_title('Dissolved P')
+        ax[1].set_xlabel('t:years')
+        ax[1].set_ylabel('DIC mol/kg')
+        ax[1].set_title('DIC')
+        ax[2].set_xlabel('t:years')
+        ax[2].set_ylabel('S psu')
+        ax[2].set_title('Salinity')
+        ax[3].set_xlabel('t:years')
+        ax[3].set_ylabel('O2 mol/kg')
+        ax[3].set_title('O2')
+        ax[4].set_xlabel('t:years')
+        ax[4].set_ylabel('NO3- mol/kg')
+        ax[4].set_title('NO3-')        
+        ax[5].set_xlabel('t:years')
+        ax[5].set_ylabel('Sr mol/kg')
+        ax[5].set_title('Sr inventory')        
+        ax[6].set_xlabel('t:years')
+        ax[6].set_ylabel('d88_86Sr permil')
+        ax[6].set_title('d88_86Sr')        
+        ax[7].set_xlabel('t:years')
+        ax[7].set_ylabel('87Sr_86Sr')
+        ax[7].set_title('87Sr_86Sr')
+        ax[8].set_xlabel('t:years')
+        ax[8].set_ylabel('temp, deg C')
+        ax[8].set_title('Temperature')
+                
+        plt.tight_layout()
+        fig.savefig("SummaryPlot.pdf")
+        
+        
+        
+if __name__ == "__main__":
+    
+    ModelInstance = ODEBoxModel()
+    ModelInstance.TestTM()
+    ModelInstance.TestModel()
+    ModelInstance.RunBoxModel(100000)
+    ModelInstance.MakePlot()
