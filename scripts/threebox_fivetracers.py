@@ -222,7 +222,7 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         ax[4].set_title('d14c')
 
         plt.tight_layout()
-        fig.savefig("SummaryPlot.pdf")
+        fig.savefig("../results/SummaryPlot.pdf")
 
 if __name__ == "__main__":
 
