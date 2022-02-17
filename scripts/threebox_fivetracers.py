@@ -125,8 +125,8 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         return self.EM @ ExportP
 
 
-    def StrontiumCycle(self,t,state):
-        dSrdt = np.zeros((3,3))
+    def CarbonCycle(self,t,state):
+        dCdt = np.zeros((3,3))
         DIC = state.reshape(3,5)[:,1]
         d13C = state.reshape(3,5)[:,3]
         d14C = state.reshape(3,5)[:,4]
@@ -143,19 +143,18 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         epsilon = -0.18 # permil, fractionation between seawater & carbonate
         F_out = 150e9 # mol/yr
 
-        dSrdt[:,0] = [F_in_HS, F_in_LS, -F_out]
-        dSrdt[:,1] = [d13C_in*F_in_HS, (d13C_in*F_in_LS), -(d13C_deep+epsilon)*F_out]
-        dSrdt[:,2] = [d14C_in*F_in_HS, (d14C_in*F_in_LS), -(d14C_deep)*F_out]
+        dCdt[:,0] = [F_in_HS, F_in_LS, -F_out]
+        dCdt[:,1] = [d13C_in*F_in_HS, (d13C_in*F_in_LS), -(d13C_deep+epsilon)*F_out]
+        dCdt[:,2] = [d14C_in*F_in_HS, (d14C_in*F_in_LS), -(d14C_deep)*F_out]
 
-        return dSrdt
-
+        return dCdt
 
     def BoxModel(self,t,state):
         # when the length of the state vector length is not equal to the TM matrix width (# of col),
         # .reshape() must be used on the state array and flux arrays so that rows equal TM matrix columns
 
-        EP = self.ComputeExportP(state)
-        SR = self.StrontiumCycle(t, state) # shape: [3,3]
+        EP = self.ComputeExportP(state) # shape: [3,3]
+        SR = self.CarbonCycle(t, state) # shape: [3,3]
 
         d_dt = (self.TM4inventories@state.reshape(3,5))-state.reshape(3,5) # CIRCULATION 3 boxes with 8 tracers
         # print(d_dt)
@@ -166,7 +165,7 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         d_dt[:,3] += SR[:,1] # d13C * DIC inventory
         d_dt[:,4] += SR[:,2] # d14C * DIC inventory
 
-        return   d_dt
+        return d_dt
 
 
 
