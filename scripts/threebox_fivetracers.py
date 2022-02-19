@@ -39,10 +39,15 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         # construct initial state
         # isotopes use concentration (or inventory) * delta or concentration (or inventory) * fractional abundance
         # rows = # of boxes, columns = # of tracers
+
+        # First Row: self.state0[0,:] - Baja California Box
+        # Second Row: self.state0[1,:] - Gulf of California Deep Box
+        # Third Row: self.state0[2,:] - Gulf of California Surface Box
+
         self.state0 = np.zeros((3,5))
         self.state0[:,0] = np.array([1e-6,1e-7,2.3e-6])*self.m # dissolved phosphorous, inventory (mol)
-        self.state0[:,1] = self.m*(45000e15/12.01)/self.m.sum()  # DIC, inventory (mol)
-        self.state0[:,2] = self.m*(120e15)/self.m.sum() # alkalinity, inventory (mol)
+        self.state0[:,1] = self.m*(2317 * 10 ** -6) # DIC, inventory (mol) # inflowing, subsurface seawater has alkalinity of 2317 umol kg-1
+        self.state0[:,2] = self.m*(2329.1 * 10 ** -6) # alkalinity, inventory (mol) # inflowing, subsurface seawater has alkalinity of 2329.1 umol kg-1
         self.state0[:,3] = np.array([0.2, 0.2, 0.2])*self.state0[:,1] # d13C, permil * DIC inventory
         self.state0[:,4] = np.array([0.05, 0.05, 0.05])*self.state0[:,1] # d14C, permil * DIC inventory
         # shape: [3,5]
@@ -135,7 +140,7 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         d14C_deep = d14C[2]/DIC[2]
 
         # modern (interglacial) fluxes
-        F_in = 56e9 # mol/yr
+        F_in = 9e12 # mol/yr Carbon
         F_in_LS = (self.m[1]/(self.m[0]+self.m[1]))*F_in # mol/yr
         F_in_HS = (self.m[0]/(self.m[0]+self.m[1]))*F_in # mol/yr
         d13C_in = 0.32 # permil
