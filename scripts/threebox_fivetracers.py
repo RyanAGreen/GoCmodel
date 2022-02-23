@@ -23,9 +23,9 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         self.m2 = (1-0.04)*self.ocean_mass # kg, deep ocean box
         self.m = np.array([self.m0,self.m1,self.m2]) # mass vector
 
-        self.SvM = np.array([[ 0,20,10],
-                            [  0, 0,20],
-                            [ 30, 0, 0]]) # Sv matrix
+        self.SvM = np.array([[ 0,20,0],
+                            [  20, 0,5],
+                            [ 0, 5, 0]]) # Sv matrix
 
         self.TM4concentrations, self.TM4inventories = self.makeTM()
 
