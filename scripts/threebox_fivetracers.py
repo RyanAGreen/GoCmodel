@@ -30,9 +30,9 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         self.TM4concentrations, self.TM4inventories = self.makeTM()
 
         # initialize biological pump export
-        self.Nsurf = 2
-        self.Ninterior  = 1
-        self.EM = np.array([[-1,0,0],[0,-1,0],[1,1,0]]) # Export matrix; fraction of export from surface (column) to interior (row)
+        self.Nsurf = 1
+        self.Ninterior  = 2
+        self.EM = np.array([[1,0,0],[0,0,-1],[0,1,0]]) # Export matrix; fraction of export from surface (column) to interior (row)
 
         self.time = None
 
