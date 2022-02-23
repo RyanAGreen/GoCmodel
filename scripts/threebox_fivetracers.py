@@ -165,6 +165,7 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         # print(d_dt)
         d_dt[:,0] += 1 * EP # P export
         d_dt[:,1] += 106 * EP # DIC export
+        # d_dt[:,4] += 16 * EP # N export
 
         d_dt[:,2] += SR[:,0] # ALK inventory
         d_dt[:,3] += SR[:,1] # d13C * DIC inventory
