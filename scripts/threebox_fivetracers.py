@@ -16,11 +16,11 @@ def FtoR(F): # conversion of isotope fractional abundances to ratios
 class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr tracers
 
     def __init__(self):
-        # set up transport matrix for 3 box ocean
-        self.ocean_mass = 1.4*10**21 # kg
-        self.m0 = 0.4*0.15*self.ocean_mass # kg, high lat surface box
-        self.m1 = 0.4*0.85*self.ocean_mass # kg, low lat surface box
-        self.m2 = (1-0.04)*self.ocean_mass # kg, deep ocean box
+        # set up transport matrix for 3 box
+        self.ocean_mass = 9.48024*10**17 # kg -> calculated from GoC volume (1.45e+14 m3) + Baja volume (1.45e+14*5 m3) * density of sw (kg/m3)
+        self.m0 = 0.833*0.15*self.ocean_mass # kg, Baja intermediate depth box -> 5/6 of oceanmass
+        self.m1 = 0.167*0.5*self.ocean_mass # kg, Gulf of California deep box -> 1/2 of 1/6 of oceanmass
+        self.m2 = 0.167*0.33*self.ocean_mass # kg, Gulf of California surface box -> 1/3 of 1/6 of oceanmass
         self.m = np.array([self.m0,self.m1,self.m2]) # mass vector
 
         self.SvM = np.array([[ 0,0.05,0],
