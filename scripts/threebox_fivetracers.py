@@ -40,19 +40,25 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         # isotopes use concentration (or inventory) * delta or concentration (or inventory) * fractional abundance
         # rows = # of boxes, columns = # of tracers
 
+
         # First Row: self.state0[0,:] - Baja California Box
         # Second Row: self.state0[1,:] - Gulf of California Deep Box
         # Third Row: self.state0[2,:] - Gulf of California Surface Box
 
-        self.state0 = np.zeros((3,5))
+        # initialize state
+        self.state0 = np.zeros((3,6)) # 3 boxes (rows), 6 tracers (columns)
+
+        # fill boxes with initial values
         self.state0[:,0] = np.array([1e-6,1e-7,2.3e-6])*self.m # dissolved phosphorous, inventory (mol)
-        self.state0[:,1] = self.m*(2317 * 10 ** -6) # DIC, inventory (mol) # inflowing, subsurface seawater has alkalinity of 2317 umol kg-1
-        self.state0[:,2] = self.m*(2329.1 * 10 ** -6) # alkalinity, inventory (mol) # inflowing, subsurface seawater has alkalinity of 2329.1 umol kg-1
-        self.state0[:,3] = np.array([0.2, 0.2, 0.2])*self.state0[:,1] # d13C, permil * DIC inventory
-        self.state0[:,4] = np.array([0.05, 0.05, 0.05])*self.state0[:,1] # d14C, permil * DIC inventory
-        # shape: [3,5]
+        self.state0[:,1] = (2317 * 10 ** -6)*self.m # DIC, inventory (mol) # inflowing, subsurface seawater has alkalinity of 2317 umol kg-1
+        self.state0[:,2] = (2329.1 * 10 ** -6)*self.m # ALK, inventory (mol) # inflowing, subsurface seawater has alkalinity of 2329.1 umol kg-1
+        self.state0[:,3] = np.array([1, 1, 32])*self.m/1e6 # NO3-, inventory (mol)
+        self.state0[:,4] = np.array([0.2, 0.2, 0.2])*self.state0[:,1] # delta C 13, permil * DIC inventory
+        self.state0[:,5] = np.array([0.05, 0.05, 0.05])*self.state0[:,1] # ∆14C, permil * DIC inventory
+
+        # shape: [3,6]
         # state must be 1-D for integrate function (x,) where x = rows*columns
-        self.state0 = self.state0.reshape(15,)
+        self.state0 = self.state0.reshape(18,)
 
 
     def makeTM(self):
@@ -107,8 +113,8 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
 
 
     def TestModel(self):
-        TestState = np.copy(self.state0).reshape(3,9)
-        dTSdt = self.BoxModel(0,TestState).reshape(3,9)
+        TestState = np.copy(self.state0).reshape(3,6)
+        dTSdt = self.BoxModel(0,TestState).reshape(3,6)
         print("TestState:", TestState)
         print("dTSdt:", dTSdt)
         # shape: [3,9]
@@ -117,7 +123,7 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
     def ComputeExportP(self, state):
         ExportP = np.zeros(3).T
 
-        P = state.reshape(3,5)[:,0]/self.m[:] # mol/kg P
+        P = state.reshape(3,6)[:,0]/self.m[:] # mol/kg P
         SetP = np.array([1e-6,1e-7])
         for s in range(0,self.Nsurf):
             timescale = 20 # year
@@ -132,9 +138,9 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
 
     def CarbonCycle(self,t,state):
         dCdt = np.zeros((3,3))
-        DIC = state.reshape(3,5)[:,1]
-        d13C = state.reshape(3,5)[:,3]
-        d14C = state.reshape(3,5)[:,4]
+        DIC = state.reshape(3,6)[:,1]
+        d13C = state.reshape(3,6)[:,4]
+        d14C = state.reshape(3,6)[:,5]
 
         d13C_deep = d13C[2]/DIC[2]
         d14C_deep = d14C[2]/DIC[2]
@@ -161,15 +167,15 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         EP = self.ComputeExportP(state) # shape: [3,3]
         SR = self.CarbonCycle(t, state) # shape: [3,3]
 
-        d_dt = (self.TM4inventories@state.reshape(3,5))-state.reshape(3,5) # CIRCULATION 3 boxes with 8 tracers
+        d_dt = (self.TM4inventories@state.reshape(3,6))-state.reshape(3,6) # CIRCULATION 3 boxes with 6 tracers
         # print(d_dt)
         d_dt[:,0] += 1 * EP # P export
         d_dt[:,1] += 106 * EP # DIC export
-        # d_dt[:,4] += 16 * EP # N export
+        d_dt[:,3] += 16 * EP # N export
 
-        d_dt[:,2] += SR[:,0] # ALK inventory
-        d_dt[:,3] += SR[:,1] # d13C * DIC inventory
-        d_dt[:,4] += SR[:,2] # d14C * DIC inventory
+        d_dt[:,2] += SR[:,0] # ALK inventory (mol)
+        d_dt[:,4] += SR[:,1] # delta 13 C (per mil) * DIC (mol) inventory
+        d_dt[:,5] += SR[:,2] # ∆14C (per mil) * DIC (mol) inventory
 
         return d_dt
 
@@ -186,23 +192,23 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
     def MakePlot(self):
         fig, ax = plt.subplots(5, figsize = (16,20))
 
-        ax[0].plot(self.time, self.result.y[0,:]/self.m[0], label='H surface P')
-        ax[1].plot(self.time, self.result.y[1,:]/self.m[0], label='H surface C')
-        ax[2].plot(self.time, self.result.y[2,:], label='H surface ALK')
-        ax[3].plot(self.time, self.result.y[3,:]/self.m[0], label='H surface d13c')
-        ax[4].plot(self.time, self.result.y[4,:]/self.m[0], label='H surface d14c')
+        ax[1].plot(self.time, self.result.y[1,:]/self.m[0], label='Baja California C')
+        ax[2].plot(self.time, self.result.y[2,:], label='Baja California ALK')
+        ax[0].plot(self.time, self.result.y[3,:]/self.m[0], label='Baja California N')
+        ax[3].plot(self.time, self.result.y[4,:]/self.m[0], label='Baja California δ$^{13}$C')
+        ax[4].plot(self.time, self.result.y[5,:]/self.m[0], label='Baja California ∆$^{14}$C')
 
-        ax[0].plot(self.time, self.result.y[5,:]/self.m[1], linestyle='dotted', label='L surface P')
-        ax[1].plot(self.time, self.result.y[6,:]/self.m[1], linestyle='dotted', label='L surface C')
-        ax[2].plot(self.time, self.result.y[7,:], linestyle='dotted', label='L surface ALK')
-        ax[3].plot(self.time, self.result.y[8,:]/self.m[1], linestyle='dotted', label='L surface d13c')
-        ax[4].plot(self.time, self.result.y[9,:]/self.m[1], linestyle='dotted', label='L surface d14c')
+        ax[1].plot(self.time, self.result.y[7,:]/self.m[1], linestyle='dotted', label='GoC deep C')
+        ax[2].plot(self.time, self.result.y[8,:], linestyle='dotted', label='GoC deep ALK')
+        ax[0].plot(self.time, self.result.y[9,:]/self.m[1], linestyle='dotted', label='GoC deep N')
+        ax[3].plot(self.time, self.result.y[10,:]/self.m[1], linestyle='dotted', label='GoC deep δ$^{13}$C')
+        ax[4].plot(self.time, self.result.y[11,:]/self.m[1], linestyle='dotted', label='GoC deep ∆$^{14}$C')
 
-        ax[0].plot(self.time, self.result.y[10,:]/self.m[2], linestyle='dashed', label='deep P')
-        ax[1].plot(self.time, self.result.y[11,:]/self.m[2], linestyle='dashed', label='deep C')
-        ax[2].plot(self.time, self.result.y[12,:], linestyle='dashed', label='deep ALK')
-        ax[3].plot(self.time, self.result.y[13,:]/self.m[2], linestyle='dashed', label='deep d13c')
-        ax[4].plot(self.time, self.result.y[14,:]/self.m[2], linestyle='dashed', label='deep d14c')
+        ax[1].plot(self.time, self.result.y[13,:]/self.m[2], linestyle='dashed', label='GoC surface C')
+        ax[2].plot(self.time, self.result.y[14,:], linestyle='dashed', label='GoC surface ALK')
+        ax[0].plot(self.time, self.result.y[15,:]/self.m[2], linestyle='dashed', label='GoC surface N')
+        ax[3].plot(self.time, self.result.y[16,:]/self.m[2], linestyle='dashed', label='GoC surface δ$^{13}$C')
+        ax[4].plot(self.time, self.result.y[17,:]/self.m[2], linestyle='dashed', label='GoC surface ∆$^{14}$C')
 
         ax[0].legend(loc = 1)
         ax[1].legend(loc = 1)
@@ -211,8 +217,8 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         ax[4].legend(loc = 1)
 
         ax[0].set_xlabel('t:years')
-        ax[0].set_ylabel('P mol/kg')
-        ax[0].set_title('Dissolved P')
+        ax[0].set_ylabel('N mol/kg')
+        ax[0].set_title('Dissolved NO$_3$$^-$')
         ax[1].set_xlabel('t:years')
         ax[1].set_ylabel('DIC mol/kg')
         ax[1].set_title('DIC')
@@ -220,11 +226,11 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         ax[2].set_ylabel('ALK (units)')
         ax[2].set_title('ALK')
         ax[3].set_xlabel('t:years')
-        ax[3].set_ylabel('d13c (units)')
-        ax[3].set_title('d13c')
+        ax[3].set_ylabel('δ$^{13}$C (permil)')
+        ax[3].set_title('δ$^{13}$C')
         ax[4].set_xlabel('t:years')
-        ax[4].set_ylabel('d14c (units)')
-        ax[4].set_title('d14c')
+        ax[4].set_ylabel('∆$^{14}$C (permil)')
+        ax[4].set_title('∆$^{14}$C')
 
         plt.tight_layout()
         fig.savefig("../results/SummaryPlot.pdf")
