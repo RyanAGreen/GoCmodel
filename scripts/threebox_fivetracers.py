@@ -13,6 +13,8 @@ def FtoR(F): # conversion of isotope fractional abundances to ratios
     # convert fractional abundance of isotope to isotope ratio
     return F/(1-F)
 
+
+
 class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr tracers
 
     def __init__(self):
@@ -23,9 +25,9 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         self.m2 = 0.167*0.33*self.ocean_mass # kg, Gulf of California surface box -> 1/3 of 1/6 of oceanmass
         self.m = np.array([self.m0,self.m1,self.m2]) # mass vector
 
-        self.SvM = np.array([[ 0,0.05,0],
-                            [  0.45, 0,0.05],
-                            [ 0, 0.05, 0]]) # Sv matrix
+        self.SvM = np.array([[0,0.05,0],
+                            [0.45,0,0.05],
+                            [0,0.05,0]]) # Sv matrix
 
         self.TM4concentrations, self.TM4inventories = self.makeTM()
 
@@ -36,6 +38,7 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
 
         self.time = None
 
+        # self.BC = np.array([[(2317 * 10 ** -6)*self.m0*2],[(2329 * 10 ** -6)*self.m0*2],[35],[]]) # DIC, ALK, del13C, ∆14C BC for the water entering Baja California
         # construct initial state
         # isotopes use concentration (or inventory) * delta or concentration (or inventory) * fractional abundance
         # rows = # of boxes, columns = # of tracers
@@ -52,7 +55,7 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         self.state0[:,0] = np.array([1e-6,1e-7,2.3e-6])*self.m # dissolved phosphorous, inventory (mol)
         self.state0[:,1] = (2317 * 10 ** -6)*self.m # DIC, inventory (mol) # inflowing, subsurface seawater has alkalinity of 2317 umol kg-1
         self.state0[:,2] = (2329.1 * 10 ** -6)*self.m # ALK, inventory (mol) # inflowing, subsurface seawater has alkalinity of 2329.1 umol kg-1
-        self.state0[:,3] = np.array([1, 1, 32])*self.m/1e6 # NO3-, inventory (mol)
+        self.state0[:,3] = np.array([30, 31, 20])*self.m/1e6 # NO3-, inventory (mol)
         self.state0[:,4] = np.array([0.2, 0.2, 0.2])*self.state0[:,1] # delta C 13, permil * DIC inventory
         self.state0[:,5] = np.array([0.05, 0.05, 0.05])*self.state0[:,1] # ∆14C, permil * DIC inventory
 
@@ -80,7 +83,7 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         # fraction of box0 remaining * box0 inventory + fraction of box1 given to box0 * box1 inventory)
 
         dt = 1 # timestep (yr)
-        flux = self.SvM*(10**9*3.154*10**7)*dt  # kg moved in 1 timestep
+        flux = self.SvM*(1e6*1026*3.154e7)*dt  # conversion from Sv (10e6 m3/s) to kg/yr moved in 1 timestep
         m_lost = np.sum(flux, axis=0) # sum of all mass fluxes out of each box
         fraction_retained = (self.m-m_lost)/self.m # fraction of mass retained in each box
 
@@ -138,23 +141,43 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
 
     def CarbonCycle(self,t,state):
         dCdt = np.zeros((3,3))
+        P = state.reshape(3,6)[:,0]
         DIC = state.reshape(3,6)[:,1]
+        ALK = state.reshape(3,6)[:,2]
         d13C = state.reshape(3,6)[:,4]
         d14C = state.reshape(3,6)[:,5]
 
-        d13C_deep = d13C[2]/DIC[2]
-        d14C_deep = d14C[2]/DIC[2]
+        # d13C_deep = d13C[2]/DIC[2]
+        # d14C_deep = d14C[2]/DIC[2]
 
-        # modern (interglacial) fluxes
-        F_in = 9e12 # mol/yr Carbon
-        F_in_LS = (self.m[1]/(self.m[0]+self.m[1]))*F_in # mol/yr
-        F_in_HS = (self.m[0]/(self.m[0]+self.m[1]))*F_in # mol/yr
-        d13C_in = 0.32 # permil
-        d14C_in = RtoF(0.7116)
-        epsilon = -0.18 # permil, fractionation between seawater & carbonate
-        F_out = 150e9 # mol/yr
 
-        dCdt[:,0] = [F_in_HS, F_in_LS, -F_out]
+        # Flux from the North Pacific into Baja California
+        # Adding  P, DIC, ALK, D13C, ∆14DC
+        # F_P_in =
+        F_DIC_in = 19e12 # mol/yr Carbon
+        # F_ALK_in = 19.5e12 # mol/yr ALK
+        # F_d13C_in =
+        # F_d14C_in =
+
+
+        # F_in_BC = (self.m[0]/(self.m[0]+self.m[1]))*F_in # mol/yr
+        # F_in_HS = (self.m[0]/(self.m[0]+self.m[1]))*F_in # mol/yr
+        # d13C_in = 0.32 # permil
+        # d14C_in = RtoF(0.7116)
+
+        # Flux out of GoC surface to Baja California
+        # Removing P, DIC, ALK, D13C, ∆14DC
+        DIC_GoCsurf = DIC[2]
+        # ALK_GoCsurf = ALK[2]
+        # P_GoCsurf = P[2]
+        # F_out = 19e12 # mol/yr
+        F_DIC_out = 19e12 # mol/yr Carbon
+        # F_ALK_out = 19.5e12 # mol/yr ALK
+        #
+        # dCdt[:,0] = [F_in_HS, F_in_LS, -F_out]
+        # dCdt[:,1] = [d13C_in*F_in_HS, (d13C_in*F_in_LS), -(d13C_deep+epsilon)*F_out]
+        # dCdt[:,2] = [d14C_in*F_in_HS, (d14C_in*F_in_LS), -(d14C_deep)*F_out]
+        dCdt[:,0] = [F_DIC_in-F_DIC_out] # all fluxes
         dCdt[:,1] = [d13C_in*F_in_HS, (d13C_in*F_in_LS), -(d13C_deep+epsilon)*F_out]
         dCdt[:,2] = [d14C_in*F_in_HS, (d14C_in*F_in_LS), -(d14C_deep)*F_out]
 
