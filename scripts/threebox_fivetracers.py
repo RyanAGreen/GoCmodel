@@ -94,35 +94,6 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         return TM_ForConcentrations, TM_ForInventories
 
 
-    def TestTM(self):
-        UnitTracer = np.array([1,1,1])
-        print("before 1k steps the UnitTracer is:", UnitTracer)
-        print("before 1k steps the UnitTracer inventory is:", (UnitTracer*self.m).sum())
-
-        for year in range(1,1001):
-            UnitTracer = self.TM4concentrations@UnitTracer
-        print("after 1k steps the UnitTracer is:", UnitTracer)
-        print("after 1k steps the UnitTracer inventory is:", (UnitTracer*self.m).sum())
-
-
-        MassTracer = self.m
-        print("before 1k steps the MassTracer is:", MassTracer)
-        print("before 1k steps the MassTracer inventory is:", (MassTracer).sum())
-        for year in range(1,1001):
-            MassTracer = self.TM4inventories@MassTracer
-
-        print("after 1k steps the MassTracer is:", MassTracer)
-        print("after 1k steps the MassTracer inventory is:", (MassTracer).sum())
-
-
-    def TestModel(self):
-        TestState = np.copy(self.state0).reshape(3,6)
-        dTSdt = self.BoxModel(0,TestState).reshape(3,6)
-        print("TestState:", TestState)
-        print("dTSdt:", dTSdt)
-        # shape: [3,9]
-
-
     def ComputeExportP(self, state):
         ExportP = np.zeros(3).T
 
@@ -261,7 +232,5 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
 if __name__ == "__main__":
 
     ModelInstance = ODEBoxModel()
-    # ModelInstance.TestTM()
-    # ModelInstance.TestModel()
     ModelInstance.RunBoxModel(100000)
     ModelInstance.MakePlot()
