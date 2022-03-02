@@ -4,7 +4,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy
-from scipy import integrate
+from scipy.integrate import solve_ivp
 
 def RtoF(R): # conversion of isotope ratios to fractional abundances
     # convert isotope ratio to fractional abundance of isotope
@@ -18,53 +18,86 @@ def FtoR(F): # conversion of isotope fractional abundances to ratios
 class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr tracers
 
     def __init__(self):
-        # set up transport matrix for 3 box
+        self.Nbox = 3
+        self.Nbc = 2
+        self.Ntracer = 6
+
+        self.boxlabel = ["Baja California","Gulf of California-Deep","Gulf of California-Surface"]
+
         self.ocean_mass = 9.48024*10**17 # kg -> calculated from GoC volume (1.45e+14 m3) + Baja volume (1.45e+14*5 m3) * density of sw (kg/m3)
         self.m0 = 0.833*0.15*self.ocean_mass # kg, Baja intermediate depth box -> 5/6 of oceanmass
         self.m1 = 0.167*0.5*self.ocean_mass # kg, Gulf of California deep box -> 1/2 of 1/6 of oceanmass
         self.m2 = 0.167*0.33*self.ocean_mass # kg, Gulf of California surface box -> 1/3 of 1/6 of oceanmass
-        self.m = np.array([self.m0,self.m1,self.m2]) # mass vector
+        self.m3 = 1e200*self.ocean_mass # kg, NP intermediate
+        self.m4 = 1e200*self.ocean_mass # kg, NP surface (very large box to be essentially infinite)
+        self.m = np.array([self.m0,self.m1,self.m2,self.m3,self.m4]) # mass vector
 
-        self.SvM = np.array([[0,0.05,0],
-                            [0.45,0,0.05],
-                            [0,0.05,0]]) # Sv matrix
+        # set up tracers
+        self.DIC = np.array([2000e-6,2000e-6,2000e-6])*self.m0 # umol kg-1 -> mol
+        self.ALK = np.array([2200e-6,2200e-6,2200e-6])*self.m0 # umol kg-1 -> mol
+        self.P = np.array([2e-6,2e-6,2e-6])*self.m0 # mol
+        self.N  = np.array([30e-6, 30e-6, 30e-6])*self.m0 # mol
+        self.d13C = np.array([-0.5, -0.5, -0.5]) # *self.DIC # permil
+        self.D14C = np.array([100, 100, 100]) # *self.DIC # permil
 
-        self.TM4concentrations, self.TM4inventories = self.makeTM()
+        self.stateV0 = np.hstack((self.DIC,self.ALK,self.P,self.N,self.d13C,self.D14C))
+        self.BC = np.array([[3000e-6*self.m0,3000e-6*self.m0],[3400e-6*self.m0,3400e-6*self.m0],[3e-6*self.m0,3e-6*self.m0],[35e-6*self.m0,35e-6*self.m0],[-0.1,-0.1],[200,200]]) # (tracers,boxes) for boundary condition
 
-        # initialize biological pump export
-        self.Nsurf = 1
-        self.Ninterior  = 2
-        self.EM = np.array([[1,0,0],[0,0,-1],[0,1,0]]) # Export matrix; fraction of export from surface (column) to interior (row)
+        self.SvM = self.circ(0.45,0.35,.005,0.0005) # Sv 0.45,0.05
+        self.TM = self.makeTM(self.SvM)
 
-        self.time = None
+        # Key
+        # First Row: self.state0[0,:] - Baja California Box
+        # Second Row: self.state0[1,:] - Gulf of California Deep Box
+        # Third Row: self.state0[2,:] - Gulf of California Surface Box
+        stateA = self.MakeStateA(self.stateV0)
+        d_dt = (self.TM@stateA.T).T[:,:self.Nbox]
 
-        # self.BC = np.array([[(2317 * 10 ** -6)*self.m0*2],[(2329 * 10 ** -6)*self.m0*2],[35],[]]) # DIC, ALK, del13C, ∆14C BC for the water entering Baja California
-        # construct initial state
+        # # initialize biological pump export
+        # self.Nsurf = 1
+        # self.Ninterior  = 2
+        # self.EM = np.array([[1,0,0],[0,0,-1],[0,1,0]]) # Export matrix; fraction of export from surface (column) to interior (row)
+
         # isotopes use concentration (or inventory) * delta or concentration (or inventory) * fractional abundance
         # rows = # of boxes, columns = # of tracers
 
-
+        # Key
         # First Row: self.state0[0,:] - Baja California Box
         # Second Row: self.state0[1,:] - Gulf of California Deep Box
         # Third Row: self.state0[2,:] - Gulf of California Surface Box
 
-        # initialize state
-        self.state0 = np.zeros((3,6)) # 3 boxes (rows), 6 tracers (columns)
 
-        # fill boxes with initial values
-        self.state0[:,0] = np.array([1e-6,1e-7,2.3e-6])*self.m # dissolved phosphorous, inventory (mol)
-        self.state0[:,1] = (2317 * 10 ** -6)*self.m # DIC, inventory (mol) # inflowing, subsurface seawater has alkalinity of 2317 umol kg-1
-        self.state0[:,2] = (2329.1 * 10 ** -6)*self.m # ALK, inventory (mol) # inflowing, subsurface seawater has alkalinity of 2329.1 umol kg-1
-        self.state0[:,3] = np.array([30, 31, 20])*self.m/1e6 # NO3-, inventory (mol)
-        self.state0[:,4] = np.array([0.2, 0.2, 0.2])*self.state0[:,1] # delta C 13, permil * DIC inventory
-        self.state0[:,5] = np.array([0.05, 0.05, 0.05])*self.state0[:,1] # ∆14C, permil * DIC inventory
+    def circ(self,h,out,advection,mixing):
 
-        # shape: [3,6]
-        # state must be 1-D for integrate function (x,) where x = rows*columns
-        self.state0 = self.state0.reshape(18,)
+        AD = np.zeros((self.Nbox+self.Nbc,self.Nbox+self.Nbc))
+        AD[0,1] = advection
+        AD[1,2] = advection
+        AD[2,4] = advection
+        AD[3,0] = advection
 
+        M = np.zeros((self.Nbox+self.Nbc,self.Nbox+self.Nbc))
+        M[0,1] = mixing
+        M[1,2] = mixing
+        M[2,4] = mixing
+        M[3,0] = mixing
+        M[0,3] = mixing
+        M[1,0] = mixing
+        M[2,1] = mixing
+        M[4,2] = mixing
 
-    def makeTM(self):
+        # N = np.zeros((self.Nbox+self.Nbc,self.Nbox+self.Nbc))
+        # N[3,0] = NP
+        # N[2,4] = NP
+
+        O = np.zeros((self.Nbox+self.Nbc,self.Nbox+self.Nbc))
+        O[2,4] = out
+
+        I = np.zeros((self.Nbox+self.Nbc,self.Nbox+self.Nbc))
+        I[3,0] = h
+
+        return AD+M+I+O
+
+    def makeTM(self,SvM):
         # makeTM() returns a NxN matrix defining the fractional mixing system of equations, representing 1 year of ocean circulation
         #
         # Function inputs:
@@ -83,7 +116,7 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         # fraction of box0 remaining * box0 inventory + fraction of box1 given to box0 * box1 inventory)
 
         dt = 1 # timestep (yr)
-        flux = self.SvM*(1e6*1026*3.154e7)*dt  # conversion from Sv (10e6 m3/s) to kg/yr moved in 1 timestep
+        flux = SvM*(1e6*1026*3.154e7)*dt  # conversion from Sv (10e6 m3/s) to kg/yr moved in 1 timestep
         m_lost = np.sum(flux, axis=0) # sum of all mass fluxes out of each box
         fraction_retained = (self.m-m_lost)/self.m # fraction of mass retained in each box
 
@@ -91,8 +124,13 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         fractional_fluxes_inv = flux/self.m.T # divide flux array columns by mass for inventory
         TM_ForConcentrations = fractional_fluxes + np.diag(fraction_retained) # TM_ForConcentrations is NxN matrix defining the fractional mixing system of equations for concentration units, representing 1 year of ocean circulation
         TM_ForInventories = fractional_fluxes_inv + np.diag(fraction_retained) # TM_ForInventories is NxN matrix defining the fractional mixing system of equations for inventory units, representing 1 year of ocean circulation
-        return TM_ForConcentrations, TM_ForInventories
+        return TM_ForConcentrations-np.identity(self.Nbox+self.Nbc) #, TM_ForInventories
 
+    def MakeStateA(self,stateV):
+        stateA = np.hstack((stateV.T.reshape(self.Ntracer,self.Nbox),self.BC))
+        # tracers for box 3 === stateA[:,3]
+        # tracer 2 for all boxes === stateA[2,:]
+        return stateA
 
     def ComputeExportP(self, state):
         ExportP = np.zeros(3).T
@@ -124,11 +162,19 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
 
         # Flux from the North Pacific into Baja California
         # Adding  P, DIC, ALK, D13C, ∆14DC
+        F_in = 1 # Sv
+        F_in = F_in * (1e6*1026*3.154e7) # Sv to kg/yr
+        mass_NP = 5 * self.m0 # 5 * Baja California Box
+        DIC_NP = 2400 * 1e-6 / mass_NP# mol/kg
+
         # F_P_in =
-        F_DIC_in = 19e12 # mol/yr Carbon
+        # F_DIC_in = 19e12 # mol/yr Carbon
+        # mol/yr may only be what is needed for isotopes
         # F_ALK_in = 19.5e12 # mol/yr ALK
         # F_d13C_in =
         # F_d14C_in =
+
+
 
 
         # F_in_BC = (self.m[0]/(self.m[0]+self.m[1]))*F_in # mol/yr
@@ -142,7 +188,7 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         # ALK_GoCsurf = ALK[2]
         # P_GoCsurf = P[2]
         # F_out = 19e12 # mol/yr
-        F_DIC_out = 19e12 # mol/yr Carbon
+        # F_DIC_out = 19e12 # mol/yr Carbon
         # F_ALK_out = 19.5e12 # mol/yr ALK
         #
         # dCdt[:,0] = [F_in_HS, F_in_LS, -F_out]
@@ -154,52 +200,60 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
 
         return dCdt
 
-    def BoxModel(self,t,state):
-        # when the length of the state vector length is not equal to the TM matrix width (# of col),
-        # .reshape() must be used on the state array and flux arrays so that rows equal TM matrix columns
+    # def BoxModel(self,t,state):
+    #     # when the length of the state vector length is not equal to the TM matrix width (# of col),
+    #     # .reshape() must be used on the state array and flux arrays so that rows equal TM matrix columns
+    #
+    #     EP = self.ComputeExportP(state) # shape: [3,3]
+    #     # SR = self.CarbonCycle(t, state) # shape: [3,3]
+    #
+    #     d_dt = (self.TM4inventories@state.reshape(3,6))-state.reshape(3,6) # CIRCULATION 3 boxes with 6 tracers
+    #     # print(d_dt)
+    #     d_dt[:,0] += 1 * EP # P export
+    #     d_dt[:,1] += 106 * EP # DIC export
+    #     d_dt[:,3] += 16 * EP # N export
+    #
+    #     d_dt[:,2] += SR[:,0] # ALK inventory (mol)
+    #     d_dt[:,4] += SR[:,1] # delta 13 C (per mil) * DIC (mol) inventory
+    #     d_dt[:,5] += SR[:,2] # ∆14C (per mil) * DIC (mol) inventory
+    #
+    #     return d_dt
 
-        EP = self.ComputeExportP(state) # shape: [3,3]
-        SR = self.CarbonCycle(t, state) # shape: [3,3]
-
-        d_dt = (self.TM4inventories@state.reshape(3,6))-state.reshape(3,6) # CIRCULATION 3 boxes with 6 tracers
-        # print(d_dt)
-        d_dt[:,0] += 1 * EP # P export
-        d_dt[:,1] += 106 * EP # DIC export
-        d_dt[:,3] += 16 * EP # N export
-
-        d_dt[:,2] += SR[:,0] # ALK inventory (mol)
-        d_dt[:,4] += SR[:,1] # delta 13 C (per mil) * DIC (mol) inventory
-        d_dt[:,5] += SR[:,2] # ∆14C (per mil) * DIC (mol) inventory
-
-        return d_dt
-
+    def BoxModel(self,t,stateV):
+        stateA = self.MakeStateA(stateV)
+        d_dt = (self.TM@stateA.T).T[:,:self.Nbox]
+        # d_dt += self.Prod(stateA)
+        # d_dt += self.Fix(stateA)
+        return d_dt.flatten()
 
 
     def RunBoxModel(self,tmax):
         # run box model with ODE solver
-        t = np.linspace(0, tmax, 1000) #t0, tmax, nsteps
+        t = np.linspace(0,tmax, 200) #t0, tmax, nsteps
 
-        self.result = scipy.integrate.solve_ivp(self.BoxModel, [0,tmax], self.state0, method ='RK45', t_eval=t, vectorized = True) # should we allow user to specific nsteps for this function?
-        self.time = self.result.t
+        self.result = solve_ivp(self.BoxModel, [0,tmax], self.stateV0, method ='RK45', t_eval=t, vectorized = True) # should we allow user to specific nsteps for this function?
+        self.time = np.flipud(self.result.t) # plot from past to present
+        self.output = self.result.y
+        print(self.output.shape)
 
 
     def MakePlot(self):
         fig, ax = plt.subplots(5, figsize = (16,20))
 
-        ax[1].plot(self.time, self.result.y[1,:]/self.m[0], label='Baja California C')
-        ax[2].plot(self.time, self.result.y[2,:], label='Baja California ALK')
+        ax[1].plot(self.time, self.result.y[0,:]/self.m[0], label='Baja California C')
+        ax[2].plot(self.time, self.result.y[1,:]/self.m[0], label='Baja California ALK')
         ax[0].plot(self.time, self.result.y[3,:]/self.m[0], label='Baja California N')
         ax[3].plot(self.time, self.result.y[4,:]/self.m[0], label='Baja California δ$^{13}$C')
         ax[4].plot(self.time, self.result.y[5,:]/self.m[0], label='Baja California ∆$^{14}$C')
 
-        ax[1].plot(self.time, self.result.y[7,:]/self.m[1], linestyle='dotted', label='GoC deep C')
-        ax[2].plot(self.time, self.result.y[8,:], linestyle='dotted', label='GoC deep ALK')
+        ax[1].plot(self.time, self.result.y[6,:]/self.m[1], linestyle='dotted', label='GoC deep C')
+        ax[2].plot(self.time, self.result.y[7,:]/self.m[1], linestyle='dotted', label='GoC deep ALK')
         ax[0].plot(self.time, self.result.y[9,:]/self.m[1], linestyle='dotted', label='GoC deep N')
         ax[3].plot(self.time, self.result.y[10,:]/self.m[1], linestyle='dotted', label='GoC deep δ$^{13}$C')
         ax[4].plot(self.time, self.result.y[11,:]/self.m[1], linestyle='dotted', label='GoC deep ∆$^{14}$C')
 
-        ax[1].plot(self.time, self.result.y[13,:]/self.m[2], linestyle='dashed', label='GoC surface C')
-        ax[2].plot(self.time, self.result.y[14,:], linestyle='dashed', label='GoC surface ALK')
+        ax[1].plot(self.time, self.result.y[12,:]/self.m[2], linestyle='dashed', label='GoC surface C')
+        ax[2].plot(self.time, self.result.y[13,:]/self.m[2], linestyle='dashed', label='GoC surface ALK')
         ax[0].plot(self.time, self.result.y[15,:]/self.m[2], linestyle='dashed', label='GoC surface N')
         ax[3].plot(self.time, self.result.y[16,:]/self.m[2], linestyle='dashed', label='GoC surface δ$^{13}$C')
         ax[4].plot(self.time, self.result.y[17,:]/self.m[2], linestyle='dashed', label='GoC surface ∆$^{14}$C')
@@ -214,10 +268,10 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         ax[0].set_ylabel('N mol/kg')
         ax[0].set_title('Dissolved NO$_3$$^-$')
         ax[1].set_xlabel('t:years')
-        ax[1].set_ylabel('DIC mol/kg')
+        ax[1].set_ylabel('DIC µmol/kg')
         ax[1].set_title('DIC')
         ax[2].set_xlabel('t:years')
-        ax[2].set_ylabel('ALK (units)')
+        ax[2].set_ylabel('ALK (µmol/kg)')
         ax[2].set_title('ALK')
         ax[3].set_xlabel('t:years')
         ax[3].set_ylabel('δ$^{13}$C (permil)')
@@ -232,5 +286,5 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
 if __name__ == "__main__":
 
     ModelInstance = ODEBoxModel()
-    ModelInstance.RunBoxModel(100000)
+    ModelInstance.RunBoxModel(20000)
     ModelInstance.MakePlot()
