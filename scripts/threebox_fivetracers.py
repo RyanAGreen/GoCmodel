@@ -43,7 +43,7 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         self.stateV0 = np.hstack((self.DIC,self.ALK,self.P,self.N,self.d13C,self.D14C))
         self.BC = np.array([[3000e-6*self.m0,3000e-6*self.m0],[3400e-6*self.m0,3400e-6*self.m0],[3e-6*self.m0,3e-6*self.m0],[35e-6*self.m0,35e-6*self.m0],[-0.1,-0.1],[200,200]]) # (tracers,boxes) for boundary condition
 
-        self.SvM = self.circ(0.45,0.35,.005,0.0005) # Sv 0.45,0.05
+        self.SvM = self.circ(0.75,0.45,.005,0.0005) # Sv 0.45,0.05
         self.TM = self.makeTM(self.SvM)
 
         # Key
@@ -53,27 +53,23 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         stateA = self.MakeStateA(self.stateV0)
         d_dt = (self.TM@stateA.T).T[:,:self.Nbox]
 
-        # # initialize biological pump export
-        # self.Nsurf = 1
-        # self.Ninterior  = 2
-        # self.EM = np.array([[1,0,0],[0,0,-1],[0,1,0]]) # Export matrix; fraction of export from surface (column) to interior (row)
-
-        # isotopes use concentration (or inventory) * delta or concentration (or inventory) * fractional abundance
-        # rows = # of boxes, columns = # of tracers
-
-        # Key
-        # First Row: self.state0[0,:] - Baja California Box
-        # Second Row: self.state0[1,:] - Gulf of California Deep Box
-        # Third Row: self.state0[2,:] - Gulf of California Surface Box
+        # initialize biological pump export
+        self.Nsurf = 1
+        self.Ninterior  = 2
+        self.EM = np.array([[1,0,0],[0,0,-1],[0,1,0]]) # Export matrix; fraction of export from surface (column) to interior (row)
 
 
-    def circ(self,h,out,advection,mixing):
+
+
+    def circ(self,inflow,outflow,advection,mixing):
 
         AD = np.zeros((self.Nbox+self.Nbc,self.Nbox+self.Nbc))
         AD[0,1] = advection
         AD[1,2] = advection
         AD[2,4] = advection
         AD[3,0] = advection
+
+        # AD[1,2] = 1
 
         M = np.zeros((self.Nbox+self.Nbc,self.Nbox+self.Nbc))
         M[0,1] = mixing
@@ -85,15 +81,11 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         M[2,1] = mixing
         M[4,2] = mixing
 
-        # N = np.zeros((self.Nbox+self.Nbc,self.Nbox+self.Nbc))
-        # N[3,0] = NP
-        # N[2,4] = NP
-
         O = np.zeros((self.Nbox+self.Nbc,self.Nbox+self.Nbc))
-        O[2,4] = out
+        O[2,4] = outflow
 
         I = np.zeros((self.Nbox+self.Nbc,self.Nbox+self.Nbc))
-        I[3,0] = h
+        I[3,0] = inflow
 
         return AD+M+I+O
 
@@ -120,6 +112,7 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
         m_lost = np.sum(flux, axis=0) # sum of all mass fluxes out of each box
         fraction_retained = (self.m-m_lost)/self.m # fraction of mass retained in each box
 
+        # wouldnt this be kg / kg ??
         fractional_fluxes = flux/self.m.reshape((len(self.m),1)) # divide flux array rows by mass for concentration
         fractional_fluxes_inv = flux/self.m.T # divide flux array columns by mass for inventory
         TM_ForConcentrations = fractional_fluxes + np.diag(fraction_retained) # TM_ForConcentrations is NxN matrix defining the fractional mixing system of equations for concentration units, representing 1 year of ocean circulation
@@ -147,85 +140,12 @@ class ODEBoxModel(): # three box ocean model with circulation, bio pump, and Sr 
                 pass # not enough nutrients to sustain productivity
         return self.EM @ ExportP
 
-
-    def CarbonCycle(self,t,state):
-        dCdt = np.zeros((3,3))
-        P = state.reshape(3,6)[:,0]
-        DIC = state.reshape(3,6)[:,1]
-        ALK = state.reshape(3,6)[:,2]
-        d13C = state.reshape(3,6)[:,4]
-        d14C = state.reshape(3,6)[:,5]
-
-        # d13C_deep = d13C[2]/DIC[2]
-        # d14C_deep = d14C[2]/DIC[2]
-
-
-        # Flux from the North Pacific into Baja California
-        # Adding  P, DIC, ALK, D13C, ∆14DC
-        F_in = 1 # Sv
-        F_in = F_in * (1e6*1026*3.154e7) # Sv to kg/yr
-        mass_NP = 5 * self.m0 # 5 * Baja California Box
-        DIC_NP = 2400 * 1e-6 / mass_NP# mol/kg
-
-        # F_P_in =
-        # F_DIC_in = 19e12 # mol/yr Carbon
-        # mol/yr may only be what is needed for isotopes
-        # F_ALK_in = 19.5e12 # mol/yr ALK
-        # F_d13C_in =
-        # F_d14C_in =
-
-
-
-
-        # F_in_BC = (self.m[0]/(self.m[0]+self.m[1]))*F_in # mol/yr
-        # F_in_HS = (self.m[0]/(self.m[0]+self.m[1]))*F_in # mol/yr
-        # d13C_in = 0.32 # permil
-        # d14C_in = RtoF(0.7116)
-
-        # Flux out of GoC surface to Baja California
-        # Removing P, DIC, ALK, D13C, ∆14DC
-        DIC_GoCsurf = DIC[2]
-        # ALK_GoCsurf = ALK[2]
-        # P_GoCsurf = P[2]
-        # F_out = 19e12 # mol/yr
-        # F_DIC_out = 19e12 # mol/yr Carbon
-        # F_ALK_out = 19.5e12 # mol/yr ALK
-        #
-        # dCdt[:,0] = [F_in_HS, F_in_LS, -F_out]
-        # dCdt[:,1] = [d13C_in*F_in_HS, (d13C_in*F_in_LS), -(d13C_deep+epsilon)*F_out]
-        # dCdt[:,2] = [d14C_in*F_in_HS, (d14C_in*F_in_LS), -(d14C_deep)*F_out]
-        dCdt[:,0] = [F_DIC_in-F_DIC_out] # all fluxes
-        dCdt[:,1] = [d13C_in*F_in_HS, (d13C_in*F_in_LS), -(d13C_deep+epsilon)*F_out]
-        dCdt[:,2] = [d14C_in*F_in_HS, (d14C_in*F_in_LS), -(d14C_deep)*F_out]
-
-        return dCdt
-
-    # def BoxModel(self,t,state):
-    #     # when the length of the state vector length is not equal to the TM matrix width (# of col),
-    #     # .reshape() must be used on the state array and flux arrays so that rows equal TM matrix columns
-    #
-    #     EP = self.ComputeExportP(state) # shape: [3,3]
-    #     # SR = self.CarbonCycle(t, state) # shape: [3,3]
-    #
-    #     d_dt = (self.TM4inventories@state.reshape(3,6))-state.reshape(3,6) # CIRCULATION 3 boxes with 6 tracers
-    #     # print(d_dt)
-    #     d_dt[:,0] += 1 * EP # P export
-    #     d_dt[:,1] += 106 * EP # DIC export
-    #     d_dt[:,3] += 16 * EP # N export
-    #
-    #     d_dt[:,2] += SR[:,0] # ALK inventory (mol)
-    #     d_dt[:,4] += SR[:,1] # delta 13 C (per mil) * DIC (mol) inventory
-    #     d_dt[:,5] += SR[:,2] # ∆14C (per mil) * DIC (mol) inventory
-    #
-    #     return d_dt
-
     def BoxModel(self,t,stateV):
         stateA = self.MakeStateA(stateV)
         d_dt = (self.TM@stateA.T).T[:,:self.Nbox]
         # d_dt += self.Prod(stateA)
         # d_dt += self.Fix(stateA)
         return d_dt.flatten()
-
 
     def RunBoxModel(self,tmax):
         # run box model with ODE solver
