@@ -19,7 +19,9 @@ def frac_to_ratio(fraction):
 
 class GoCModel:
     """three box ocean model with circulation, biological pump,
-    and DIC,ALK,P,N,d13C,D14C tracers"""
+    and DIC,ALK,P,N,d13C,D14C tracers. Box order is Baja California,
+    Gulf of California-Deep, Gulf of California-Surface, North Pacific-
+    Intermediate depth and North Pacific Surface"""
 
     def __init__(self):
         self.num_box = 3
@@ -88,13 +90,6 @@ class GoCModel:
 
         self.svedrup_matrix = self.circ(0.45, 0.005)  # Sv 0.45,0.05
         self.transport_matrix = self.make_transport_matrix(self.svedrup_matrix)
-
-        # Key
-        # First Row: self.state0[0,:] - Baja California Box
-        # Second Row: self.state0[1,:] - Gulf of California Deep Box
-        # Third Row: self.state0[2,:] - Gulf of California Surface Box
-        # state_A = self.MakeStateA(self.stateV0)
-        # d_dt = (self.TM @ stateA.T).T[:, : self.num_box]
 
         # initialize biological pump export
         self.num_surf = 1
@@ -184,12 +179,15 @@ class GoCModel:
         )  # , TM_ForInventories
 
     def make_state_a(self, state_v):
-        """makes new state in matrix format"""
+        """makes new state in matrix format. Boxes are in columns and tracers are in
+        rows.
+        example:
+        all tracers for box 3 === stateA[:,3]
+        tracer 2 for all boxes === stateA[2,:]
+        """
         state_a = np.hstack(
             (state_v.T.reshape(self.num_tracer, self.num_box), self.boundary_condition)
         )
-        # tracers for box 3 === stateA[:,3]
-        # tracer 2 for all boxes === stateA[2,:]
         return state_a
 
     def export_phosphorus(self, state):
