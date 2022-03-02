@@ -132,3 +132,4 @@ dmypy.json
 
 # Desktop services 
 .DS_Store
+scripts/.vscode/settings.json
