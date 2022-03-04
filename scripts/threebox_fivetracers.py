@@ -5,16 +5,7 @@ Regional Model
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
-
-
-def ratio_to_frac(ratio):
-    """# convert isotope ratio to fractional abundance of isotope"""
-    return ratio / (1 + ratio)
-
-
-def frac_to_ratio(fraction):
-    """convert fractional abundance of isotope to isotope ratio"""
-    return fraction / (1 - fraction)
+from conversions import svedrup_to_kg_year
 
 
 class GoCModel:
@@ -88,7 +79,7 @@ class GoCModel:
             ]
         )  # (tracers,boxes) for boundary condition
 
-        self.svedrup_matrix = self.circ(0.45, 0.005)  # Sv 0.45,0.05
+        self.svedrup_matrix = self.circ(0.45, 0.55, 0.2, 0.15)  # Sv 0.45,0.05
         self.transport_matrix = self.make_transport_matrix(self.svedrup_matrix)
 
         # initialize biological pump export
@@ -101,34 +92,32 @@ class GoCModel:
         self.time = None
         self.output = None
 
-    def circ(self, advection, mixing):
+    def circ(self, inflow, outflow, advection, mixing):
         """function that takes in circulation (units Sv) and populates a circulation matrix"""
 
         advect = np.zeros((self.num_box + self.num_bc, self.num_box + self.num_bc))
-        advect[1, 0] = advection
+        advect[1, 0] = advection * 2
         advect[2, 1] = advection
         advect[4, 2] = advection
         advect[0, 3] = advection
-
-        # AD[1,2] = 1
 
         mix = np.zeros((self.num_box + self.num_bc, self.num_box + self.num_bc))
         mix[1, 0] = mixing
         mix[3, 0] = mixing
         mix[0, 1] = mixing
-        mix[2, 1] = mixing
+        mix[2, 1] = mixing * 0.0001
         mix[1, 2] = mixing
-        mix[4, 2] = mixing
+        mix[4, 2] = mixing * 0.0001
         mix[0, 3] = mixing
         mix[2, 4] = mixing
 
-        # O = np.zeros((self.num_box+self.num_bc,self.num_box+self.num_bc))
-        # O[2,4] = outflow
+        out_flow = np.zeros((self.num_box + self.num_bc, self.num_box + self.num_bc))
+        out_flow[4, 2] = outflow
 
-        # I = np.zeros((self.num_box+self.num_bc,self.num_box+self.num_bc))
-        # I[3,0] = inflow
+        in_flow = np.zeros((self.num_box + self.num_bc, self.num_box + self.num_bc))
+        in_flow[0, 3] = inflow
 
-        return advect + mix
+        return advect + mix + in_flow + out_flow
 
     def make_transport_matrix(self, svedrup_matrix):
         """makeTM() returns a NxN matrix defining the fractional mixing system of equations,
@@ -159,24 +148,21 @@ class GoCModel:
         """
 
         time_step = 1  # timestep (yr)
-        flux = (
-            svedrup_matrix * (1e6 * 1026 * 3.154e7) * time_step
-        )  # conversion from Sv (10e6 mass_3/s) to kg/yr moved in 1 timestep
+        flux = svedrup_to_kg_year(svedrup_matrix) * time_step
         mass_lost = np.sum(flux, axis=0)  # sum of all mass fluxes out of each box
-        fraction_retained = (
-            self.mass - mass_lost
-        ) / self.mass  # fraction of mass retained in each box
+
+        # fraction of mass retained in each box
+        fraction_retained = (self.mass - mass_lost) / self.mass
 
         # wouldnt this be kg / kg ??
-        fractional_fluxes = flux / self.mass.reshape(
-            (len(self.mass), 1)
-        )  # divide flux array rows by mass for concentration
+        # divide flux array rows by mass for concentration
+        fractional_fluxes = flux / self.mass.reshape((len(self.mass), 1))
+
         # fractional_fluxes_inv = (flux / self.m.T)# divide flux array columns by mass for inventory
         transport_matrix_concentrations = fractional_fluxes + np.diag(fraction_retained)
         # TM_ForInventories = fractional_fluxes_inv + np.diag(fraction_retained)
-        return transport_matrix_concentrations - np.identity(
-            self.num_box + self.num_bc
-        )  # , TM_ForInventories
+
+        return transport_matrix_concentrations - np.identity(self.num_box + self.num_bc)
 
     def make_state_a(self, state_v):
         """makes new state in matrix format. Boxes are in columns and tracers are in
