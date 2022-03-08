@@ -30,13 +30,13 @@ class GoCModel:
         """
 
         self.mass_0 = (
-            0.833 * 0.15 * self.ocean_mass
+            5 / 6 * self.ocean_mass
         )  # kg, Baja intermediate depth box -> 5/6 of oceanmass
         self.mass_1 = (
-            0.167 * 0.5 * self.ocean_mass
-        )  # kg, Gulf of California deep box -> 1/2 of 1/6 of oceanmass
+            2 / 3 * 1 / 6 * self.ocean_mass
+        )  # kg, Gulf of California deep box -> 2/3 of 1/6 of oceanmass
         self.mass_2 = (
-            0.167 * 0.33 * self.ocean_mass
+            1 / 3 * 1 / 6 * self.ocean_mass
         )  # kg, Gulf of California surface box -> 1/3 of 1/6 of oceanmass
         self.mass_3 = 1e200 * self.ocean_mass  # kg, NP intermediate
         self.mass_4 = (
@@ -117,6 +117,10 @@ class GoCModel:
         in_flow = np.zeros((self.num_box + self.num_bc, self.num_box + self.num_bc))
         in_flow[0, 3] = inflow
 
+        print("Advect: " + str(advect))
+        print("Mix: " + str(mix))
+        print("Out Flow: " + str(out_flow))
+        print("In Flow: " + str(in_flow))
         return advect + mix + in_flow + out_flow
 
     def make_transport_matrix(self, svedrup_matrix):
@@ -153,15 +157,16 @@ class GoCModel:
 
         # fraction of mass retained in each box
         fraction_retained = (self.mass - mass_lost) / self.mass
-
+        # print("Fraction Retained: " + str(fraction_retained))
         # wouldnt this be kg / kg ??
         # divide flux array rows by mass for concentration
         fractional_fluxes = flux / self.mass.reshape((len(self.mass), 1))
-
+        # print("Fractional Fluxes: " + str(fractional_fluxes))
         # fractional_fluxes_inv = (flux / self.m.T)# divide flux array columns by mass for inventory
         transport_matrix_concentrations = fractional_fluxes + np.diag(fraction_retained)
         # TM_ForInventories = fractional_fluxes_inv + np.diag(fraction_retained)
-
+        # print("Transport Matrix: " + str(transport_matrix_concentrations))
+        # print("Returned: " + str(transport_matrix_concentrations - np.identity(self.num_box + self.num_bc)))
         return transport_matrix_concentrations - np.identity(self.num_box + self.num_bc)
 
     def make_state_a(self, state_v):
@@ -179,27 +184,29 @@ class GoCModel:
     def export_phosphorus(self, state):
         """computes phosphorus export"""
         export_phos = np.zeros(3).T
-
-        phos = state.reshape(3, 6)[:, 0] / self.mass[:]  # mol/kg P
+        state = state[:, :-2]
+        phos = state.reshape(3, 6)[:, 2] / self.mass[:]  # mol/kg P
         set_phos = np.array([1e-6, 1e-7])
         for surf_boxes in range(0, self.num_surf):
             timescale = 20  # year
-            if phos[surf_boxes] - set_phos[surf_boxes] > 0:
+            diff = phos[surf_boxes] - set_phos[surf_boxes]
+            if diff > 0:
                 export_phos[surf_boxes] = (
-                    (phos[surf_boxes] - set_phos[surf_boxes])
-                    / timescale
-                    * self.mass[surf_boxes]
+                    diff / timescale * self.mass[surf_boxes]
                 )  # mol surfacePO4/year
 
             else:
                 # print(P[s],SetP[s],P[s]-SetP[s])
                 pass  # not enough nutrients to sustain productivity
+        print(self.export_matrix)
+        print(export_phos)
         return self.export_matrix @ export_phos
 
     def box_model(self, time, statev):
         # pylint: disable=unused-argument
         """makes new state and calculates the change in state with time"""
         state_a = self.make_state_a(statev)
+        print(state_a)
         d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
         # d_dt += self.phosphorusrod(stateA)
         # d_dt += self.Fix(stateA)
