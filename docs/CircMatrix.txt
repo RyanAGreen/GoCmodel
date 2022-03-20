@@ -2,24 +2,24 @@ Shape = 5x5
 Order = Baja California, Gulf of California-Deep, Gulf of California-Surface, North Pacific-Intermediate Depth, North Pacific-Surface
 
 Baja to Baja = [0,0] 
-Baja to GoC-D = [1,0] A,M
+Baja to GoC-D = [1,0] advection , mix_baja_gulf
 Baja to GoC-S = [2,0] 
-Baja to NP-I = [3,0] M
+Baja to NP-I = [3,0] mix_np_baja
 Baja to NP-S = [4,0] 
 
-GoC-D to Baja = [0,1] M
+GoC-D to Baja = [0,1] mix_baja_gulf
 GoC-D to GoC-D = [1,1] 
-GoC-D to GoC-S = [2,1] A,M
+GoC-D to GoC-S = [2,1] advection , mix_gulf_gulf
 GoC-D to NP-I = [3,1] 
 GoC-D to NP-S = [4,1] 
 
 GoC-S to Baja = [0,2]
-GoC-S to GoC-D = [1,2] M
+GoC-S to GoC-D = [1,2] mix_gulf_gulf
 GoC-S to GoC-S = [2,2]
 GoC-S to NP-I = [3,2]
-GoC-S to NP-S = [4,2] A,M, OUT
+GoC-S to NP-S = [4,2] advection , mix_gulf_np
 
-NP-I to Baja = [0,3] A,M, IN
+NP-I to Baja = [0,3] advection , mix_np_baja
 NP-I to GoC-D = [1,3] 
 NP-I to GoC-S = [2,3]
 NP-I to NP-I = [3,3]
@@ -27,6 +27,6 @@ NP-I to NP-S = [4,3]
 
 NP-S to Baja = [0,4]
 NP-S to GoC-D = [1,4]
-NP-S to GoC-S = [2,4] M
+NP-S to GoC-S = [2,4] mix_gulf_np
 NP-S to NP-I = [3,4]
 NP-S to NP-S = [4,4]
