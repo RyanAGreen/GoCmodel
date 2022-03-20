@@ -79,7 +79,7 @@ class GoCModel:
             ]
         )  # (tracers,boxes) for boundary condition
 
-        self.svedrup_matrix = self.circ(0.45, 0.55, 0.2, 0.15)  # Sv 0.45,0.05
+        self.svedrup_matrix = self.circ(0.45, 0.1, 0.1, 0.1, 0.1)  # Sv 0.45,0.05
         self.transport_matrix = self.make_transport_matrix(self.svedrup_matrix)
 
         # initialize biological pump export
@@ -91,37 +91,40 @@ class GoCModel:
         self.result = None
         self.time = None
         self.output = None
+        self.tracers_arr = np.zeros((6,5,1))
 
-    def circ(self, inflow, outflow, advection, mixing):
+    def circ(self, advection, mix_np_baja, mix_baja_gulf, mix_gulf_gulf, mix_gulf_np):
         """function that takes in circulation (units Sv) and populates a circulation matrix"""
 
         advect = np.zeros((self.num_box + self.num_bc, self.num_box + self.num_bc))
-        advect[1, 0] = advection * 2
+        advect[1, 0] = advection
         advect[2, 1] = advection
         advect[4, 2] = advection
         advect[0, 3] = advection
 
-        mix = np.zeros((self.num_box + self.num_bc, self.num_box + self.num_bc))
-        mix[1, 0] = mixing
-        mix[3, 0] = mixing
-        mix[0, 1] = mixing
-        mix[2, 1] = mixing * 0.0001
-        mix[1, 2] = mixing
-        mix[4, 2] = mixing * 0.0001
-        mix[0, 3] = mixing
-        mix[2, 4] = mixing
+        mix_n_b = np.zeros((self.num_box + self.num_bc, self.num_box + self.num_bc))
+        mix_n_b[0, 3] = mix_np_baja
+        mix_n_b[3, 0] = mix_np_baja
 
-        out_flow = np.zeros((self.num_box + self.num_bc, self.num_box + self.num_bc))
-        out_flow[4, 2] = outflow
+        mix_b_g = np.zeros((self.num_box + self.num_bc, self.num_box + self.num_bc))
+        mix_b_g[1, 0] = mix_baja_gulf
+        mix_b_g[0, 1] = mix_baja_gulf
 
-        in_flow = np.zeros((self.num_box + self.num_bc, self.num_box + self.num_bc))
-        in_flow[0, 3] = inflow
+        mix_g_g = np.zeros((self.num_box + self.num_bc, self.num_box + self.num_bc))
+        mix_g_g[2, 1] = mix_gulf_gulf
+        mix_g_g[1, 2] = mix_gulf_gulf
 
-        print("Advect: " + str(advect))
-        print("Mix: " + str(mix))
-        print("Out Flow: " + str(out_flow))
-        print("In Flow: " + str(in_flow))
-        return advect + mix + in_flow + out_flow
+        mix_g_n = np.zeros((self.num_box + self.num_bc, self.num_box + self.num_bc))
+        mix_g_n[4, 2] = mix_gulf_np
+        mix_g_n[2, 4] = mix_gulf_np
+
+        print("Advect: " + str(advection))
+        print("Mix between NP-I and Baja: " + str(mix_n_b))
+        print("Mix between Baja and Gulf: " + str(mix_b_g))
+        print("Mix between Gulf-D and Gulf-S: " + str(mix_g_g))
+        print("Mix between Gulf-S and NP-S: " + str(mix_g_n))
+
+        return advect + mix_n_b + mix_b_g + mix_g_g + mix_g_n
 
     def make_transport_matrix(self, svedrup_matrix):
         """makeTM() returns a NxN matrix defining the fractional mixing system of equations,
@@ -206,7 +209,7 @@ class GoCModel:
         # pylint: disable=unused-argument
         """makes new state and calculates the change in state with time"""
         state_a = self.make_state_a(statev)
-        print(state_a)
+        self.make_text(state_a)
         d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
         # d_dt += self.phosphorusrod(stateA)
         # d_dt += self.Fix(stateA)
@@ -227,6 +230,13 @@ class GoCModel:
         self.time = np.flipud(self.result.t)  # plot from past to present
         self.output = self.result.y
         print(self.output.shape)
+
+    def make_text(self, state):
+        state = state.reshape(state.shape[0], state.shape[1], 1)
+        self.tracers_arr = np.concatenate((self.tracers_arr, state), axis=2)
+
+    def save(self):
+        np.save("../results/tracers.npy", self.tracers_arr)
 
     def make_plot(self):
         """makes all plots"""
@@ -341,9 +351,9 @@ class GoCModel:
         plt.tight_layout()
         fig.savefig("../results/SummaryPlot.pdf")
 
-
 if __name__ == "__main__":
 
     ModelInstance = GoCModel()
     ModelInstance.run_box_model(20000)
+    ModelInstance.save()
     ModelInstance.make_plot()
