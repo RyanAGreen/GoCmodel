@@ -79,11 +79,7 @@ class GoCModel:
             ]
         )  # (tracers,boxes) for boundary condition
 
-<<<<<<< HEAD
         self.svedrup_matrix = self.circ(0.45, 0.1, 0.1, 0.1, 0.1)  # Sv 0.45,0.05
-=======
-        self.svedrup_matrix = self.circ(0.45, 0.1, 0.1, 0.1, 0.1)
->>>>>>> e384cebdb19614fe8d017582bdfd087a5510c4dc
         self.transport_matrix = self.make_transport_matrix(self.svedrup_matrix)
 
         # initialize biological pump export
