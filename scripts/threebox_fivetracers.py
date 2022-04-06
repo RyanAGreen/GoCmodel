@@ -234,6 +234,10 @@ class GoCModel:
         return self.export_matrix @ export_phos
 
     def carb_chem(self):
+        """
+        using pyCO2sys to solve carbonate chemistry
+        returns DIC speciation, pH, omega and pCO2
+        """
         dic_bc = self.result.y[0, :] / self.mass[0]
         alk_bc = self.result.y[3, :] / self.mass[0]
         dic_goc_deep = self.result.y[1, :] / self.mass[1]
