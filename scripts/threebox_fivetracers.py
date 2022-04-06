@@ -263,8 +263,6 @@ class GoCModel:
 
     def make_plot(self):
         """makes all plots"""
-        # Disable all the invalid-name violations in this function
-        # pylint: disable=invalid-name
         fig, ax = plt.subplots(5, figsize=(16, 20))
 
         ax[1].plot(
@@ -374,12 +372,13 @@ class GoCModel:
         plt.tight_layout()
         fig.savefig("../results/SummaryPlotLessRetained.pdf")
 
-    def read_data(txt):
+    def read_data(self, txt):
         df = pd.read_table(txt)
-        df = organize_data(df)
+        df = self.organize_data(df)
         return df
 
-    def organize_data(df):
+    def organize_data(self, df):
+        """Reading in CYCLOPS code for boundary condition"""
         df = df.rename(
             columns={
                 0: "year",
@@ -414,5 +413,5 @@ if __name__ == "__main__":
 
     ModelInstance = GoCModel()
     ModelInstance.run_box_model(20000)
-    ModelInstance.save()
+    # ModelInstance.save()
     ModelInstance.make_plot()
