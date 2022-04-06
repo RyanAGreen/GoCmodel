@@ -60,6 +60,7 @@ class GoCModel:
         self.del_13_c = np.array([-0.5, -0.5, -0.5])  # *self._carbon # permil
         self.del_14_c = np.array([100, 100, 100])  # *self.carbon # permil
 
+        # Initial state of tracers
         self.state_v0 = np.hstack(
             (
                 self.carbon,
@@ -70,6 +71,9 @@ class GoCModel:
                 self.del_14_c,
             )
         )
+
+        # Values of tracers in boundary conditions
+        # columns correspond to BC box, rows to tracers (tracers, bc_box)
         self.boundary_condition = np.array(
             [
                 [3000e-6 * self.mass_0, 3000e-6 * self.mass_0],
@@ -79,9 +83,9 @@ class GoCModel:
                 [-0.1, -0.1],
                 [200, 200],
             ]
-        )  # (tracers,boxes) for boundary condition
+        )
 
-        self.svedrup_matrix = self.circ(0.45, 0.1, 0.1, 0.1, 0.1)  # Sv 0.45,0.05
+        self.svedrup_matrix = self.circ(0.45, 0.1, 0.1, 0.1, 0.1)
         self.transport_matrix = self.make_transport_matrix(self.svedrup_matrix)
 
         # initialize biological pump export
@@ -91,7 +95,7 @@ class GoCModel:
             [[1, 0, 0], [0, 0, -1], [0, 1, 0]]
         )  # Export matrix; fraction of export from surface (column) to interior (row)
         self.result = None
-        self.carbon_chem = None
+        self.carbonate_chemistry = None
         self.time = None
         self.output = None
         self.tracers_arr = np.zeros((6, 5, 1))
@@ -176,7 +180,7 @@ class GoCModel:
         mass_lost = np.sum(flux, axis=0)  # sum of all mass fluxes out of each box
 
         # fraction of mass retained in each box
-        fraction_retained = 0.1 * (self.mass - mass_lost) / self.mass
+        fraction_retained = 1 * (self.mass - mass_lost) / self.mass
         # print("Fraction Retained: " + str(fraction_retained))
         # wouldnt this be kg / kg ??
         # divide flux array rows by mass for concentration
@@ -229,9 +233,31 @@ class GoCModel:
         print(export_phos)
         return self.export_matrix @ export_phos
 
+    def carb_chem(self):
+        dic_bc = self.result.y[0, :] / self.mass[0]
+        alk_bc = self.result.y[3, :] / self.mass[0]
+        dic_goc_deep = self.result.y[1, :] / self.mass[1]
+        alk_goc_deep = self.result.y[4, :] / self.mass[1]
+        dic_goc_surf = self.result.y[2, :] / self.mass[2]
+        alk_goc_surf = self.result.y[5, :] / self.mass[2]
+        dic = [dic_bc, dic_goc_deep, dic_goc_surf]
+        alk = [alk_bc, alk_goc_deep, alk_goc_surf]
+        carbon_chemistry = pyco2.sys(par1=alk, par2=dic, par1_type=1, par2_type=2)
+        values = ["HCO3", "CO3", "CO2", "pH", "saturation_calcite", "pCO2"]
+        carbonate_results = []
+        for term in values:
+            carbonate_results.append(carbon_chemistry[term])
+        return carbonate_results
+
     def box_model(self, time, statev):
         # pylint: disable=unused-argument
-        """makes new state and calculates the change in state with time"""
+        """
+        makes matrix with tracers in rows and boxes in columns from initial conditions.
+        Then multiplies matrix by transport matrix to find the change in each.
+        This is the derivative of dy/dt
+        [:,: self.num_box] grabs all rows (tracers) and all columns up to the number of boxes
+        from the box model (excluding boundary condition boxes)
+        """
         state_a = self.make_state_a(statev)
         self.make_text(state_a)
         d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
@@ -240,7 +266,7 @@ class GoCModel:
         return d_dt.flatten()
 
     def run_box_model(self, tmax):
-        """runs the box model with ODE solver"""
+        """runs the box model with ODE solver giving stateV0 as initial condition"""
         time = np.linspace(0, tmax, 200)  # t0, tmax, nsteps
 
         self.result = solve_ivp(
@@ -252,7 +278,7 @@ class GoCModel:
             vectorized=True,
         )  # should we allow user to specific nsteps for this function?
 
-        # self.carbon_chem = pyco2.sys(par1=ALK, par2=DIC, par1_type=2, par2_type=1)
+        self.carbonate_chemistry = self.carb_chem()
         self.time = np.flipud(self.result.t)  # plot from past to present
         self.output = self.result.y
         # print(self.output.shape)
@@ -273,74 +299,74 @@ class GoCModel:
             self.time, self.result.y[0, :] / self.mass[0], label="Baja California C"
         )
         ax[2].plot(
-            self.time, self.result.y[1, :] / self.mass[0], label="Baja California ALK"
+            self.time, self.result.y[3, :] / self.mass[0], label="Baja California ALK"
         )
         ax[0].plot(
-            self.time, self.result.y[3, :] / self.mass[0], label="Baja California N"
+            self.time, self.result.y[9, :] / self.mass[0], label="Baja California N"
         )
         ax[3].plot(
             self.time,
-            self.result.y[4, :] / self.mass[0],
+            self.result.y[12, :] / self.mass[0],
             label="Baja California δ$^{13}$C",
         )
         ax[4].plot(
             self.time,
-            self.result.y[5, :] / self.mass[0],
+            self.result.y[15, :] / self.mass[0],
             label="Baja California ∆$^{14}$C",
         )
 
         ax[1].plot(
             self.time,
-            self.result.y[6, :] / self.mass[1],
+            self.result.y[1, :] / self.mass[1],
             linestyle="dotted",
             label="GoC deep C",
         )
         ax[2].plot(
             self.time,
-            self.result.y[7, :] / self.mass[1],
+            self.result.y[4, :] / self.mass[1],
             linestyle="dotted",
             label="GoC deep ALK",
         )
         ax[0].plot(
             self.time,
-            self.result.y[9, :] / self.mass[1],
+            self.result.y[10, :] / self.mass[1],
             linestyle="dotted",
             label="GoC deep N",
         )
         ax[3].plot(
             self.time,
-            self.result.y[10, :] / self.mass[1],
+            self.result.y[13, :] / self.mass[1],
             linestyle="dotted",
             label="GoC deep δ$^{13}$C",
         )
         ax[4].plot(
             self.time,
-            self.result.y[11, :] / self.mass[1],
+            self.result.y[16, :] / self.mass[1],
             linestyle="dotted",
             label="GoC deep ∆$^{14}$C",
         )
 
         ax[1].plot(
             self.time,
-            self.result.y[12, :] / self.mass[2],
+            self.result.y[2, :] / self.mass[2],
             linestyle="dashed",
             label="GoC surface C",
         )
         ax[2].plot(
             self.time,
-            self.result.y[13, :] / self.mass[2],
+            self.result.y[5, :] / self.mass[2],
             linestyle="dashed",
             label="GoC surface ALK",
         )
         ax[0].plot(
             self.time,
-            self.result.y[15, :] / self.mass[2],
+            self.result.y[11, :] / self.mass[2],
             linestyle="dashed",
             label="GoC surface N",
         )
         ax[3].plot(
             self.time,
-            self.result.y[16, :] / self.mass[2],
+            self.result.y[14, :] / self.mass[2],
             linestyle="dashed",
             label="GoC surface δ$^{13}$C",
         )
