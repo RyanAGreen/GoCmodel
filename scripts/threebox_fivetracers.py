@@ -212,6 +212,13 @@ class GoCModel:
         )
         return state_a
 
+    def isotopes(
+        self, flux_in, flux_out, delta_in, delta_out, delta_box, box_inventory
+    ):
+        return (
+            flux_in * (delta_in - delta_box) - flux_out * (delta_out - delta_box)
+        ) / box_inventory
+
     def export_phosphorus(self, state):
         """computes phosphorus export"""
         export_phos = np.zeros(3).T
