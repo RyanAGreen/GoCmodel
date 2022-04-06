@@ -247,7 +247,7 @@ class GoCModel:
         carbonate_results = []
         for term in values:
             carbonate_results.append(carbon_chemistry[term])
-        return carbonate_results
+        return np.array(carbonate_results)
 
     def box_model(self, time, statev):
         # pylint: disable=unused-argument
@@ -282,7 +282,7 @@ class GoCModel:
         self.time = np.flipud(self.result.t)  # plot from past to present
         self.output = self.result.y
         # print(self.output.shape)
-        print(self.result.y.shape)
+        print(self.carbonate_chemistry.shape)  # [tracer,box,year]
 
     def make_text(self, state):
         state = state.reshape(state.shape[0], state.shape[1], 1)
@@ -293,16 +293,16 @@ class GoCModel:
 
     def make_plot(self):
         """makes all plots"""
-        fig, ax = plt.subplots(5, figsize=(16, 20))
+        fig, ax = plt.subplots(5, figsize=(16, 20), sharex=True)
 
+        ax[0].plot(
+            self.time, self.carbonate_chemistry[3, 0, :], label="Baja California pH"
+        )
         ax[1].plot(
             self.time, self.result.y[0, :] / self.mass[0], label="Baja California C"
         )
         ax[2].plot(
             self.time, self.result.y[3, :] / self.mass[0], label="Baja California ALK"
-        )
-        ax[0].plot(
-            self.time, self.result.y[9, :] / self.mass[0], label="Baja California N"
         )
         ax[3].plot(
             self.time,
@@ -315,6 +315,12 @@ class GoCModel:
             label="Baja California ∆$^{14}$C",
         )
 
+        ax[0].plot(
+            self.time,
+            self.carbonate_chemistry[3, 1, :],
+            linestyle="dotted",
+            label="GoC deep pH",
+        )
         ax[1].plot(
             self.time,
             self.result.y[1, :] / self.mass[1],
@@ -326,12 +332,6 @@ class GoCModel:
             self.result.y[4, :] / self.mass[1],
             linestyle="dotted",
             label="GoC deep ALK",
-        )
-        ax[0].plot(
-            self.time,
-            self.result.y[10, :] / self.mass[1],
-            linestyle="dotted",
-            label="GoC deep N",
         )
         ax[3].plot(
             self.time,
@@ -346,6 +346,12 @@ class GoCModel:
             label="GoC deep ∆$^{14}$C",
         )
 
+        ax[0].plot(
+            self.time,
+            self.carbonate_chemistry[3, 2, :],
+            linestyle="dashed",
+            label="GoC surface pH",
+        )
         ax[1].plot(
             self.time,
             self.result.y[2, :] / self.mass[2],
@@ -357,12 +363,6 @@ class GoCModel:
             self.result.y[5, :] / self.mass[2],
             linestyle="dashed",
             label="GoC surface ALK",
-        )
-        ax[0].plot(
-            self.time,
-            self.result.y[11, :] / self.mass[2],
-            linestyle="dashed",
-            label="GoC surface N",
         )
         ax[3].plot(
             self.time,
@@ -383,19 +383,15 @@ class GoCModel:
         ax[3].legend(loc=1)
         ax[4].legend(loc=1)
 
-        ax[0].set_xlabel("t:years")
-        ax[0].set_ylabel("N mol/kg")
-        ax[0].set_title("Dissolved NO$_3$$^-$")
-        ax[1].set_xlabel("t:years")
+        ax[0].set_ylabel("pH")
+        ax[0].set_title("pH")
         ax[1].set_ylabel("DIC µmol/kg")
         ax[1].set_title("DIC")
-        ax[2].set_xlabel("t:years")
         ax[2].set_ylabel("ALK (µmol/kg)")
         ax[2].set_title("ALK")
-        ax[3].set_xlabel("t:years")
         ax[3].set_ylabel("δ$^{13}$C (permil)")
         ax[3].set_title("δ$^{13}$C")
-        ax[4].set_xlabel("t:years")
+        ax[4].set_xlabel("Years BP")
         ax[4].set_ylabel("∆$^{14}$C (permil)")
         ax[4].set_title("∆$^{14}$C")
 
