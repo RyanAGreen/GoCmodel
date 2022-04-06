@@ -4,6 +4,8 @@ Regional Model
 
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+import PyCO2SYS as pyco2
 from scipy.integrate import solve_ivp
 from conversions import svedrup_to_kg_year
 
@@ -91,14 +93,21 @@ class GoCModel:
         self.result = None
         self.time = None
         self.output = None
-        self.tracers_arr = np.zeros((6,5,1))
+        self.tracers_arr = np.zeros((6, 5, 1))
 
-        self.cols = ["year",
-                     "ALKintNP", "ALKsurfNP",
-                     "DICintNP", "DICsurfNP",
-                     "NintNP", "NsurfNP",
-                     "D14CintNP", "D14CsurfNP",
-                     "d13CintNP", "d13CsurfNP"]
+        self.cols = [
+            "year",
+            "ALKintNP",
+            "ALKsurfNP",
+            "DICintNP",
+            "DICsurfNP",
+            "NintNP",
+            "NsurfNP",
+            "D14CintNP",
+            "D14CsurfNP",
+            "d13CintNP",
+            "d13CsurfNP",
+        ]
 
     def circ(self, advection, mix_np_baja, mix_baja_gulf, mix_gulf_gulf, mix_gulf_np):
         """function that takes in circulation (units Sv) and populates a circulation matrix"""
@@ -166,7 +175,7 @@ class GoCModel:
         mass_lost = np.sum(flux, axis=0)  # sum of all mass fluxes out of each box
 
         # fraction of mass retained in each box
-        fraction_retained = 0.1*(self.mass - mass_lost) / self.mass
+        fraction_retained = 0.1 * (self.mass - mass_lost) / self.mass
         print("Fraction Retained: " + str(fraction_retained))
         # wouldnt this be kg / kg ??
         # divide flux array rows by mass for concentration
@@ -177,7 +186,13 @@ class GoCModel:
         # TM_ForInventories = fractional_fluxes_inv + np.diag(fraction_retained)
         # print("Transport Matrix: " + str(transport_matrix_concentrations))
         # print("Returned: " + str(transport_matrix_concentrations - np.identity(self.num_box + self.num_bc)))
-        print("Transport Matrix: " + str(transport_matrix_concentrations - np.identity(self.num_box + self.num_bc)))
+        print(
+            "Transport Matrix: "
+            + str(
+                transport_matrix_concentrations
+                - np.identity(self.num_box + self.num_bc)
+            )
+        )
         return transport_matrix_concentrations - np.identity(self.num_box + self.num_bc)
 
     def make_state_a(self, state_v):
@@ -365,30 +380,35 @@ class GoCModel:
         return df
 
     def organize_data(df):
-        df = df.rename(columns = {0:'year',
-                                  1:'Crate',
-                                  2:'ALKtoDIC',
-                                  3:'Ccum',
-                                  4:'CO2',
-                                  5:'D14C',
-                                  6:'D14Cerror',
-                                  7:'CO2error',
-                                  8:'totalerror',
-                                  9:'DICintNP',
-                                  10:'ALKintNP',
-                                  11:'d13CintNP',
-                                  12:'D14CintNP',
-                                  13:'NintNP',
-                                  14:'DICsurfNP',
-                                  15:'ALKsurfNP',
-                                  16:'d13CsurfNP',
-                                  17:'D14CsurfNP',
-                                  18:'NsurfNP',
-                                  19:'AtlCSH',
-                                  20:'IndCSH',
-                                  21:'SPacCSH',
-                                  22:'NPacCSH'})
+        df = df.rename(
+            columns={
+                0: "year",
+                1: "Crate",
+                2: "ALKtoDIC",
+                3: "Ccum",
+                4: "CO2",
+                5: "D14C",
+                6: "D14Cerror",
+                7: "CO2error",
+                8: "totalerror",
+                9: "DICintNP",
+                10: "ALKintNP",
+                11: "d13CintNP",
+                12: "D14CintNP",
+                13: "NintNP",
+                14: "DICsurfNP",
+                15: "ALKsurfNP",
+                16: "d13CsurfNP",
+                17: "D14CsurfNP",
+                18: "NsurfNP",
+                19: "AtlCSH",
+                20: "IndCSH",
+                21: "SPacCSH",
+                22: "NPacCSH",
+            }
+        )
         return df[cols]
+
 
 if __name__ == "__main__":
 
