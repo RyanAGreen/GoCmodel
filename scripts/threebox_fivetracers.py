@@ -91,6 +91,7 @@ class GoCModel:
             [[1, 0, 0], [0, 0, -1], [0, 1, 0]]
         )  # Export matrix; fraction of export from surface (column) to interior (row)
         self.result = None
+        self.carbon_chem = None
         self.time = None
         self.output = None
         self.tracers_arr = np.zeros((6, 5, 1))
@@ -134,11 +135,11 @@ class GoCModel:
         mix_g_n[4, 2] = mix_gulf_np
         mix_g_n[2, 4] = mix_gulf_np
 
-        print("Advect: " + str(advection))
-        print("Mix between NP-I and Baja: " + str(mix_n_b))
-        print("Mix between Baja and Gulf: " + str(mix_b_g))
-        print("Mix between Gulf-D and Gulf-S: " + str(mix_g_g))
-        print("Mix between Gulf-S and NP-S: " + str(mix_g_n))
+        # print("Advect: " + str(advection))
+        # print("Mix between NP-I and Baja: " + str(mix_n_b))
+        # print("Mix between Baja and Gulf: " + str(mix_b_g))
+        # print("Mix between Gulf-D and Gulf-S: " + str(mix_g_g))
+        # print("Mix between Gulf-S and NP-S: " + str(mix_g_n))
 
         return advect + mix_n_b + mix_b_g + mix_g_g + mix_g_n
 
@@ -176,23 +177,23 @@ class GoCModel:
 
         # fraction of mass retained in each box
         fraction_retained = 0.1 * (self.mass - mass_lost) / self.mass
-        print("Fraction Retained: " + str(fraction_retained))
+        # print("Fraction Retained: " + str(fraction_retained))
         # wouldnt this be kg / kg ??
         # divide flux array rows by mass for concentration
         fractional_fluxes = flux / self.mass.reshape((len(self.mass), 1))
-        print("Fractional Fluxes: " + str(fractional_fluxes))
+        # print("Fractional Fluxes: " + str(fractional_fluxes))
         # fractional_fluxes_inv = (flux / self.m.T)# divide flux array columns by mass for inventory
         transport_matrix_concentrations = fractional_fluxes + np.diag(fraction_retained)
         # TM_ForInventories = fractional_fluxes_inv + np.diag(fraction_retained)
         # print("Transport Matrix: " + str(transport_matrix_concentrations))
         # print("Returned: " + str(transport_matrix_concentrations - np.identity(self.num_box + self.num_bc)))
-        print(
-            "Transport Matrix: "
-            + str(
-                transport_matrix_concentrations
-                - np.identity(self.num_box + self.num_bc)
-            )
-        )
+        # print(
+        #     "Transport Matrix: "
+        #     + str(
+        #         transport_matrix_concentrations
+        #         - np.identity(self.num_box + self.num_bc)
+        #     )
+        # )
         return transport_matrix_concentrations - np.identity(self.num_box + self.num_bc)
 
     def make_state_a(self, state_v):
@@ -250,9 +251,12 @@ class GoCModel:
             t_eval=time,
             vectorized=True,
         )  # should we allow user to specific nsteps for this function?
+
+        # self.carbon_chem = pyco2.sys(par1=ALK, par2=DIC, par1_type=2, par2_type=1)
         self.time = np.flipud(self.result.t)  # plot from past to present
         self.output = self.result.y
-        print(self.output.shape)
+        # print(self.output.shape)
+        print(self.result.y.shape)
 
     def make_text(self, state):
         state = state.reshape(state.shape[0], state.shape[1], 1)
