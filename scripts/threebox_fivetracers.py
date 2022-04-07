@@ -215,9 +215,20 @@ class GoCModel:
     def isotopes(
         self, flux_in, flux_out, delta_in, delta_out, delta_box, box_inventory
     ):
+    """solves isotope mass balance"""
         return (
             flux_in * (delta_in - delta_box) - flux_out * (delta_out - delta_box)
         ) / box_inventory
+
+    def Prod(self,stateA):
+        """this could be used to calculate bio pump"""
+        NPP = 4*stateA[0,0:5]*self.m[0:5] # 1/yr * µmol/kg * kg = µmol/yr
+        d_dt = np.zeros((self.Ntracer,self.Nbox))
+        d_dt[0,:] = self.EPM@NPP
+        d_dt[1,:] = self.EPM@NPP/16
+        d_dt[2,:] = self.EPM@ (NPP*(stateA[2,0:5]/stateA[0,0:5]-self.epsi_assim))
+        return d_dt , NPP*1e-6*1e-12*14, (stateA[2,0:5]/stateA[0,0:5]-self.epsi_assim)
+
 
     def export_phosphorus(self, state):
         """computes phosphorus export"""
@@ -271,8 +282,8 @@ class GoCModel:
         """
         state_a = self.make_state_a(statev)
         self.make_text(state_a)
-        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
-        # d_dt += self.phosphorusrod(stateA)
+        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box] # multiplying tracers by fluxes
+        # d_dt += self.prod(stateA)
         # d_dt += self.Fix(stateA)
         return d_dt.flatten()
 
