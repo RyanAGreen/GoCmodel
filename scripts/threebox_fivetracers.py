@@ -53,7 +53,7 @@ class GoCModel:
             np.array([2000e-6, 2000e-6, 2000e-6]) * self.mass_0
         )  # umol kg-1 -> mol
         self.alkalinity = (
-            np.array([2200e-6, 2200e-6, 2200e-6]) * self.mass_0
+            np.array([2400e-6, 2400e-6, 2400e-6]) * self.mass_0
         )  # umol kg-1 -> mol
         self.phosphorus = np.array([2e-6, 2e-6, 2e-6]) * self.mass_0  # mol
         self.nitrate = np.array([30e-6, 30e-6, 30e-6]) * self.mass_0  # mol
@@ -76,8 +76,8 @@ class GoCModel:
         # columns correspond to BC box, rows to tracers (tracers, bc_box)
         self.boundary_condition = np.array(
             [
-                [3000e-6 * self.mass_0, 3000e-6 * self.mass_0],
-                [3400e-6 * self.mass_0, 3400e-6 * self.mass_0],
+                [2000e-6 * self.mass_0, 2000e-6 * self.mass_0],
+                [2400e-3 * self.mass_0, 2600e-6 * self.mass_0],
                 [3e-6 * self.mass_0, 3e-6 * self.mass_0],
                 [35e-6 * self.mass_0, 35e-6 * self.mass_0],
                 [-0.1, -0.1],
@@ -97,6 +97,7 @@ class GoCModel:
         self.result = None
         self.carbonate_chemistry = None
         self.time = None
+        self.epsi_assim = 1
         self.output = None
         self.tracers_arr = np.zeros((6, 5, 1))
 
@@ -180,15 +181,17 @@ class GoCModel:
         mass_lost = np.sum(flux, axis=0)  # sum of all mass fluxes out of each box
 
         # fraction of mass retained in each box
-        fraction_retained = 1 * (self.mass - mass_lost) / self.mass
-        # print("Fraction Retained: " + str(fraction_retained))
+        fraction_retained = (self.mass - mass_lost) / self.mass
         # wouldnt this be kg / kg ??
         # divide flux array rows by mass for concentration
         fractional_fluxes = flux / self.mass.reshape((len(self.mass), 1))
-        # print("Fractional Fluxes: " + str(fractional_fluxes))
-        # fractional_fluxes_inv = (flux / self.m.T)# divide flux array columns by mass for inventory
+        fractional_fluxes_inv = (
+            flux / self.mass.T
+        )  # divide flux array columns by mass for inventory
         transport_matrix_concentrations = fractional_fluxes + np.diag(fraction_retained)
-        # TM_ForInventories = fractional_fluxes_inv + np.diag(fraction_retained)
+        transport_matrix_inventories = fractional_fluxes_inv + np.diag(
+            fraction_retained
+        )
         # print("Transport Matrix: " + str(transport_matrix_concentrations))
         # print("Returned: " + str(transport_matrix_concentrations - np.identity(self.num_box + self.num_bc)))
         # print(
@@ -215,20 +218,27 @@ class GoCModel:
     def isotopes(
         self, flux_in, flux_out, delta_in, delta_out, delta_box, box_inventory
     ):
-    """solves isotope mass balance"""
+        """solves isotope mass balance"""
         return (
             flux_in * (delta_in - delta_box) - flux_out * (delta_out - delta_box)
         ) / box_inventory
 
-    def Prod(self,stateA):
+    def production(self, state_a):
         """this could be used to calculate bio pump"""
-        NPP = 4*stateA[0,0:5]*self.m[0:5] # 1/yr * µmol/kg * kg = µmol/yr
-        d_dt = np.zeros((self.Ntracer,self.Nbox))
-        d_dt[0,:] = self.EPM@NPP
-        d_dt[1,:] = self.EPM@NPP/16
-        d_dt[2,:] = self.EPM@ (NPP*(stateA[2,0:5]/stateA[0,0:5]-self.epsi_assim))
-        return d_dt , NPP*1e-6*1e-12*14, (stateA[2,0:5]/stateA[0,0:5]-self.epsi_assim)
-
+        net_primary_prod = (
+            4 * state_a[0, 0:5] * self.mass[0:5]
+        )  # 1/yr * µmol/kg * kg = µmol/yr
+        d_dt = np.zeros((self.num_tracer, self.num_box))
+        d_dt[0, :] = self.export_matrix @ net_primary_prod
+        d_dt[1, :] = self.export_matrix @ net_primary_prod / 16
+        d_dt[2, :] = self.export_matrix @ (
+            net_primary_prod * (state_a[2, 0:5] / state_a[0, 0:5] - self.epsi_assim)
+        )
+        return (
+            d_dt,
+            net_primary_prod * 1e-6 * 1e-12 * 14,
+            (state_a[2, 0:5] / state_a[0, 0:5] - self.epsi_assim),
+        )
 
     def export_phosphorus(self, state):
         """computes phosphorus export"""
@@ -282,7 +292,9 @@ class GoCModel:
         """
         state_a = self.make_state_a(statev)
         self.make_text(state_a)
-        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box] # multiplying tracers by fluxes
+        d_dt = (self.transport_matrix @ state_a.T).T[
+            :, : self.num_box
+        ]  # multiplying tracers by fluxes
         # d_dt += self.prod(stateA)
         # d_dt += self.Fix(stateA)
         return d_dt.flatten()
