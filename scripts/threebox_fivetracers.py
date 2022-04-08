@@ -2,12 +2,14 @@
 Regional Model
 """
 
+
+import src.conversions as conversions
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import PyCO2SYS as pyco2
 from scipy.integrate import solve_ivp
-from conversions import svedrup_to_kg_year
+import src.inputoutput as io
 
 
 class GoCModel:
@@ -177,7 +179,7 @@ class GoCModel:
         """
 
         time_step = 1  # timestep (yr)
-        flux = svedrup_to_kg_year(svedrup_matrix) * time_step
+        flux = conversions.svedrup_to_kg_year(svedrup_matrix) * time_step
         mass_lost = np.sum(flux, axis=0)  # sum of all mass fluxes out of each box
 
         # fraction of mass retained in each box
@@ -291,7 +293,7 @@ class GoCModel:
         from the box model (excluding boundary condition boxes)
         """
         state_a = self.make_state_a(statev)
-        self.make_text(state_a)
+        io.make_text(state_a, self.tracers_arr)
         d_dt = (self.transport_matrix @ state_a.T).T[
             :, : self.num_box
         ]  # multiplying tracers by fluxes
@@ -317,161 +319,10 @@ class GoCModel:
         self.output = self.result.y
         # print(self.output.shape)
         print(self.carbonate_chemistry.shape)  # [tracer,box,year]
-
-    def make_text(self, state):
-        state = state.reshape(state.shape[0], state.shape[1], 1)
-        self.tracers_arr = np.concatenate((self.tracers_arr, state), axis=2)
-
-    def save(self):
-        np.save("../results/tracers.npy", self.tracers_arr)
-
-    def make_plot(self):
-        """makes all plots"""
-        fig, ax = plt.subplots(5, figsize=(16, 20), sharex=True)
-
-        ax[0].plot(
-            self.time, self.carbonate_chemistry[3, 0, :], label="Baja California pH"
-        )
-        ax[1].plot(
-            self.time, self.result.y[0, :] / self.mass[0], label="Baja California C"
-        )
-        ax[2].plot(
-            self.time, self.result.y[3, :] / self.mass[0], label="Baja California ALK"
-        )
-        ax[3].plot(
-            self.time,
-            self.result.y[12, :] / self.mass[0],
-            label="Baja California δ$^{13}$C",
-        )
-        ax[4].plot(
-            self.time,
-            self.result.y[15, :] / self.mass[0],
-            label="Baja California ∆$^{14}$C",
-        )
-
-        ax[0].plot(
-            self.time,
-            self.carbonate_chemistry[3, 1, :],
-            linestyle="dotted",
-            label="GoC deep pH",
-        )
-        ax[1].plot(
-            self.time,
-            self.result.y[1, :] / self.mass[1],
-            linestyle="dotted",
-            label="GoC deep C",
-        )
-        ax[2].plot(
-            self.time,
-            self.result.y[4, :] / self.mass[1],
-            linestyle="dotted",
-            label="GoC deep ALK",
-        )
-        ax[3].plot(
-            self.time,
-            self.result.y[13, :] / self.mass[1],
-            linestyle="dotted",
-            label="GoC deep δ$^{13}$C",
-        )
-        ax[4].plot(
-            self.time,
-            self.result.y[16, :] / self.mass[1],
-            linestyle="dotted",
-            label="GoC deep ∆$^{14}$C",
-        )
-
-        ax[0].plot(
-            self.time,
-            self.carbonate_chemistry[3, 2, :],
-            linestyle="dashed",
-            label="GoC surface pH",
-        )
-        ax[1].plot(
-            self.time,
-            self.result.y[2, :] / self.mass[2],
-            linestyle="dashed",
-            label="GoC surface C",
-        )
-        ax[2].plot(
-            self.time,
-            self.result.y[5, :] / self.mass[2],
-            linestyle="dashed",
-            label="GoC surface ALK",
-        )
-        ax[3].plot(
-            self.time,
-            self.result.y[14, :] / self.mass[2],
-            linestyle="dashed",
-            label="GoC surface δ$^{13}$C",
-        )
-        ax[4].plot(
-            self.time,
-            self.result.y[17, :] / self.mass[2],
-            linestyle="dashed",
-            label="GoC surface ∆$^{14}$C",
-        )
-
-        ax[0].legend(loc=1)
-        ax[1].legend(loc=1)
-        ax[2].legend(loc=1)
-        ax[3].legend(loc=1)
-        ax[4].legend(loc=1)
-
-        ax[0].set_ylabel("pH")
-        ax[0].set_title("pH")
-        ax[1].set_ylabel("DIC µmol/kg")
-        ax[1].set_title("DIC")
-        ax[2].set_ylabel("ALK (µmol/kg)")
-        ax[2].set_title("ALK")
-        ax[3].set_ylabel("δ$^{13}$C (permil)")
-        ax[3].set_title("δ$^{13}$C")
-        ax[4].set_xlabel("Years BP")
-        ax[4].set_ylabel("∆$^{14}$C (permil)")
-        ax[4].set_title("∆$^{14}$C")
-
-        plt.tight_layout()
-        fig.savefig("../results/SummaryPlotLessRetained.pdf")
-
-    def read_data(self, txt):
-        df = pd.read_table(txt)
-        df = self.organize_data(df)
-        return df
-
-    def organize_data(self, df):
-        """Reading in CYCLOPS code for boundary condition"""
-        df = df.rename(
-            columns={
-                0: "year",
-                1: "Crate",
-                2: "ALKtoDIC",
-                3: "Ccum",
-                4: "CO2",
-                5: "D14C",
-                6: "D14Cerror",
-                7: "CO2error",
-                8: "totalerror",
-                9: "DICintNP",
-                10: "ALKintNP",
-                11: "d13CintNP",
-                12: "D14CintNP",
-                13: "NintNP",
-                14: "DICsurfNP",
-                15: "ALKsurfNP",
-                16: "d13CsurfNP",
-                17: "D14CsurfNP",
-                18: "NsurfNP",
-                19: "AtlCSH",
-                20: "IndCSH",
-                21: "SPacCSH",
-                22: "NPacCSH",
-            }
-        )
-        return df[cols]
+        io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
 
 
 if __name__ == "__main__":
 
     ModelInstance = GoCModel()
     ModelInstance.run_box_model(20000)
-    # ModelInstance.save()
-    ModelInstance.make_plot()
