@@ -1,5 +1,6 @@
 """Gulf of California
 Regional Model
+Going to move things to modules after they work in OOP first
 """
 
 
@@ -14,44 +15,43 @@ import src.circulation as circulation
 
 
 class GoCModel:
-    """three box ocean model with circulation, biological pump,
+    """three box ocean model with circulation, biological pump, air sea gas exchange
     and DIC,ALK,P,N,d13C,D14C tracers. Box order is Baja California,
     Gulf of California-Deep, Gulf of California-Surface, North Pacific-
     Intermediate depth and North Pacific Surface"""
 
     def __init__(self):
+
         self.num_box = 3
         self.num_bc = 2
         self.num_tracer = 6
         self.boxlabel = [
-            "Baja California",
+            "Shadow box",
             "Gulf of California-Deep",
             "Gulf of California-Surface",
         ]
 
-        self.ocean_mass = 9.48024 * 10 ** 17
-        """kg,calculated from GoC volume (1.45e+14 mass_3) + Baja volume (1.45e+14*5 mass_3)
-        * density of sw (kg/mass_3)
+        self.goc_mass = 1.45e14 * 1026.8
         """
+        kg,calculated from GoC volume (1.45e+14 m3) * density of sw (kg/m3)
+        """
+        self.goc_surface_mass = self.gulf_mass * 0.33  # kg
+        self.goc_mid_mass = self.gulf_mass * 0.67  # kg
+        self.goc_source_mass = self.gulf * 10  # kg
+        self.np_surf_mass = self.goc_source_mass * 1e200  # kg
+        self.np_mid_mass = self.np_surf_mass * 2  # kg
 
-        self.mass_0 = (
-            5 / 6 * self.ocean_mass
-        )  # kg, Baja intermediate depth box -> 5/6 of oceanmass
-        self.mass_1 = (
-            2 / 3 * 1 / 6 * self.ocean_mass
-        )  # kg, Gulf of California deep box -> 2/3 of 1/6 of oceanmass
-        self.mass_2 = (
-            1 / 3 * 1 / 6 * self.ocean_mass
-        )  # kg, Gulf of California surface box -> 1/3 of 1/6 of oceanmass
-        self.mass_3 = 1e200 * self.ocean_mass  # kg, NP intermediate
-        self.mass_4 = (
-            1e200 * self.ocean_mass
-        )  # kg, NP surface (very large box to be essentially infinite)
         self.mass = np.array(
-            [self.mass_0, self.mass_1, self.mass_2, self.mass_3, self.mass_4]
+            [
+                self.goc_surface_mass,
+                self.goc_mid_mass,
+                self.goc_source_mass,
+                self.np_surf_mass,
+                self.np_mid_mass,
+            ]
         )  # mass vector
 
-        # set up tracers
+        # set up tracers inital values
         self.carbon = (
             np.array([2000e-6, 2000e-6, 2000e-6]) * self.mass_0
         )  # umol kg-1 -> mol
@@ -77,12 +77,14 @@ class GoCModel:
 
         # Values of tracers in boundary conditions
         # columns correspond to BC box, rows to tracers (tracers, bc_box)
+        # this will be fed by CYCLOPS
+        # will be read in here as a matrix of size 4 (tracers),200 (time)
         self.boundary_condition = np.array(
             [
-                [2000e-6 * self.mass_0, 2000e-6 * self.mass_0],
-                [2400e-3 * self.mass_0, 2600e-6 * self.mass_0],
-                [3e-6 * self.mass_0, 3e-6 * self.mass_0],
-                [35e-6 * self.mass_0, 35e-6 * self.mass_0],
+                [2000e-6 * self.np_mid_mass, 2000e-6 * self.np_surf_mass],
+                [2400e-3 * self.np_mid_mass, 2600e-6 * self.np_surf_mass],
+                [3e-6 * self.np_mid_mass, 3e-6 * self.np_surf_mass],
+                [35e-6 * self.np_mid_mass, 35e-6 * self.np_surf_mass],
                 [-0.1, -0.1],
                 [200, 200],
             ]
