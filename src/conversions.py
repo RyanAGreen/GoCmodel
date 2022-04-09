@@ -6,6 +6,11 @@ def svedrup_to_kg_year(svedrup):
     return svedrup * 1e6 * 1026 * 3.154e7
 
 
+def moles_to_micromoles_kg(tracer_in_moles, mass_of_box):
+    tracer_converted = tracer_in_moles * 10 ** -6 / mass_of_box
+    return tracer_converted
+
+
 def ratio_to_frac(ratio):
     """# convert isotope ratio to fractional abundance of isotope"""
     return ratio / (1 + ratio)
