@@ -35,31 +35,31 @@ class GoCModel:
         """
         kg,calculated from GoC volume (1.45e+14 m3) * density of sw (kg/m3)
         """
-        self.goc_surface_mass = self.gulf_mass * 0.33  # kg
-        self.goc_mid_mass = self.gulf_mass * 0.67  # kg
-        self.goc_source_mass = self.gulf * 10  # kg
-        self.np_surf_mass = self.goc_source_mass * 1e200  # kg
+        self.goc_surface_mass = self.goc_mass * 0.33  # kg
+        self.goc_mid_mass = self.goc_mass * 0.67  # kg
+        self.goc_source_mass = self.goc_mass * 10  # kg
+        self.np_surf_mass = self.goc_source_mass * 20  # kg
         self.np_mid_mass = self.np_surf_mass * 2  # kg
 
         self.mass = np.array(
             [
-                self.goc_surface_mass,
-                self.goc_mid_mass,
                 self.goc_source_mass,
-                self.np_surf_mass,
+                self.goc_mid_mass,
+                self.goc_surface_mass,
                 self.np_mid_mass,
+                self.np_surf_mass,
             ]
         )  # mass vector
 
         # set up tracers inital values
         self.carbon = (
-            np.array([2000e-6, 2000e-6, 2000e-6]) * self.mass_0
+            np.array([2000e-6, 2000e-6, 2000e-6]) * self.goc_source_mass
         )  # umol kg-1 -> mol
         self.alkalinity = (
-            np.array([2400e-6, 2400e-6, 2400e-6]) * self.mass_0
+            np.array([2200e-6, 2200e-6, 2200e-6]) * self.goc_source_mass
         )  # umol kg-1 -> mol
-        self.phosphorus = np.array([2e-6, 2e-6, 2e-6]) * self.mass_0  # mol
-        self.nitrate = np.array([30e-6, 30e-6, 30e-6]) * self.mass_0  # mol
+        self.phosphorus = np.array([2e-6, 2e-6, 2e-6]) * self.goc_source_mass  # mol
+        self.nitrate = np.array([30e-6, 30e-6, 30e-6]) * self.goc_source_mass  # mol
         self.del_13_c = np.array([-0.5, -0.5, -0.5])  # *self._carbon # permil
         self.del_14_c = np.array([100, 100, 100])  # *self.carbon # permil
 
@@ -79,10 +79,12 @@ class GoCModel:
         # columns correspond to BC box, rows to tracers (tracers, bc_box)
         # this will be fed by CYCLOPS
         # will be read in here as a matrix of size 4 (tracers),200 (time)
+        # will be something like io.readfile(data/CYCLOPS)
+        # self.boundary_condition = None
         self.boundary_condition = np.array(
             [
                 [2000e-6 * self.np_mid_mass, 2000e-6 * self.np_surf_mass],
-                [2400e-3 * self.np_mid_mass, 2600e-6 * self.np_surf_mass],
+                [2200e-3 * self.np_mid_mass, 2200e-6 * self.np_surf_mass],
                 [3e-6 * self.np_mid_mass, 3e-6 * self.np_surf_mass],
                 [35e-6 * self.np_mid_mass, 35e-6 * self.np_surf_mass],
                 [-0.1, -0.1],
@@ -100,9 +102,9 @@ class GoCModel:
         # initialize biological pump export
         self.num_surf = 1
         self.num_interior = 2
-        self.export_matrix = np.array(
-            [[1, 0, 0], [0, 0, -1], [0, 1, 0]]
-        )  # Export matrix; fraction of export from surface (column) to interior (row)
+
+        # Export matrix; fraction of export from surface (column) to interior (row)
+        self.export_matrix = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]])
         self.result = None
         self.carbonate_chemistry = None
         self.time = None
@@ -131,6 +133,8 @@ class GoCModel:
         all tracers for box 3 === stateA[:,3]
         tracer 2 for all boxes === stateA[2,:]
         """
+        # This is where I feed new boundary condition in
+
         state_a = np.hstack(
             (state_v.T.reshape(self.num_tracer, self.num_box), self.boundary_condition)
         )
@@ -211,6 +215,7 @@ class GoCModel:
         [:,: self.num_box] grabs all rows (tracers) and all columns up to the number of boxes
         from the box model (excluding boundary condition boxes)
         """
+
         state_a = self.make_state_a(statev)
         io.make_text(state_a, self.tracers_arr)
         d_dt = (self.transport_matrix @ state_a.T).T[
