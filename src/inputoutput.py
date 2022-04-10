@@ -18,12 +18,6 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
     """makes all plots"""
     fig, ax = plt.subplots(5, figsize=(16, 20), sharex=True)
 
-    for i in range(0, 3):
-        tracers[i, :] = conversions.moles_to_micromoles_kg(tracers[i, :], mass[i])
-    for i in range(3, 6):
-        for j in range(0, 3):
-            tracers[i, :] = conversions.moles_to_micromoles_kg(tracers[i, :], mass[j])
-
     ax[0].plot(time, carbonate_chemistry[3, 0, :], label="Baja California pH")
     ax[1].plot(time, tracers[0, :], label="Baja California C")
     ax[2].plot(time, tracers[3, :], label="Baja California ALK")

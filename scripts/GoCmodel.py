@@ -56,12 +56,12 @@ class GoCModel:
             np.array([2000e-6, 2000e-6, 2000e-6]) * self.goc_source_mass
         )  # umol kg-1 -> mol
         self.alkalinity = (
-            np.array([2200e-6, 2200e-6, 2200e-6]) * self.goc_source_mass
+            np.array([2000e-6, 2000e-6, 2000e-6]) * self.goc_source_mass
         )  # umol kg-1 -> mol
         self.phosphorus = np.array([2e-6, 2e-6, 2e-6]) * self.goc_source_mass  # mol
         self.nitrate = np.array([30e-6, 30e-6, 30e-6]) * self.goc_source_mass  # mol
-        self.del_13_c = np.array([-0.5, -0.5, -0.5])  # *self._carbon # permil
-        self.del_14_c = np.array([100, 100, 100])  # *self.carbon # permil
+        self.del_13_c = np.array([-0.5, -0.5, -0.5]) * self.carbon  # permil
+        self.del_14_c = np.array([100, 100, 100]) * self.carbon  # permil
 
         # Initial state of tracers
         self.state_v0 = np.hstack(
@@ -84,7 +84,7 @@ class GoCModel:
         self.boundary_condition = np.array(
             [
                 [2000e-6 * self.np_mid_mass, 2000e-6 * self.np_surf_mass],
-                [2200e-3 * self.np_mid_mass, 2200e-6 * self.np_surf_mass],
+                [2000e-6 * self.np_mid_mass, 2000e-6 * self.np_surf_mass],
                 [3e-6 * self.np_mid_mass, 3e-6 * self.np_surf_mass],
                 [35e-6 * self.np_mid_mass, 35e-6 * self.np_surf_mass],
                 [-0.1, -0.1],
@@ -188,15 +188,25 @@ class GoCModel:
 
     def carb_chem(self):
         """
-        using pyCO2sys to solve carbonate chemistry
+        Converts DIC and ALK to microles/kg then
+        uses pyCO2sys to solve carbonate chemistry
         returns DIC speciation, pH, omega and pCO2
         """
-        dic_bc = self.result.y[0, :] / self.mass[0]
-        alk_bc = self.result.y[3, :] / self.mass[0]
-        dic_goc_deep = self.result.y[1, :] / self.mass[1]
-        alk_goc_deep = self.result.y[4, :] / self.mass[1]
-        dic_goc_surf = self.result.y[2, :] / self.mass[2]
-        alk_goc_surf = self.result.y[5, :] / self.mass[2]
+
+        for i in range(0, 3):
+            self.result.y[i, :] = conversions.moles_to_micromoles_kg(
+                self.result.y[i, :], self.mass[i]
+            )
+            self.result.y[i + 3, :] = conversions.moles_to_micromoles_kg(
+                self.result.y[i + 3, :], self.mass[i]
+            )
+
+        dic_bc = self.result.y[0, :]
+        dic_goc_deep = self.result.y[1, :]
+        dic_goc_surf = self.result.y[2, :]
+        alk_bc = self.result.y[3, :]
+        alk_goc_deep = self.result.y[4, :]
+        alk_goc_surf = self.result.y[5, :]
         dic = [dic_bc, dic_goc_deep, dic_goc_surf]
         alk = [alk_bc, alk_goc_deep, alk_goc_surf]
         carbon_chemistry = pyco2.sys(par1=alk, par2=dic, par1_type=1, par2_type=2)
@@ -217,6 +227,7 @@ class GoCModel:
         """
 
         state_a = self.make_state_a(statev)
+        # print(state_a[0, 0])
         io.make_text(state_a, self.tracers_arr)
         d_dt = (self.transport_matrix @ state_a.T).T[
             :, : self.num_box
@@ -227,7 +238,7 @@ class GoCModel:
 
     def run_box_model(self, tmax):
         """runs the box model with ODE solver giving stateV0 as initial condition"""
-        time = np.linspace(0, tmax, 200)  # t0, tmax, nsteps
+        time = np.linspace(0, tmax, 25)  # t0, tmax, nsteps
 
         self.result = solve_ivp(
             self.box_model,
@@ -237,8 +248,10 @@ class GoCModel:
             t_eval=time,
             vectorized=True,
         )  # should we allow user to specific nsteps for this function?
-
+        print(self.result.y[3, :])
         self.carbonate_chemistry = self.carb_chem()
+        print(self.result.y[3, :])
+
         self.time = np.flipud(self.result.t)  # plot from past to present
         self.output = self.result.y
         # print(self.output.shape)
