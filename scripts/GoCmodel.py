@@ -24,7 +24,7 @@ class GoCModel:
 
         self.num_box = 3
         self.num_bc = 2
-        self.num_tracer = 6
+        self.num_tracer = 5
         self.boxlabel = [
             "Shadow box",
             "Gulf of California-Deep",
@@ -52,27 +52,19 @@ class GoCModel:
         )  # mass vector
 
         # set up tracers inital values
-        self.carbon = (
-            np.array([2000e-6, 2000e-6, 2000e-6]) * self.goc_source_mass
-        )  # umol kg-1 -> mol
-        self.alkalinity = (
-            np.array([2000e-6, 2000e-6, 2000e-6]) * self.goc_source_mass
-        )  # umol kg-1 -> mol
-        self.phosphorus = np.array([2e-6, 2e-6, 2e-6]) * self.goc_source_mass  # mol
-        self.nitrate = np.array([30e-6, 30e-6, 30e-6]) * self.goc_source_mass  # mol
+        self.carbon = np.array(
+            [2000, 2000, 2000]
+        )  # * self.goc_source_mass  # umol kg-1 -> mol
+        self.alkalinity = np.array(
+            [2200, 2200, 2200]
+        )  # * self.goc_source_mass  # umol kg-1 -> mol
+        self.nitrate = np.array([30, 30, 30])  # * self.goc_source_mass  # mol
         self.del_13_c = np.array([-0.5, -0.5, -0.5]) * self.carbon  # permil
         self.del_14_c = np.array([100, 100, 100]) * self.carbon  # permil
 
         # Initial state of tracers
         self.state_v0 = np.hstack(
-            (
-                self.carbon,
-                self.alkalinity,
-                self.phosphorus,
-                self.nitrate,
-                self.del_13_c,
-                self.del_14_c,
-            )
+            (self.carbon, self.alkalinity, self.nitrate, self.del_13_c, self.del_14_c,)
         )
 
         # Values of tracers in boundary conditions
@@ -83,12 +75,11 @@ class GoCModel:
         # self.boundary_condition = None
         self.boundary_condition = np.array(
             [
-                [2000e-6 * self.np_mid_mass, 2000e-6 * self.np_surf_mass],
-                [2000e-6 * self.np_mid_mass, 2000e-6 * self.np_surf_mass],
-                [3e-6 * self.np_mid_mass, 3e-6 * self.np_surf_mass],
-                [35e-6 * self.np_mid_mass, 35e-6 * self.np_surf_mass],
-                [-0.1, -0.1],
-                [200, 200],
+                [2200, 2200],
+                [2400, 2400],
+                [35, 35],
+                [2000 * -0.1, 2000 * -0.1],
+                [2000 * 200, 2000 * 200],
             ]
         )
 
@@ -110,7 +101,7 @@ class GoCModel:
         self.time = None
         self.epsi_assim = 1
         self.output = None
-        self.tracers_arr = np.zeros((6, 5, 1))
+        self.tracers_arr = np.zeros((5, 5, 1))
 
         self.cols = [
             "year",
@@ -139,14 +130,6 @@ class GoCModel:
             (state_v.T.reshape(self.num_tracer, self.num_box), self.boundary_condition)
         )
         return state_a
-
-    def isotopes(
-        self, flux_in, flux_out, delta_in, delta_out, delta_box, box_inventory
-    ):
-        """solves isotope mass balance"""
-        return (
-            flux_in * (delta_in - delta_box) - flux_out * (delta_out - delta_box)
-        ) / box_inventory
 
     def production(self, state_a):
         """this could be used to calculate bio pump"""
@@ -193,13 +176,13 @@ class GoCModel:
         returns DIC speciation, pH, omega and pCO2
         """
 
-        for i in range(0, 3):
-            self.result.y[i, :] = conversions.moles_to_micromoles_kg(
-                self.result.y[i, :], self.mass[i]
-            )
-            self.result.y[i + 3, :] = conversions.moles_to_micromoles_kg(
-                self.result.y[i + 3, :], self.mass[i]
-            )
+        # for i in range(0, 3):
+        #     self.result.y[i, :] = conversions.moles_to_micromoles_kg(
+        #         self.result.y[i, :], self.mass[i]
+        #     )
+        #     self.result.y[i + 3, :] = conversions.moles_to_micromoles_kg(
+        #         self.result.y[i + 3, :], self.mass[i]
+        #     )
 
         dic_bc = self.result.y[0, :]
         dic_goc_deep = self.result.y[1, :]
@@ -248,9 +231,7 @@ class GoCModel:
             t_eval=time,
             vectorized=True,
         )  # should we allow user to specific nsteps for this function?
-        print(self.result.y[3, :])
         self.carbonate_chemistry = self.carb_chem()
-        print(self.result.y[3, :])
 
         self.time = np.flipud(self.result.t)  # plot from past to present
         self.output = self.result.y

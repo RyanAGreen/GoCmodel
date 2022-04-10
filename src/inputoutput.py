@@ -19,13 +19,23 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
     fig, ax = plt.subplots(5, figsize=(16, 20), sharex=True)
 
     ax[0].plot(time, carbonate_chemistry[3, 0, :], label="Baja California pH")
-    ax[1].plot(time, tracers[0, :], label="Baja California C")
-    ax[2].plot(time, tracers[3, :], label="Baja California ALK")
+    ax[1].plot(
+        time, tracers[0, :], label="Baja California C",
+    )
+    # ax[2].plot(
+    #     time,
+    #     conversions.moles_to_micromoles_kg(tracers[3, :], mass[0]),
+    #     label="Baja California ALK",
+    # )
+
+    ax[2].plot(
+        time, tracers[3, :], label="Baja California ALK",
+    )
     ax[3].plot(
-        time, tracers[12, :], label="Baja California δ$^{13}$C",
+        time, tracers[9, :] / tracers[0, :], label="Baja California δ$^{13}$C",
     )
     ax[4].plot(
-        time, tracers[15, :], label="Baja California ∆$^{14}$C",
+        time, tracers[12, :] / tracers[0, :], label="Baja California ∆$^{14}$C",
     )
 
     ax[0].plot(
@@ -38,10 +48,16 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         time, tracers[4, :], linestyle="dotted", label="GoC deep ALK",
     )
     ax[3].plot(
-        time, tracers[13, :], linestyle="dotted", label="GoC deep δ$^{13}$C",
+        time,
+        tracers[10, :] / tracers[1, :],
+        linestyle="dotted",
+        label="GoC deep δ$^{13}$C",
     )
     ax[4].plot(
-        time, tracers[16, :], linestyle="dotted", label="GoC deep ∆$^{14}$C",
+        time,
+        tracers[13, :] / tracers[1, :],
+        linestyle="dotted",
+        label="GoC deep ∆$^{14}$C",
     )
 
     ax[0].plot(
@@ -54,10 +70,16 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         time, tracers[5, :], linestyle="dashed", label="GoC surface ALK",
     )
     ax[3].plot(
-        time, tracers[14, :], linestyle="dashed", label="GoC surface δ$^{13}$C",
+        time,
+        tracers[11, :] / tracers[2, :],
+        linestyle="dashed",
+        label="GoC surface δ$^{13}$C",
     )
     ax[4].plot(
-        time, tracers[17, :], linestyle="dashed", label="GoC surface ∆$^{14}$C",
+        time,
+        tracers[14, :] / tracers[2, :],
+        linestyle="dashed",
+        label="GoC surface ∆$^{14}$C",
     )
 
     ax[0].legend(loc=1)
