@@ -76,7 +76,7 @@ class GoCModel:
         self.transport_matrix = circulation.make_transport_matrix(
             self.num_box, self.num_bc, svedrup_matrix, self.mass
         )
-
+        self.count = 0
         # initialize biological pump export
         self.num_surf = 1
         self.num_interior = 2
@@ -98,10 +98,15 @@ class GoCModel:
         tracer 2 for all boxes === stateA[2,:]
         """
         # This is where I feed new boundary condition in
-
+        if self.count % 100 == 0:
+            self.boundary_condition = io.read_bc(
+                "data/ISchange/2Druns/Powell2Dinversion.txt", self.count / 100
+            )
         state_a = np.hstack(
             (state_v.T.reshape(self.num_tracer, self.num_box), self.boundary_condition)
         )
+
+        self.count += 1
         return state_a
 
     def production(self, state_a):
@@ -194,7 +199,7 @@ class GoCModel:
 
     def run_box_model(self, tmax):
         """runs the box model with ODE solver giving stateV0 as initial condition"""
-        time = np.linspace(0, tmax, 25)  # t0, tmax, nsteps
+        time = np.linspace(0, tmax, 200)  # t0, tmax, nsteps
 
         self.result = solve_ivp(
             self.box_model,
