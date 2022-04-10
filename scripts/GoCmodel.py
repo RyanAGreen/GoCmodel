@@ -67,22 +67,9 @@ class GoCModel:
             (self.carbon, self.alkalinity, self.nitrate, self.del_13_c, self.del_14_c,)
         )
 
-        # Values of tracers in boundary conditions
-        # columns correspond to BC box, rows to tracers (tracers, bc_box)
-        # this will be fed by CYCLOPS
-        # will be read in here as a matrix of size 4 (tracers),200 (time)
-        # will be something like io.readfile(data/CYCLOPS)
-        # self.boundary_condition = None
-        self.boundary_condition = np.array(
-            [
-                [2200, 2200],
-                [2400, 2400],
-                [35, 35],
-                [2000 * -0.1, 2000 * -0.1],
-                [2000 * 200, 2000 * 200],
-            ]
+        self.boundary_condition = io.read_bc(
+            "data/ISchange/2Druns/Powell2Dinversion.txt", 0
         )
-
         svedrup_matrix = circulation.circ(
             self.num_box, self.num_bc, 0.45, 0.1, 0.1, 0.1, 0.1
         )
@@ -102,20 +89,6 @@ class GoCModel:
         self.epsi_assim = 1
         self.output = None
         self.tracers_arr = np.zeros((5, 5, 1))
-
-        self.cols = [
-            "year",
-            "ALKintNP",
-            "ALKsurfNP",
-            "DICintNP",
-            "DICsurfNP",
-            "NintNP",
-            "NsurfNP",
-            "D14CintNP",
-            "D14CsurfNP",
-            "d13CintNP",
-            "d13CsurfNP",
-        ]
 
     def make_state_a(self, state_v):
         """makes new state in matrix format. Boxes are in columns and tracers are in

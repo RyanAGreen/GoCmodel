@@ -113,7 +113,7 @@ def read_data(txt):
     return df
 
 
-def read_bc(file):
+def read_bc(file, row):
     df = pd.read_table(str(file), sep="\s+", header=None)
     df = df.rename(
         columns={
@@ -142,6 +142,16 @@ def read_bc(file):
             22: "NPacCSH",
         }
     )
+    bc = np.array(
+        [
+            [df["DICintNP"][row], df["DICsurfNP"][row]],
+            [df["ALKintNP"][row], df["ALKsurfNP"][row]],
+            [df["NintNP"][row], df["NsurfNP"][row]],
+            [df["d13CintNP"][row], df["d13CsurfNP"][row]],
+            [df["D14CintNP"][row], df["D14CsurfNP"][row]],
+        ]
+    )
+    return bc
 
 
 def organize_data(df):
