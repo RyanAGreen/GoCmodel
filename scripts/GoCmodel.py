@@ -188,14 +188,12 @@ class GoCModel:
         #         self.result.y[i + 3, :], self.mass[i]
         #     )
 
-        dic_bc = self.result.y[0, :]
-        dic_goc_deep = self.result.y[1, :]
-        dic_goc_surf = self.result.y[2, :]
-        alk_bc = self.result.y[3, :]
-        alk_goc_deep = self.result.y[4, :]
-        alk_goc_surf = self.result.y[5, :]
-        dic = [dic_bc, dic_goc_deep, dic_goc_surf]
-        alk = [alk_bc, alk_goc_deep, alk_goc_surf]
+        dic = []
+        alk = []
+        for i in range(3):
+            dic.append(self.result.y[i, :])
+            alk.append(self.result.y[i + 3, :])
+
         carbon_chemistry = pyco2.sys(par1=alk, par2=dic, par1_type=1, par2_type=2)
         values = ["HCO3", "CO3", "CO2", "pH", "saturation_calcite", "pCO2"]
         carbonate_results = []
