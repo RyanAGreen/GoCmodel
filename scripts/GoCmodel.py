@@ -53,14 +53,14 @@ class GoCModel:
 
         # set up tracers inital values
         self.carbon = np.array(
-            [2000, 2000, 2000]
+            [2400, 2400, 2300]
         )  # * self.goc_source_mass  # umol kg-1 -> mol
         self.alkalinity = np.array(
-            [2200, 2200, 2200]
+            [2450, 2450, 2450]
         )  # * self.goc_source_mass  # umol kg-1 -> mol
         self.nitrate = np.array([30, 30, 30])  # * self.goc_source_mass  # mol
-        self.del_13_c = np.array([-0.5, -0.5, -0.5]) * self.carbon  # permil
-        self.del_14_c = np.array([100, 100, 100]) * self.carbon  # permil
+        self.del_13_c = np.array([0.5, 0.5, 0.75]) * self.carbon  # permil
+        self.del_14_c = np.array([0, 0, 0]) * self.carbon  # permil
 
         # Initial state of tracers
         self.state_v0 = np.hstack(
@@ -70,6 +70,12 @@ class GoCModel:
         self.boundary_condition = io.read_bc(
             "data/ISchange/2Druns/Powell2Dinversion.txt", 0
         )
+        self.carbon_add_scenario = io.read_cadd_scenario(
+            "data/ISchange/2Druns/Powell2Dinversion.txt"
+        )
+        self.carbon_add = self.carbon_add_scenario[0, 0]
+        self.alk_dic_ratio = self.carbon_add_scenario[0, 1]
+
         svedrup_matrix = circulation.circ(
             self.num_box, self.num_bc, 0.45, 0.1, 0.1, 0.1, 0.1
         )
@@ -91,13 +97,13 @@ class GoCModel:
         self.tracers_arr = np.zeros((5, 5, 1))
 
     def make_state_a(self, state_v):
-        """makes new state in matrix format. Boxes are in columns and tracers are in
+        """Gets called every year and makes new state in matrix format. Boxes are in columns and tracers are in
         rows.
         example:
         all tracers for box 3 === stateA[:,3]
         tracer 2 for all boxes === stateA[2,:]
+        we feed in time evolving boundary condition from CYCLOPS every 100 years
         """
-        # This is where I feed new boundary condition in
         if self.count % 100 == 0:
             self.boundary_condition = io.read_bc(
                 "data/ISchange/2Druns/Powell2Dinversion.txt", self.count / 100
@@ -108,6 +114,26 @@ class GoCModel:
 
         self.count += 1
         return state_a
+
+    def geologic_carbon_add(self):
+        """geologic carbon addition"""
+
+        if self.count % 100 == 0:
+            self.carbon_add = self.carbon_add_scenario[self.count / 100, 0]
+            self.alk_dic_ratio = self.carbon_add_scenario[self.count / 100, 1]
+
+        d_dt = np.zeros((self.num_tracer, self.num_box))
+        d_dt[0, 0] = self.carbon_add / self.mass[0]  # DIC to shadow source box
+        d_dt[1, 0] = self.alk_dic_ratio / self.mass[0]  # ALK to shadow source box
+        d_dt[3, 0] = -1 * d_dt[0, 0]  # d13C to shadow source box
+        d_dt[4, 0] = 0  # D14C to shadow source box
+
+        d_dt[0, 1] = self.carbon_add / self.mass[1]  # DIC to GoC subsurface
+        d_dt[1, 1] = self.alk_dic_ratio / self.mass[1]  # ALK to GoC subsurface
+        d_dt[3, 1] = -1 * d_dt[0, 0]  # d13C to GoC subsurface
+        d_dt[4, 1] = 0  # D14C to GoC subsurface
+
+        return
 
     def production(self, state_a):
         """this could be used to calculate bio pump"""
@@ -193,6 +219,7 @@ class GoCModel:
         d_dt = (self.transport_matrix @ state_a.T).T[
             :, : self.num_box
         ]  # multiplying tracers by fluxes
+        d_dt += self.geologic_carbon_add()
         # d_dt += self.prod(stateA)
         # d_dt += self.Fix(stateA)
         return d_dt.flatten()
