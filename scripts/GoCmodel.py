@@ -26,16 +26,19 @@ class GoCModel:
         self.num_bc = 2
         self.num_tracer = 5
         self.boxlabel = [
-            "Shadow box",
-            "Gulf of California-Deep",
+            "Shadow zone source box",
+            "Gulf of California-Subsurface",
             "Gulf of California-Surface",
         ]
 
         self.goc_mass = 1.45e14 * 1026.8
+        self.goc_model_mass = self.goc_mass * 0.2
         """
         kg,calculated from GoC volume (1.45e+14 m3) * density of sw (kg/m3)
         """
+        # self.goc_surface_mass = self.goc_model_mass * 0.33  # kg
         self.goc_surface_mass = self.goc_mass * 0.33  # kg
+        # self.goc_mid_mass = self.goc_model_mass * 0.67  # kg
         self.goc_mid_mass = self.goc_mass * 0.67  # kg
         self.goc_source_mass = self.goc_mass * 10  # kg
         self.np_surf_mass = self.goc_source_mass * 20  # kg
@@ -59,7 +62,7 @@ class GoCModel:
             [2450, 2450, 2450]
         )  # * self.goc_source_mass  # umol kg-1 -> mol
         self.nitrate = np.array([30, 30, 30])  # * self.goc_source_mass  # mol
-        self.del_13_c = np.array([0.5, 0.5, 0.75]) * self.carbon  # permil
+        self.del_13_c = np.array([0, 0, 0.0]) * self.carbon  # permil
         self.del_14_c = np.array([0, 0, 0]) * self.carbon  # permil
 
         # Initial state of tracers
@@ -68,13 +71,20 @@ class GoCModel:
         )
 
         self.boundary_condition = io.read_bc(
-            "data/ISchange/2Druns/Powell2Dinversion.txt", 0
+            "data/ISchange/2Dinversion/Powell2Dinversion.txt", 0
         )
+
+        # self.boundary_condition = io.read_bc(
+        #     "data/NoISchange/ForwardRun/control.txt", 0
+        # )
         self.carbon_add_scenario = io.read_cadd_scenario(
-            "data/ISchange/2Druns/Powell2Dinversion.txt"
+            "data/ISchange/2Dinversion/Powell2Dinversion.txt", 0
         )
-        self.carbon_add = self.carbon_add_scenario[0, 0]
-        self.alk_dic_ratio = self.carbon_add_scenario[0, 1]
+        print(self.carbon_add_scenario.shape, self.boundary_condition.shape)
+
+        self.carbon_add = self.carbon_add_scenario[0]
+        self.alk_dic_ratio = self.carbon_add_scenario[1]
+        # print(self.carbon_add.type)
 
         svedrup_matrix = circulation.circ(
             self.num_box, self.num_bc, 0.45, 0.1, 0.1, 0.1, 0.1
@@ -106,34 +116,83 @@ class GoCModel:
         """
         if self.count % 100 == 0:
             self.boundary_condition = io.read_bc(
-                "data/ISchange/2Druns/Powell2Dinversion.txt", self.count / 100
+                "data/ISchange/2Dinversion/Powell2Dinversion.txt", self.count / 100
             )
+            # print(self.boundary_condition[4, 0])
+
+        # try:
+        #     if self.count % 100 == 0:
+        #         self.boundary_condition = io.read_bc(
+        #             "data/NoISchange/ForwardRun/control.txt", self.time / 100
+        #         )
+        # except:
+        #     if self.count % 100 == 0:
+        #         self.boundary_condition = io.read_bc(
+        #             "data/NoISchange/ForwardRun/control.txt", 200
+        #         )
+        #         print(self.time)
+
+        # need to figure out why this runs 200 years past what we ask
+        # try:
+        #     if self.count % 100 == 0:
+        #         self.carbon_add_scenario = io.read_cadd_scenario(
+        #             "data/ISchange/2Dinversion/Powell2Dinversion.txt", self.count / 100
+        #         )
+        #         self.carbon_add = self.carbon_add_scenario[0]
+        #         self.alk_dic_ratio = self.carbon_add_scenario[1]
+
+        # except:
+        #     self.carbon_add_scenario = io.read_cadd_scenario(
+        #         "data/ISchange/2Dinversion/Powell2Dinversion.txt", 200
+        #     )
+        #     self.carbon_add = self.carbon_add_scenario[0]
+        #     self.alk_dic_ratio = self.carbon_add_scenario[1]
+
+        # if self.count % 100 == 0:
+        #     year = int(self.count / 100)
+        #     self.carbon_add = self.carbon_add_scenario[year, 0]
+        #     self.alk_dic_ratio = self.carbon_add_scenario[year, 1]
+
         state_a = np.hstack(
             (state_v.T.reshape(self.num_tracer, self.num_box), self.boundary_condition)
         )
 
-        self.count += 1
         return state_a
 
     def geologic_carbon_add(self):
         """geologic carbon addition"""
 
-        if self.count % 100 == 0:
-            self.carbon_add = self.carbon_add_scenario[self.count / 100, 0]
-            self.alk_dic_ratio = self.carbon_add_scenario[self.count / 100, 1]
+        # if self.count % 100 == 0:
+        #     year = int(self.count / 100) - 1
+        #     self.carbon_add = self.carbon_add_scenario[year, 0]
+        #     self.alk_dic_ratio = self.carbon_add_scenario[year, 1]
+
+        # if self.count % 100 == 0:
+
+        #     self.carbon_add_scenario = io.read_cadd_scenario(
+        #         "data/ISchange/2Dinversion/Powell2Dinversion.txt", self.count / 100
+        #     )
+        carbon_flux_goc_source = (self.carbon_add * 0.5) / self.mass[0]
+        carbon_flux_goc_subsurface = (self.carbon_add * 0.5) / self.mass[1]
 
         d_dt = np.zeros((self.num_tracer, self.num_box))
-        d_dt[0, 0] = self.carbon_add / self.mass[0]  # DIC to shadow source box
-        d_dt[1, 0] = self.alk_dic_ratio / self.mass[0]  # ALK to shadow source box
-        d_dt[3, 0] = -1 * d_dt[0, 0]  # d13C to shadow source box
+        d_dt[0, 0] = carbon_flux_goc_source  # DIC to shadow source box
+        d_dt[1, 0] = (
+            self.alk_dic_ratio * carbon_flux_goc_source
+        )  # ALK to shadow source box
+        d_dt[3, 0] = -9 * carbon_flux_goc_source  # d13C to shadow source box
         d_dt[4, 0] = 0  # D14C to shadow source box
 
-        d_dt[0, 1] = self.carbon_add / self.mass[1]  # DIC to GoC subsurface
-        d_dt[1, 1] = self.alk_dic_ratio / self.mass[1]  # ALK to GoC subsurface
-        d_dt[3, 1] = -1 * d_dt[0, 0]  # d13C to GoC subsurface
+        d_dt[0, 1] = carbon_flux_goc_subsurface  # DIC to GoC subsurface
+        d_dt[1, 1] = (
+            self.alk_dic_ratio * carbon_flux_goc_subsurface
+        )  # ALK to GoC subsurface
+        d_dt[3, 1] = -9 * carbon_flux_goc_subsurface  # d13C to GoC subsurface
         d_dt[4, 1] = 0  # D14C to GoC subsurface
+        # if carbon_flux_goc_source > 0.1:
+        #     print(carbon_flux_goc_source)
 
-        return
+        return d_dt
 
     def production(self, state_a):
         """this could be used to calculate bio pump"""
@@ -213,37 +272,46 @@ class GoCModel:
 
         state_a = self.make_state_a(statev)
         # print(state_a[0, 0])
-        io.make_text(state_a, self.tracers_arr)
+        # io.make_text(state_a, self.tracers_arr)
         d_dt = (self.transport_matrix @ state_a.T).T[
             :, : self.num_box
         ]  # multiplying tracers by fluxes
-        d_dt += self.geologic_carbon_add()
+
+        # this isn't working
+        # d_dt += self.geologic_carbon_add()
         # d_dt += self.prod(stateA)
         # d_dt += self.Fix(stateA)
+
+        self.count += 1
+        # if self.count % 25 == 0:
+        #     # print(self.count)
         return d_dt.flatten()
 
-    def run_box_model(self, tmax):
+    def run_box_model(self, tmax, step_size):
         """runs the box model with ODE solver giving stateV0 as initial condition"""
-        time = np.linspace(0, tmax, 200)  # t0, tmax, nsteps
+        # self.time = np.arange(0, tmax + step_size, step_size)
+        self.time = np.linspace(0, tmax, 200)
 
         self.result = solve_ivp(
             self.box_model,
             [0, tmax],
             self.state_v0,
             method="RK45",
-            t_eval=time,
+            t_eval=self.time,
             vectorized=True,
-        )  # should we allow user to specific nsteps for this function?
+        )
         self.carbonate_chemistry = self.carb_chem()
 
         self.time = np.flipud(self.result.t)  # plot from past to present
+        # print(self.result.nfev, self.result.njev)
         self.output = self.result.y
         # print(self.output.shape)
-        print(self.carbonate_chemistry.shape)  # [tracer,box,year]
+        # print(self.carbonate_chemistry.shape)  # [tracer,box,year]
         io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
 
 
 if __name__ == "__main__":
 
     ModelInstance = GoCModel()
-    ModelInstance.run_box_model(20000)
+    ModelInstance.run_box_model(20000, 100)
+
