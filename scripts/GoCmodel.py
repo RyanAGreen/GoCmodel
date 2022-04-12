@@ -62,12 +62,12 @@ class GoCModel:
             [2450, 2450, 2450]
         )  # * self.goc_source_mass  # umol kg-1 -> mol
         self.nitrate = np.array([30, 30, 30])  # * self.goc_source_mass  # mol
-        self.del_13_c = np.array([0, 0, 0.0]) * self.carbon  # permil
+        self.del_13_c = np.array([0, 0, 0]) * self.carbon  # permil
         self.del_14_c = np.array([0, 0, 0]) * self.carbon  # permil
 
         # Initial state of tracers
         self.state_v0 = np.hstack(
-            (self.carbon, self.alkalinity, self.nitrate, self.del_13_c, self.del_14_c,)
+            (self.carbon, self.alkalinity, self.nitrate, self.del_13_c, self.del_14_c)
         )
 
         self.boundary_condition = io.read_bc(
@@ -102,11 +102,12 @@ class GoCModel:
         self.result = None
         self.carbonate_chemistry = None
         self.time = None
+        self.index_time = np.arange(0, 20100, 100)
         self.epsi_assim = 1
         self.output = None
         self.tracers_arr = np.zeros((5, 5, 1))
 
-    def make_state_a(self, state_v):
+    def make_state_a(self, state_v, time):
         """Gets called every year and makes new state in matrix format. Boxes are in columns and tracers are in
         rows.
         example:
@@ -114,44 +115,20 @@ class GoCModel:
         tracer 2 for all boxes === stateA[2,:]
         we feed in time evolving boundary condition from CYCLOPS every 100 years
         """
-        if self.count % 100 == 0:
+
+        if int(time) % 100 == 0:
             self.boundary_condition = io.read_bc(
-                "data/ISchange/2Dinversion/Powell2Dinversion.txt", self.count / 100
+                "data/ISchange/2Dinversion/Powell2Dinversion.txt",
+                (int(time) / 100)
+                # "data/NoISchange/ForwardRun/control.txt"
             )
-            # print(self.boundary_condition[4, 0])
 
-        # try:
-        #     if self.count % 100 == 0:
-        #         self.boundary_condition = io.read_bc(
-        #             "data/NoISchange/ForwardRun/control.txt", self.time / 100
-        #         )
-        # except:
-        #     if self.count % 100 == 0:
-        #         self.boundary_condition = io.read_bc(
-        #             "data/NoISchange/ForwardRun/control.txt", 200
-        #         )
-        #         print(self.time)
-
-        # need to figure out why this runs 200 years past what we ask
-        # try:
-        #     if self.count % 100 == 0:
-        #         self.carbon_add_scenario = io.read_cadd_scenario(
-        #             "data/ISchange/2Dinversion/Powell2Dinversion.txt", self.count / 100
-        #         )
-        #         self.carbon_add = self.carbon_add_scenario[0]
-        #         self.alk_dic_ratio = self.carbon_add_scenario[1]
-
-        # except:
-        #     self.carbon_add_scenario = io.read_cadd_scenario(
-        #         "data/ISchange/2Dinversion/Powell2Dinversion.txt", 200
-        #     )
-        #     self.carbon_add = self.carbon_add_scenario[0]
-        #     self.alk_dic_ratio = self.carbon_add_scenario[1]
-
-        # if self.count % 100 == 0:
-        #     year = int(self.count / 100)
-        #     self.carbon_add = self.carbon_add_scenario[year, 0]
-        #     self.alk_dic_ratio = self.carbon_add_scenario[year, 1]
+        if int(time) % 100 == 0:
+            self.carbon_add_scenario = io.read_cadd_scenario(
+                "data/ISchange/2Dinversion/Powell2Dinversion.txt", (int(time) / 100)
+            )
+            self.carbon_add = self.carbon_add_scenario[0]
+            self.alk_dic_ratio = self.carbon_add_scenario[1]
 
         state_a = np.hstack(
             (state_v.T.reshape(self.num_tracer, self.num_box), self.boundary_condition)
@@ -162,18 +139,8 @@ class GoCModel:
     def geologic_carbon_add(self):
         """geologic carbon addition"""
 
-        # if self.count % 100 == 0:
-        #     year = int(self.count / 100) - 1
-        #     self.carbon_add = self.carbon_add_scenario[year, 0]
-        #     self.alk_dic_ratio = self.carbon_add_scenario[year, 1]
-
-        # if self.count % 100 == 0:
-
-        #     self.carbon_add_scenario = io.read_cadd_scenario(
-        #         "data/ISchange/2Dinversion/Powell2Dinversion.txt", self.count / 100
-        #     )
-        carbon_flux_goc_source = (self.carbon_add * 0.5) / self.mass[0]
-        carbon_flux_goc_subsurface = (self.carbon_add * 0.5) / self.mass[1]
+        carbon_flux_goc_source = (self.carbon_add * 0.85) / self.mass[0]
+        carbon_flux_goc_subsurface = (self.carbon_add * 0.15) / self.mass[1]
 
         d_dt = np.zeros((self.num_tracer, self.num_box))
         d_dt[0, 0] = carbon_flux_goc_source  # DIC to shadow source box
@@ -270,7 +237,7 @@ class GoCModel:
         from the box model (excluding boundary condition boxes)
         """
 
-        state_a = self.make_state_a(statev)
+        state_a = self.make_state_a(statev, time)
         # print(state_a[0, 0])
         # io.make_text(state_a, self.tracers_arr)
         d_dt = (self.transport_matrix @ state_a.T).T[
@@ -282,15 +249,12 @@ class GoCModel:
         # d_dt += self.prod(stateA)
         # d_dt += self.Fix(stateA)
 
-        self.count += 1
-        # if self.count % 25 == 0:
-        #     # print(self.count)
         return d_dt.flatten()
 
     def run_box_model(self, tmax, step_size):
         """runs the box model with ODE solver giving stateV0 as initial condition"""
         # self.time = np.arange(0, tmax + step_size, step_size)
-        self.time = np.linspace(0, tmax, 200)
+        self.time = np.linspace(0, tmax, 201)
 
         self.result = solve_ivp(
             self.box_model,
@@ -300,6 +264,7 @@ class GoCModel:
             t_eval=self.time,
             vectorized=True,
         )
+        # print(self.result.t)
         self.carbonate_chemistry = self.carb_chem()
 
         self.time = np.flipud(self.result.t)  # plot from past to present
