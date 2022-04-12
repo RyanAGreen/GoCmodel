@@ -38,8 +38,8 @@ class GoCModel:
         """
         # self.goc_surface_mass = self.goc_model_mass * 0.33  # kg
         self.goc_surface_mass = self.goc_mass * 0.33  # kg
-        # self.goc_mid_mass = self.goc_model_mass * 0.67  # kg
-        self.goc_mid_mass = self.goc_mass * 0.67  # kg
+        # self.goc_subsurface_mass = self.goc_model_mass * 0.67  # kg
+        self.goc_subsurface_mass = self.goc_mass * 0.67  # kg
         self.goc_source_mass = self.goc_mass * 10  # kg
         self.np_surf_mass = self.goc_source_mass * 20  # kg
         self.np_mid_mass = self.np_surf_mass * 2  # kg
@@ -47,7 +47,7 @@ class GoCModel:
         self.mass = np.array(
             [
                 self.goc_source_mass,
-                self.goc_mid_mass,
+                self.goc_subsurface_mass,
                 self.goc_surface_mass,
                 self.np_mid_mass,
                 self.np_surf_mass,
@@ -80,7 +80,7 @@ class GoCModel:
         self.carbon_add_scenario = io.read_cadd_scenario(
             "data/ISchange/2Dinversion/Powell2Dinversion.txt", 0
         )
-        print(self.carbon_add_scenario.shape, self.boundary_condition.shape)
+        # print(self.carbon_add_scenario.shape, self.boundary_condition.shape)
 
         self.carbon_add = self.carbon_add_scenario[0]
         self.alk_dic_ratio = self.carbon_add_scenario[1]
