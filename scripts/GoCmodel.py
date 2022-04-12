@@ -32,19 +32,15 @@ class GoCModel:
             "Gulf of California-Surface",
         ]
 
+        # kg,calculated from GoC volume
+        # (1.45e+14 m3) * density of sw (kg/m3)
         self.goc_mass = 1.45e14 * 1026.8
         self.goc_model_mass = self.goc_mass * 0.2
-        """
-        kg,calculated from GoC volume (1.45e+14 m3) * density of sw (kg/m3)
-        """
-        # self.goc_surface_mass = self.goc_model_mass * 0.33  # kg
-        self.goc_surface_mass = self.goc_mass * 0.33  # kg
-        # self.goc_subsurface_mass = self.goc_model_mass * 0.67  # kg
-        self.goc_subsurface_mass = self.goc_mass * 0.67  # kg
+        self.goc_surface_mass = self.goc_model_mass * 0.33  # kg
+        self.goc_subsurface_mass = self.goc_model_mass * 0.67  # kg
         self.goc_source_mass = self.goc_mass * 10  # kg
         self.np_surf_mass = self.goc_source_mass * 20  # kg
         self.np_mid_mass = self.np_surf_mass * 2  # kg
-
         self.mass = np.array(
             [
                 self.goc_source_mass,
@@ -53,55 +49,46 @@ class GoCModel:
                 self.np_mid_mass,
                 self.np_surf_mass,
             ]
-        )  # mass vector
+        )
 
-        # set up tracers inital values
-        self.carbon = np.array(
-            [2400, 2400, 2300]
-        )  # * self.goc_source_mass  # umol kg-1 -> mol
-        self.alkalinity = np.array(
-            [2450, 2450, 2450]
-        )  # * self.goc_source_mass  # umol kg-1 -> mol
-        self.nitrate = np.array([30, 30, 30])  # * self.goc_source_mass  # mol
+        # Setting up inital values
+        self.carbon = np.array([2400, 2400, 2300])  # umol/kg
+        self.alkalinity = np.array([2450, 2450, 2450])  # umol/kg
+        self.nitrate = np.array([30, 30, 30])  # umol/kg
         self.del_13_c = np.array([0.1, 0.1, 0.1]) * self.carbon  # permil
         self.del_14_c = np.array([0.1, 0.1, 0.1]) * self.carbon  # permil
 
-        # Initial state of tracers
+        # Packing initial conditions in matrixes
         self.state_v0 = np.hstack(
             (self.carbon, self.alkalinity, self.nitrate, self.del_13_c, self.del_14_c)
         )
-
         self.boundary_condition = io.read_bc(
             "data/ISchange/2Dinversion/Powell2Dinversion.txt", 0
         )
-
         self.carbon_add_scenario = io.read_cadd_scenario(
             "data/ISchange/2Dinversion/Powell2Dinversion.txt"
         )
-
         self.carbon_add = self.carbon_add_scenario[0, 0]
         self.alk_dic_ratio = self.carbon_add_scenario[0, 1]
-
         svedrup_matrix = circulation.circ(
             self.num_box, self.num_bc, 0.45, 0.1, 0.1, 0.1, 0.1
         )
         self.transport_matrix = circulation.make_transport_matrix(
             self.num_box, self.num_bc, svedrup_matrix, self.mass
         )
-        self.count = 0
-        # initialize biological pump export
-        self.num_surf = 1
-        self.num_interior = 2
 
-        # Export matrix; fraction of export from surface (column) to interior (row)
-        self.export_matrix = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]])
         self.result = None
         self.carbonate_chemistry = None
         self.time = None
-        self.index_time = np.arange(0, 20100, 100)
-        self.epsi_assim = 1
         self.output = None
         self.tracers_arr = np.zeros((5, 5, 1))
+
+        # yet to be put into the model
+        # initialize biological pump export
+        self.num_surf = 1
+        self.num_interior = 2
+        # Export matrix; fraction of export from surface (column) to interior (row)
+        self.export_matrix = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]])
 
     def make_state_a(self, state_v, time):
         """Gets called every year and makes new state in matrix format. Boxes are in columns and tracers are in
@@ -135,25 +122,27 @@ class GoCModel:
     def geologic_carbon_add(self):
         """geologic carbon addition"""
 
-        carbon_flux_goc_source = (self.carbon_add * 0.85) / self.mass[0]
-        carbon_flux_goc_subsurface = (self.carbon_add * 0.15) / self.mass[1]
+        carbon_flux_goc_source = (self.carbon_add * 0.95) / self.mass[0]
+        carbon_flux_goc_subsurface = (self.carbon_add * 0.05) / self.mass[1]
 
         d_dt = np.zeros((self.num_tracer, self.num_box))
-        d_dt[0, 0] = carbon_flux_goc_source  # DIC to shadow source box
-        d_dt[1, 0] = (
-            self.alk_dic_ratio * carbon_flux_goc_source
-        )  # ALK to shadow source box
-        d_dt[3, 0] = -9 * carbon_flux_goc_source  # d13C to shadow source box
-        d_dt[4, 0] = -1000 * carbon_flux_goc_source  # D14C to shadow source box
+        # DIC to shadow source box
+        d_dt[0, 0] = carbon_flux_goc_source
+        # ALK to shadow source box
+        d_dt[1, 0] = self.alk_dic_ratio * carbon_flux_goc_source
+        # d13C to shadow source box
+        d_dt[3, 0] = -9 * carbon_flux_goc_source
+        # D14C to shadow source box
+        d_dt[4, 0] = -1000 * carbon_flux_goc_source
 
-        d_dt[0, 1] = carbon_flux_goc_subsurface  # DIC to GoC subsurface
-        d_dt[1, 1] = (
-            self.alk_dic_ratio * carbon_flux_goc_subsurface
-        )  # ALK to GoC subsurface
-        d_dt[3, 1] = -9 * carbon_flux_goc_subsurface  # d13C to GoC subsurface
-        d_dt[4, 1] = -1000 * carbon_flux_goc_subsurface  # D14C to GoC subsurface
-        # if carbon_flux_goc_source > 0.1:
-        #     print(carbon_flux_goc_source)
+        # DIC to GoC subsurface
+        d_dt[0, 1] = carbon_flux_goc_subsurface
+        # ALK to GoC subsurface
+        d_dt[1, 1] = self.alk_dic_ratio * carbon_flux_goc_subsurface
+        # d13C to GoC subsurface
+        d_dt[3, 1] = -9 * carbon_flux_goc_subsurface
+        # D14C to GoC subsurface
+        d_dt[4, 1] = -1000 * carbon_flux_goc_subsurface
 
         return d_dt
 
@@ -201,15 +190,6 @@ class GoCModel:
         uses pyCO2sys to solve carbonate chemistry
         returns DIC speciation, pH, omega and pCO2
         """
-
-        # for i in range(0, 3):
-        #     self.result.y[i, :] = conversions.moles_to_micromoles_kg(
-        #         self.result.y[i, :], self.mass[i]
-        #     )
-        #     self.result.y[i + 3, :] = conversions.moles_to_micromoles_kg(
-        #         self.result.y[i + 3, :], self.mass[i]
-        #     )
-
         dic = []
         alk = []
         for i in range(3):
@@ -234,23 +214,20 @@ class GoCModel:
         """
 
         state_a = self.make_state_a(statev, time)
-        # print(state_a[0, 0])
         # io.make_text(state_a, self.tracers_arr)
-        d_dt = (self.transport_matrix @ state_a.T).T[
-            :, : self.num_box
-        ]  # multiplying tracers by fluxes
 
-        # this isn't working
+        # multiplying tracers by fluxes
+        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
+
         d_dt += self.geologic_carbon_add()
         # d_dt += self.prod(stateA)
         # d_dt += self.Fix(stateA)
 
         return d_dt.flatten()
 
-    def run_box_model(self, tmax, step_size):
+    def run_box_model(self, tmax, num_steps):
         """runs the box model with ODE solver giving stateV0 as initial condition"""
-        # self.time = np.arange(0, tmax + step_size, step_size)
-        self.time = np.linspace(0, tmax, 201)
+        self.time = np.linspace(0, tmax, num_steps)
 
         self.result = solve_ivp(
             self.box_model,
@@ -260,19 +237,17 @@ class GoCModel:
             t_eval=self.time,
             vectorized=True,
         )
-        # print(self.result.t)
-        self.carbonate_chemistry = self.carb_chem()
+        self.carbonate_chemistry = self.carb_chem()  # shape = [tracer,box,year]
 
-        self.time = np.flipud(self.result.t)  # plot from past to present
-        # print(self.result.nfev, self.result.njev)
+        # plot from past to present
+        self.time = np.flipud(self.result.t)
         self.output = self.result.y
-        # print(self.output.shape)
-        # print(self.carbonate_chemistry.shape)  # [tracer,box,year]
+
         io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
 
 
 if __name__ == "__main__":
 
     ModelInstance = GoCModel()
-    ModelInstance.run_box_model(20000, 100)
+    ModelInstance.run_box_model(20000, 201)
 
