@@ -150,6 +150,7 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
 
 
 def read_cadd_scenario(file, row):
+    """input output is slow so we should change this to bringing in array and just referencing the number in the array """
     df = pd.read_table(str(file), sep="\s+", header=None)
     df = df.rename(
         columns={
@@ -217,8 +218,14 @@ def read_bc(file, row):
             [df["DICintNP"][row], df["DICsurfNP"][row]],
             [df["ALKintNP"][row], df["ALKsurfNP"][row]],
             [df["NintNP"][row], df["NsurfNP"][row]],
-            [df["d13CintNP"][row], df["d13CsurfNP"][row]],
-            [df["D14CintNP"][row], df["D14CsurfNP"][row]],
+            [
+                df["d13CintNP"][row] * df["DICintNP"][row],
+                df["d13CsurfNP"][row] * df["DICsurfNP"][row],
+            ],
+            [
+                df["D14CintNP"][row] * df["DICintNP"][row],
+                df["D14CsurfNP"][row] * df["DICsurfNP"][row],
+            ],
         ]
     )
     return bc
