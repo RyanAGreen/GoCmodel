@@ -102,9 +102,9 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
 
     plt.tight_layout()
     try:
-        fig.savefig("results/SummaryPlotLessRetained.pdf")
+        fig.savefig("results/Plot.pdf")
     except:
-        fig.savefig("../results/SummaryPlotLessRetained.pdf")
+        fig.savefig("../results/Plot.pdf")
 
 
 def read_cadd_scenario(file):
