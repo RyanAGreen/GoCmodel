@@ -107,50 +107,10 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         fig.savefig("../results/SummaryPlotLessRetained.pdf")
 
 
-# def read_cadd_scenario(file):
-#     """returns numpy array with rate of carbon addition in
-#     column 0 and ALK:DIC ration in column 1. rows correspond
-#     to 100 year intervals (201,2)"""
-#     df = pd.read_table(str(file), sep="\s+", header=None)
-#     df = df.rename(
-#         columns={
-#             0: "year",
-#             1: "Crate",
-#             2: "ALKtoDIC",
-#             3: "Ccum",
-#             4: "CO2",
-#             5: "D14C",
-#             6: "D14Cerror",
-#             7: "CO2error",
-#             8: "totalerror",
-#             9: "DICintNP",
-#             10: "ALKintNP",
-#             11: "d13CintNP",
-#             12: "D14CintNP",
-#             13: "NintNP",
-#             14: "DICsurfNP",
-#             15: "ALKsurfNP",
-#             16: "d13CsurfNP",
-#             17: "D14CsurfNP",
-#             18: "NsurfNP",
-#             19: "AtlCSH",
-#             20: "IndCSH",
-#             21: "SPacCSH",
-#             22: "NPacCSH",
-#         }
-#     )
-#     df1 = df[["Crate", "ALKtoDIC"]]
-
-#     scenario = df1.to_numpy()
-#     scenario[:, 0] = scenario[:, 0] * 1e15 / 12 * 1e6
-#     # Crate is in PgC
-#     # need to get in umol then divide by box added to (umol/kg)
-
-#     return scenario
-
-
-def read_cadd_scenario(file, row):
-    """input output is slow so we should change this to bringing in array and just referencing the number in the array """
+def read_cadd_scenario(file):
+    """returns numpy array with rate of carbon addition in
+    column 0 and ALK:DIC ration in column 1. rows correspond
+    to 100 year intervals (201,2)"""
     df = pd.read_table(str(file), sep="\s+", header=None)
     df = df.rename(
         columns={
@@ -179,12 +139,19 @@ def read_cadd_scenario(file, row):
             22: "NPacCSH",
         }
     )
-    scenario = np.array([df["Crate"][row], df["ALKtoDIC"][row]])
-    scenario[0] = scenario[0] * 1e15 / 12 * 1e6
+    df1 = df[["Crate", "ALKtoDIC"]]
+
+    scenario = df1.to_numpy()
+    scenario[:, 0] = scenario[:, 0] * 1e15 / 12 * 1e6
+    # Crate is in PgC
+    # need to get in umol then divide by box added to (umol/kg)
+
     return scenario
 
 
 def read_bc(file, row):
+
+    """at some point, should try to read in as an array to make code run faster"""
     df = pd.read_table(str(file), sep="\s+", header=None)
     df = df.rename(
         columns={

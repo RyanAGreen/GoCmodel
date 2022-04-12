@@ -4,7 +4,6 @@ Going to move things to modules after they work in OOP first
 """
 
 
-import src.conversions as conversions
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -12,6 +11,8 @@ import PyCO2SYS as pyco2
 from scipy.integrate import solve_ivp
 import src.inputoutput as io
 import src.circulation as circulation
+
+# import src.conversions as conversions
 
 
 class GoCModel:
@@ -62,8 +63,8 @@ class GoCModel:
             [2450, 2450, 2450]
         )  # * self.goc_source_mass  # umol kg-1 -> mol
         self.nitrate = np.array([30, 30, 30])  # * self.goc_source_mass  # mol
-        self.del_13_c = np.array([0, 0, 0]) * self.carbon  # permil
-        self.del_14_c = np.array([0, 0, 0]) * self.carbon  # permil
+        self.del_13_c = np.array([0.1, 0.1, 0.1]) * self.carbon  # permil
+        self.del_14_c = np.array([0.1, 0.1, 0.1]) * self.carbon  # permil
 
         # Initial state of tracers
         self.state_v0 = np.hstack(
@@ -74,17 +75,12 @@ class GoCModel:
             "data/ISchange/2Dinversion/Powell2Dinversion.txt", 0
         )
 
-        # self.boundary_condition = io.read_bc(
-        #     "data/NoISchange/ForwardRun/control.txt", 0
-        # )
         self.carbon_add_scenario = io.read_cadd_scenario(
-            "data/ISchange/2Dinversion/Powell2Dinversion.txt", 0
+            "data/ISchange/2Dinversion/Powell2Dinversion.txt"
         )
-        # print(self.carbon_add_scenario.shape, self.boundary_condition.shape)
 
-        self.carbon_add = self.carbon_add_scenario[0]
-        self.alk_dic_ratio = self.carbon_add_scenario[1]
-        # print(self.carbon_add.type)
+        self.carbon_add = self.carbon_add_scenario[0, 0]
+        self.alk_dic_ratio = self.carbon_add_scenario[0, 1]
 
         svedrup_matrix = circulation.circ(
             self.num_box, self.num_bc, 0.45, 0.1, 0.1, 0.1, 0.1
@@ -116,19 +112,19 @@ class GoCModel:
         we feed in time evolving boundary condition from CYCLOPS every 100 years
         """
 
-        if int(time) % 100 == 0:
-            self.boundary_condition = io.read_bc(
-                "data/ISchange/2Dinversion/Powell2Dinversion.txt",
-                (int(time) / 100)
-                # "data/NoISchange/ForwardRun/control.txt"
-            )
+        time_rounded = int(time)
 
-        if int(time) % 100 == 0:
-            self.carbon_add_scenario = io.read_cadd_scenario(
-                "data/ISchange/2Dinversion/Powell2Dinversion.txt", (int(time) / 100)
-            )
-            self.carbon_add = self.carbon_add_scenario[0]
-            self.alk_dic_ratio = self.carbon_add_scenario[1]
+        # if time_rounded % 100 == 0:
+        #     self.boundary_condition = io.read_bc(
+        #         "data/ISchange/2Dinversion/Powell2Dinversion.txt",
+        #         (time_rounded / 100)
+        #         # "data/NoISchange/ForwardRun/control.txt"
+        #     )
+
+        if time_rounded % 100 == 0:
+            idx = int(time_rounded / 100)
+            self.carbon_add = self.carbon_add_scenario[idx, 0]
+            self.alk_dic_ratio = self.carbon_add_scenario[idx, 1]
 
         state_a = np.hstack(
             (state_v.T.reshape(self.num_tracer, self.num_box), self.boundary_condition)
@@ -148,14 +144,14 @@ class GoCModel:
             self.alk_dic_ratio * carbon_flux_goc_source
         )  # ALK to shadow source box
         d_dt[3, 0] = -9 * carbon_flux_goc_source  # d13C to shadow source box
-        d_dt[4, 0] = 0  # D14C to shadow source box
+        d_dt[4, 0] = -1000 * carbon_flux_goc_source  # D14C to shadow source box
 
         d_dt[0, 1] = carbon_flux_goc_subsurface  # DIC to GoC subsurface
         d_dt[1, 1] = (
             self.alk_dic_ratio * carbon_flux_goc_subsurface
         )  # ALK to GoC subsurface
         d_dt[3, 1] = -9 * carbon_flux_goc_subsurface  # d13C to GoC subsurface
-        d_dt[4, 1] = 0  # D14C to GoC subsurface
+        d_dt[4, 1] = -1000 * carbon_flux_goc_subsurface  # D14C to GoC subsurface
         # if carbon_flux_goc_source > 0.1:
         #     print(carbon_flux_goc_source)
 
@@ -245,7 +241,7 @@ class GoCModel:
         ]  # multiplying tracers by fluxes
 
         # this isn't working
-        # d_dt += self.geologic_carbon_add()
+        d_dt += self.geologic_carbon_add()
         # d_dt += self.prod(stateA)
         # d_dt += self.Fix(stateA)
 
