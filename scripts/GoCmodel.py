@@ -65,13 +65,17 @@ class GoCModel:
         self.boundary_condition = io.read_bc(
             "data/ISchange/2Dinversion/Powell2Dinversion.txt", 0
         )
+        # self.boundary_condition = io.read_bc(
+        #     "data/NoISchange/ForwardRun/control.txt", 0
+        # )
+
         self.carbon_add_scenario = io.read_cadd_scenario(
             "data/ISchange/2Dinversion/Powell2Dinversion.txt"
         )
         self.carbon_add = self.carbon_add_scenario[0, 0]
         self.alk_dic_ratio = self.carbon_add_scenario[0, 1]
         svedrup_matrix = circulation.circ(
-            self.num_box, self.num_bc, 0.45, 0.1, 0.1, 0.1, 0.1
+            self.num_box, self.num_bc, 0.45, 0.05, 0.05, 0.05, 0.05
         )
         self.transport_matrix = circulation.make_transport_matrix(
             self.num_box, self.num_bc, svedrup_matrix, self.mass
@@ -94,11 +98,16 @@ class GoCModel:
 
         time_rounded = int(time)
 
+        if time_rounded % 100 == 0:
+            self.boundary_condition = io.read_bc(
+                "data/ISchange/2Dinversion/Powell2Dinversion.txt", (time_rounded / 100)
+            )
+
         # if time_rounded % 100 == 0:
         #     self.boundary_condition = io.read_bc(
-        #         "data/ISchange/2Dinversion/Powell2Dinversion.txt",
+        #         "data/NoISchange/ForwardRun/control.txt",
         #         (time_rounded / 100)
-        #         # "data/NoISchange/ForwardRun/control.txt"
+
         #     )
 
         if time_rounded % 100 == 0:
@@ -174,7 +183,7 @@ class GoCModel:
         # multiplying tracers by fluxes
         d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
 
-        d_dt += self.geologic_carbon_add()
+        # d_dt += self.geologic_carbon_add()
         # d_dt += self.prod(stateA)
         # d_dt += self.Fix(stateA)
 
