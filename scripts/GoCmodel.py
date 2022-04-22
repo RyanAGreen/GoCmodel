@@ -62,12 +62,12 @@ class GoCModel:
         self.state_v0 = np.hstack(
             (self.carbon, self.alkalinity, self.nitrate, self.del_13_c, self.del_14_c)
         )
-        self.boundary_condition = io.read_bc(
-            "data/ISchange/2Dinversion/Powell2Dinversion.txt", 0
-        )
         # self.boundary_condition = io.read_bc(
-        #     "data/NoISchange/ForwardRun/control.txt", 0
+        #     "data/ISchange/2Dinversion/Powell2Dinversion.txt", 0
         # )
+        self.boundary_condition = io.read_bc(
+            "data/NoISchange/ForwardRun/control.txt", 0
+        )
 
         self.carbon_add_scenario = io.read_cadd_scenario(
             "data/ISchange/2Dinversion/Powell2Dinversion.txt"
@@ -87,7 +87,7 @@ class GoCModel:
         self.output = None
         self.tracers_arr = np.zeros((5, 5, 1))
 
-    def make_state_a(self, state_v, time):
+    def make_state_a(self, state_v, time, bc):
         """Gets called every year and makes new state in matrix format. Boxes are in columns and tracers are in
         rows.
         example:
@@ -98,17 +98,18 @@ class GoCModel:
 
         time_rounded = int(time)
 
-        if time_rounded % 100 == 0:
-            self.boundary_condition = io.read_bc(
-                "data/ISchange/2Dinversion/Powell2Dinversion.txt", (time_rounded / 100)
-            )
+        if bc == "control":
+            if time_rounded % 100 == 0:
+                self.boundary_condition = io.read_bc(
+                    "data/NoISchange/ForwardRun/control.txt", (time_rounded / 100)
+                )
 
-        # if time_rounded % 100 == 0:
-        #     self.boundary_condition = io.read_bc(
-        #         "data/NoISchange/ForwardRun/control.txt",
-        #         (time_rounded / 100)
-
-        #     )
+        if bc == "2dinversion":
+            if time_rounded % 100 == 0:
+                self.boundary_condition = io.read_bc(
+                    "data/ISchange/2Dinversion/Powell2Dinversion.txt",
+                    (time_rounded / 100),
+                )
 
         if time_rounded % 100 == 0:
             idx = int(time_rounded / 100)
@@ -124,8 +125,8 @@ class GoCModel:
     def geologic_carbon_add(self):
         """geologic carbon addition"""
 
-        carbon_flux_goc_source = (self.carbon_add * 0.95) / self.mass[0]
-        carbon_flux_goc_subsurface = (self.carbon_add * 0.05) / self.mass[1]
+        carbon_flux_goc_source = (self.carbon_add * 0.99) / self.mass[0]
+        carbon_flux_goc_subsurface = (self.carbon_add * 0.01) / self.mass[1]
 
         d_dt = np.zeros((self.num_tracer, self.num_box))
         # DIC to shadow source box
@@ -177,13 +178,13 @@ class GoCModel:
         from the box model (excluding boundary condition boxes)
         """
 
-        state_a = self.make_state_a(statev, time)
+        state_a = self.make_state_a(statev, time, "control")
         # io.make_text(state_a, self.tracers_arr)
 
         # multiplying tracers by fluxes
         d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
 
-        # d_dt += self.geologic_carbon_add()
+        d_dt += self.geologic_carbon_add()
         # d_dt += self.prod(stateA)
         # d_dt += self.Fix(stateA)
 
