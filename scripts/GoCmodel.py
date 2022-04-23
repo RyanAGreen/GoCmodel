@@ -168,6 +168,20 @@ class GoCModel:
             carbonate_results.append(carbon_chemistry[term])
         return np.array(carbonate_results)
 
+    # Biological Productivity in Surface GoC (index 2)
+    def ComputeExportN(self, state):
+        ExportN = np.zeros(3).T
+        N = state.reshape(self.num_tracer, self.num_box)[2,:] / self.mass # umol/kg N
+        SetN = np.array([1e-6,1e-7])
+
+        timescale = 20 # year
+        if N[2]-SetN[2] > 0:
+            ExportN[2] = (N[2]-SetN[2])/timescale*self.mass[2] # umol surface N/year
+        else:
+            pass # not enough nutrients to sustain productivity
+
+        return self.EM @ ExportN
+
     def box_model(self, time, statev):
         # pylint: disable=unused-argument
         """
@@ -215,4 +229,3 @@ if __name__ == "__main__":
 
     ModelInstance = GoCModel()
     ModelInstance.run_box_model(20000, 201)
-
