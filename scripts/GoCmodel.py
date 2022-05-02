@@ -149,6 +149,33 @@ class GoCModel:
 
         return d_dt
 
+    def geologic_carbon_add_manual(self):
+        """geologic carbon addition"""
+
+        carbon_flux_goc_source = 5
+        carbon_flux_goc_subsurface = 0.1
+
+        d_dt = np.zeros((self.num_tracer, self.num_box))
+        # DIC to shadow source box
+        d_dt[0, 0] = carbon_flux_goc_source
+        # ALK to shadow source box
+        d_dt[1, 0] = 1 * carbon_flux_goc_source
+        # d13C to shadow source box
+        d_dt[3, 0] = -9 * carbon_flux_goc_source
+        # D14C to shadow source box
+        d_dt[4, 0] = -1000 * carbon_flux_goc_source
+
+        # DIC to GoC subsurface
+        d_dt[0, 1] = carbon_flux_goc_subsurface
+        # ALK to GoC subsurface
+        d_dt[1, 1] = 1 * carbon_flux_goc_subsurface
+        # d13C to GoC subsurface
+        d_dt[3, 1] = -9 * carbon_flux_goc_subsurface
+        # D14C to GoC subsurface
+        d_dt[4, 1] = -1000 * carbon_flux_goc_subsurface
+
+        return d_dt
+
     def carb_chem(self):
         """
         Converts DIC and ALK to microles/kg then
@@ -171,14 +198,16 @@ class GoCModel:
     # Biological Productivity in Surface GoC (index 2)
     def ComputeExportN(self, state):
         ExportN = np.zeros(3).T
-        N = state.reshape(self.num_tracer, self.num_box)[2,:] / self.mass # umol/kg N
-        SetN = np.array([1e-6,1e-7])
+        N = state.reshape(self.num_tracer, self.num_box)[2, :] / self.mass  # umol/kg N
+        SetN = np.array([1e-6, 1e-7])
 
-        timescale = 20 # year
-        if N[2]-SetN[2] > 0:
-            ExportN[2] = (N[2]-SetN[2])/timescale*self.mass[2] # umol surface N/year
+        timescale = 20  # year
+        if N[2] - SetN[2] > 0:
+            ExportN[2] = (
+                (N[2] - SetN[2]) / timescale * self.mass[2]
+            )  # umol surface N/year
         else:
-            pass # not enough nutrients to sustain productivity
+            pass  # not enough nutrients to sustain productivity
 
         return self.EM @ ExportN
 
@@ -198,7 +227,12 @@ class GoCModel:
         # multiplying tracers by fluxes
         d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
 
-        d_dt += self.geologic_carbon_add()
+        # only add carbon during HS1 and YD1
+        if ((time > 7500) and (time < 9000)) or ((time > 2500) and (time < 5000)):
+            d_dt += self.geologic_carbon_add_manual()
+
+        # to run full deglacial carbon addition scenario
+        # d_dt += self.geologic_carbon_add()
         # d_dt += self.prod(stateA)
         # d_dt += self.Fix(stateA)
 
