@@ -14,6 +14,33 @@ def save_tracers(tracers_arr):
     np.save("../results/tracers.npy", tracers_arr)
 
 
+def save_file(time, tracers, carbonate_chemistry):
+    df = pd.DataFrame(
+        {
+            "time": time / 1000,
+            "mar_DIC": tracers[0, :],
+            "mar_ALK": tracers[3, :],
+            "mar_pH": carbonate_chemistry[3, 0, :],
+            "mar_d13c": tracers[9, :] / tracers[0, :],
+            "mar_D14c": tracers[12, :] / tracers[0, :],
+            "goc_sub_DIC": tracers[1, :],
+            "goc_sub_ALK": tracers[4, :],
+            "goc_sub_pH": carbonate_chemistry[3, 1, :],
+            "goc_sub_d13c": tracers[10, :] / tracers[1, :],
+            "goc_sub_D14c": tracers[13, :] / tracers[1, :],
+            "goc_surf_DIC": tracers[2, :],
+            "goc_surf_ALK": tracers[5, :],
+            "goc_surf_pH": carbonate_chemistry[3, 2, :],
+            "goc_surf_d13c": tracers[11, :] / tracers[2, :],
+            "goc_surf_D14c": tracers[14, :] / tracers[2, :],
+        }
+    )
+    np.savetxt(
+        r"results/last_simulation_tracers.txt", df.values, fmt="%.2f", delimiter="\t"
+    )
+    return
+
+
 def make_plot(time, tracers, carbonate_chemistry, mass):
     """makes all plots"""
     fig, ax = plt.subplots(5, figsize=(16, 20), sharex=True)
@@ -35,7 +62,10 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
     ]
     Rafter_subsurface = Rafter_subsurface.sort_values(by=["calendar age [kyr BP]"])
     Rafter_subsurface = Rafter_subsurface[["calendar age [kyr BP]", "D14C"]]
-    Rafter_subsurface = Rafter_subsurface.dropna()
+    Rafter_subsurface = Rafter_subsurface.dropna(subset=["D14C"])
+    Rafter_subsurface = (
+        Rafter_subsurface.groupby("calendar age [kyr BP]").mean().reset_index()
+    )
 
     Mar = pd.read_csv(obspath + "Marchitto.txt", sep="\s+")
     Mar["Cal.Age"] = 1000 * Mar["Cal.Age"]
@@ -63,7 +93,8 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         time,
         tracers[12, :] / tracers[0, :],
         color="#706513",
-        label="Baja California ∆$^{14}$C",
+        lw=4,
+        label="Marchitto box ∆$^{14}$C",
     )
 
     ax[0].plot(
@@ -88,9 +119,10 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
     ax[4].plot(
         time,
         tracers[13, :] / tracers[1, :],
-        linestyle="dotted",
+        linestyle="solid",
+        lw=4,
         color="#B57114",
-        label="GoC deep ∆$^{14}$C",
+        label="GoC subsurface ∆$^{14}$C",
     )
 
     ax[0].plot(
@@ -116,7 +148,8 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
     ax[4].plot(
         time,
         tracers[14, :] / tracers[2, :],
-        linestyle="dashed",
+        linestyle="solid",
+        lw=4,
         color="#520120",
         label="GoC surface ∆$^{14}$C",
     )
@@ -127,11 +160,11 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         marker="s",
         markeredgecolor="k",
         markerfacecolor="white",
-        linestyle="solid",
+        linestyle="dashed",
         color="#B57114",
         label="Rafter et al. 2019-GoC subsurface",
         markersize=6,
-        lw=4,
+        lw=2,
     )
 
     ax[4].plot(
@@ -140,11 +173,11 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         marker="^",
         markeredgecolor="k",
         markerfacecolor="white",
-        linestyle="solid",
+        linestyle="dashed",
         color="#520120",
         label="Rafter et al. 2019-GoC surface",
         markersize=6,
-        lw=4,
+        lw=2,
     )
 
     ax[4].plot(
@@ -153,11 +186,11 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         marker="o",
         markeredgecolor="k",
         markerfacecolor="white",
-        linestyle="solid",
+        linestyle="dashed",
         color="#706513",
-        label="Marchitto et al. 2017",
+        label="Marchitto et al. 2007",
         markersize=6,
-        lw=4,
+        lw=2,
     )
 
     ax[0].legend(loc=1)
@@ -178,6 +211,7 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
     ax[4].set_ylabel("∆$^{14}$C (permil)")
     ax[4].set_title("∆$^{14}$C")
     ax[4].set_ylim(-450, 350)
+    ax[4].grid()
     for i in range(5):
         ax[i].set_xlim(0, 20000)
 
