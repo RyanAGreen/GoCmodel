@@ -26,7 +26,7 @@ class GoCModel:
 
         self.num_box = 3
         self.num_bc = 2
-        self.num_tracer = 5
+        self.num_tracer = 7
         self.boxlabel = [
             "Shadow zone source box",
             "Gulf of California-Subsurface",
@@ -78,7 +78,7 @@ class GoCModel:
 
         # Packing initial conditions in matrixes
         self.state_v0 = np.hstack(
-            (self.carbon, self.alkalinity, self.nitrate, self.del_13_c, self.del_14_c,)
+            (self.carbon, self.alkalinity, self.nitrate, self.del_13_c, self.del_14_c, self.rate_geologic_carbon, self.cum_geologic_carbon)
         )
         # self.boundary_condition = io.read_bc(
         #     "data/ISchange/2Dinversion/Powell2Dinversion.txt", 0
@@ -137,7 +137,7 @@ class GoCModel:
             self.alk_dic_ratio = self.carbon_add_scenario[idx, 1]
 
         state_a = np.hstack(
-            (state_v.T.reshape(self.num_tracer, self.num_box), self.boundary_condition)
+            (state_v.T.reshape(self.num_tracer, self.num_box), self.boundary_condition) # 7 x 5 matrix
         )
 
         return state_a
@@ -184,10 +184,11 @@ class GoCModel:
         d_dt[4, 2] = -1000 * carbon_flux
 
         # # Rate of carbon addition
-        # d_dt[5, 2] = rate  # PgC
+        d_dt[5, 2] = rate  # PgC
 
         # # Cumulative carbon addition
-        # d_dt[6, 2] += rate  # PgC
+        d_dt[6, 2] += rate  # PgC
+
         return d_dt
 
     def geologic_carbon_add_subsurface(self, rate):
@@ -206,10 +207,10 @@ class GoCModel:
         d_dt[4, 1] = -1000 * carbon_flux
 
         # Rate of carbon addition
-        # d_dt[5, 1] = rate1  # PgC
+        d_dt[5, 1] = rate  # PgC
 
         # # Cumulative carbon addition
-        # d_dt[6, 1] += rate1  # PgC
+        d_dt[6, 1] += rate  # PgC
 
         return d_dt
 
@@ -227,10 +228,10 @@ class GoCModel:
         # D14C to shadow source box
         d_dt[4, 0] = -1000 * carbon_flux
         # # Rate of carbon addition
-        # d_dt[5, 0] = rate1  # PgC
+        d_dt[5, 0] = rate  # PgC
 
         # # Cumulative carbon addition
-        # d_dt[6, 0] += rate1  # PgC
+        d_dt[6, 0] += rate  # PgC
 
         return d_dt
 
@@ -283,10 +284,11 @@ class GoCModel:
         # io.make_text(state_a, self.tracers_arr)
 
         # multiplying tracers by fluxes
-        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
+        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box] # [5 x 5] x [5 x 7] = [5 x 7]
+                                                                        # [7 x 5][all tracers, all boxes (excluding boundary conditions)]
         time_bp = 20000 - time
 
-        # Marchitto box addition
+        # Marchitto box additions
         if (time_bp <= 16500) and (time_bp > 14500):
             d_dt += self.geologic_carbon_add_marchitto(0.06)
         # self.cum_geologic_carbon_to_marchitto += 0.06 * 1999
