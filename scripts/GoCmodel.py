@@ -26,12 +26,7 @@ class GoCModel:
 
         self.num_box = 3
         self.num_bc = 2
-        self.num_tracer = 7
-        self.boxlabel = [
-            "Shadow zone source box",
-            "Gulf of California-Subsurface",
-            "Gulf of California-Surface",
-        ]
+        self.num_tracer = 6
 
         # kg,calculated from GoC volume
         self.goc_mass = 1.38e14 * 1026.8
@@ -40,14 +35,6 @@ class GoCModel:
         self.goc_source_mass = self.goc_mass * 10  # kg
         self.np_surf_mass = self.goc_source_mass * 20  # kg
         self.np_mid_mass = self.np_surf_mass * 2  # kg
-
-        # self.goc_mass = 1.45e14 * 1026.8
-        # self.goc_model_mass = self.goc_mass * 0.2
-        # self.goc_surface_mass = 3.2e10 * 1026.8  # kg
-        # self.goc_subsurface_mass = 6.4e10 * 1026.8  # kg
-        # self.goc_source_mass = self.goc_mass * 10  # kg
-        # self.np_surf_mass = self.goc_source_mass * 20  # kg
-        # self.np_mid_mass = self.np_surf_mass * 2  # kg
 
         self.mass = np.array(
             [
@@ -74,11 +61,18 @@ class GoCModel:
         self.cum_geologic_carbon_to_goc_sub = 0
         self.cum_geologic_carbon_to_goc_surf = 0
         self.cum_geologic_carbon = np.array([0, 0, 0])
-        self.rate_geologic_carbon = np.array([0, 0, 0])
 
         # Packing initial conditions in matrixes
+        # flat array (18,)
         self.state_v0 = np.hstack(
-            (self.carbon, self.alkalinity, self.nitrate, self.del_13_c, self.del_14_c, self.rate_geologic_carbon, self.cum_geologic_carbon)
+            (
+                self.carbon,
+                self.alkalinity,
+                self.nitrate,
+                self.del_13_c,
+                self.del_14_c,
+                self.cum_geologic_carbon,
+            )
         )
         # self.boundary_condition = io.read_bc(
         #     "data/ISchange/2Dinversion/Powell2Dinversion.txt", 0
@@ -103,9 +97,6 @@ class GoCModel:
         self.carbonate_chemistry = None
         self.time = None
         self.output = None
-        self.tracers_arr = np.zeros((5, 5, 1))
-        self.counter = 0
-        self.counter1 = 0
 
     def make_state_a(self, state_v, time, bc):
         """Gets called every year and makes new state in matrix format. Boxes are in columns and tracers are in
@@ -115,7 +106,6 @@ class GoCModel:
         tracer 2 for all boxes === stateA[2,:]
         we feed in time evolving boundary condition from CYCLOPS every 100 years
         """
-        self.counter1 += 1
         time_rounded = int(time)
 
         if bc == "control":
@@ -136,58 +126,36 @@ class GoCModel:
             self.carbon_add = self.carbon_add_scenario[idx, 0]
             self.alk_dic_ratio = self.carbon_add_scenario[idx, 1]
 
-        state_a = np.hstack(
-            (state_v.T.reshape(self.num_tracer, self.num_box), self.boundary_condition) # 7 x 5 matrix
-        )
+        # reshape flat array to rows as tracers and columns as boxes
+        # (18,) -> (6,3)
+        state_a = state_v.T.reshape(self.num_tracer, self.num_box)
+
+        # adds the boundary condition (column index of [:,4] and [:,5])
+        # -> (6,5)
+        state_a = np.hstack((state_a, self.boundary_condition,))
+        # clearing cumulative carbon tracer so that it is not affected
+        # by circulation matrix mutiplication
+        state_a[5, 0] = 0
+        state_a[5, 1] = 0
+        state_a[5, 2] = 0
 
         return state_a
-
-    def geologic_carbon_add(self):
-        """geologic carbon addition"""
-
-        carbon_flux_goc_source = (self.carbon_add * 0.99) / self.mass[0]
-        carbon_flux_goc_subsurface = (self.carbon_add * 0.01) / self.mass[1]
-
-        d_dt = np.zeros((self.num_tracer, self.num_box))
-        # DIC to shadow source box
-        d_dt[0, 0] = carbon_flux_goc_source
-        # ALK to shadow source box
-        d_dt[1, 0] = self.alk_dic_ratio * carbon_flux_goc_source
-        # d13C to shadow source box
-        d_dt[3, 0] = -9 * carbon_flux_goc_source
-        # D14C to shadow source box
-        d_dt[4, 0] = -1000 * carbon_flux_goc_source
-
-        # DIC to GoC subsurface
-        d_dt[0, 1] = carbon_flux_goc_subsurface
-        # ALK to GoC subsurface
-        d_dt[1, 1] = self.alk_dic_ratio * carbon_flux_goc_subsurface
-        # d13C to GoC subsurface
-        d_dt[3, 1] = -9 * carbon_flux_goc_subsurface
-        # D14C to GoC subsurface
-        d_dt[4, 1] = -1000 * carbon_flux_goc_subsurface
-
-        return d_dt
 
     def geologic_carbon_add_surface(self, rate):
         """geologic carbon addition"""
         carbon_flux = rate * 1e15 / 12 * 1e6 / self.mass[2]  # convert PgC to umol / kg
 
         d_dt = np.zeros((self.num_tracer, self.num_box))
-        # DIC to shadow source box
+        # DIC to surface
         d_dt[0, 2] = carbon_flux
-        # ALK to shadow source box
+        # ALK to surface
         d_dt[1, 2] = 1 * carbon_flux
-        # d13C to shadow source box
+        # d13C to surface
         d_dt[3, 2] = -9 * carbon_flux
-        # D14C to shadow source box
+        # D14C to surface
         d_dt[4, 2] = -1000 * carbon_flux
-
-        # # Rate of carbon addition
-        d_dt[5, 2] = rate  # PgC
-
-        # # Cumulative carbon addition
-        d_dt[6, 2] += rate  # PgC
+        # cum carbon to surface
+        d_dt[5, 2] = rate
 
         return d_dt
 
@@ -197,20 +165,16 @@ class GoCModel:
         carbon_flux = rate * 1e15 / 12 * 1e6 / self.mass[1]  # convert PgC to umol / kg
 
         d_dt = np.zeros((self.num_tracer, self.num_box))
-        # DIC to shadow source box
+        # DIC to subsurface
         d_dt[0, 1] = carbon_flux
-        # ALK to shadow source box
+        # ALK to subsurface
         d_dt[1, 1] = 1 * carbon_flux
-        # d13C to shadow source box
+        # d13C to subsurface
         d_dt[3, 1] = -9 * carbon_flux
-        # D14C to shadow source box
+        # D14C to subsurface
         d_dt[4, 1] = -1000 * carbon_flux
-
-        # Rate of carbon addition
-        d_dt[5, 1] = rate  # PgC
-
-        # # Cumulative carbon addition
-        d_dt[6, 1] += rate  # PgC
+        # Cum carbon to subsurface
+        d_dt[5, 1] = rate
 
         return d_dt
 
@@ -219,19 +183,16 @@ class GoCModel:
         carbon_flux = rate * 1e15 / 12 * 1e6 / self.mass[0]  # convert PgC to umol / kg
 
         d_dt = np.zeros((self.num_tracer, self.num_box))
-        # DIC to shadow source box
+        # DIC to Marchitto
         d_dt[0, 0] = carbon_flux
-        # ALK to shadow source box
+        # ALK to Marchitto
         d_dt[1, 0] = 1 * carbon_flux
-        # d13C to shadow source box
+        # d13C to Marchitto
         d_dt[3, 0] = -9 * carbon_flux
-        # D14C to shadow source box
+        # D14C to Marchitto
         d_dt[4, 0] = -1000 * carbon_flux
-        # # Rate of carbon addition
-        d_dt[5, 0] = rate  # PgC
-
-        # # Cumulative carbon addition
-        d_dt[6, 0] += rate  # PgC
+        # Cum Carbon to Marchitto
+        d_dt[5, 0] = rate
 
         return d_dt
 
@@ -281,14 +242,16 @@ class GoCModel:
         """
 
         state_a = self.make_state_a(statev, time, "control")
-        # io.make_text(state_a, self.tracers_arr)
 
         # multiplying tracers by fluxes
-        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box] # [5 x 5] x [5 x 7] = [5 x 7]
-                                                                        # [7 x 5][all tracers, all boxes (excluding boundary conditions)]
+        d_dt = (self.transport_matrix @ state_a.T).T[
+            :, : self.num_box
+        ]  # [5 x 5] x [5 x 6] = [5 x 6]
+        # [6 x 3][all tracers, all boxes (excluding boundary conditions)]
+
         time_bp = 20000 - time
 
-        # Marchitto box additions
+        # Marchitto box additions #
         if (time_bp <= 16500) and (time_bp > 14500):
             d_dt += self.geologic_carbon_add_marchitto(0.06)
         # self.cum_geologic_carbon_to_marchitto += 0.06 * 1999
@@ -296,31 +259,35 @@ class GoCModel:
             d_dt += self.geologic_carbon_add_marchitto(0.06)
         # self.cum_geologic_carbon_to_marchitto += 0.06 * 748
 
-        # subsurface addition
+        # subsurface addition #
         if (time_bp < 18000) and (time_bp >= 16500):
             d_dt += self.geologic_carbon_add_subsurface(0.05)
+            d_dt += self.geologic_carbon_add_marchitto(0.06)
+
         # self.cum_geologic_carbon_to_goc_sub += 0.05 * 1499
         if (time_bp < 15500) and (time_bp >= 14500):
             d_dt += self.geologic_carbon_add_subsurface(0.07)
+
         # self.cum_geologic_carbon_to_goc_sub += 0.07 * 999
         if (time_bp <= 14500) and (time_bp >= 13500):
             d_dt += self.geologic_carbon_add_subsurface(0.08)
         # self.cum_geologic_carbon_to_goc_sub += 0.08 * 1000
         if (time_bp < 13500) and (time_bp >= 12000):
             d_dt += self.geologic_carbon_add_subsurface(0.08)
+            d_dt += self.geologic_carbon_add_surface(0.1)
+
         # self.cum_geologic_carbon_to_goc_sub += 0.08 * 1499
 
-        # surface addition
+        # surface addition #
         if (time_bp < 15500) and (time_bp > 14500):
             d_dt += self.geologic_carbon_add_surface(0.075)
-        # self.cum_geologic_carbon_to_goc_surf = 0.075 * 998
 
+        # self.cum_geologic_carbon_to_goc_surf = 0.075 * 998
         if (time_bp < 13500) and (time_bp > 12000):
             d_dt += self.geologic_carbon_add_surface(0.1)
         # self.cum_geologic_carbon_to_goc_surf = 0.1 * 1498
 
-        # to run full deglacial carbon addition scenario
-        # d_dt += self.geologic_carbon_add()
+        # To Be added
         # d_dt += self.prod(stateA)
         # d_dt += self.Fix(stateA)
 
@@ -332,7 +299,7 @@ class GoCModel:
 
         self.time = np.linspace(
             0, tmax, num_steps
-        )  # just sets at what times to store the computed solution
+        )  # sets at what times to store the computed solution
         self.result = solve_ivp(
             self.box_model,
             [0, tmax],
@@ -345,8 +312,8 @@ class GoCModel:
         )
         self.carbonate_chemistry = self.carb_chem()  # shape = [tracer,box,year]
         end = time.time()
-        # plot from past to present
-        self.time = np.flipud(self.result.t)
+
+        self.time = np.flipud(self.result.t)  # plot from past to present
         self.output = self.result.y
 
         self.cum_geologic_carbon_to_marchitto = 0.06 * 748 + 0.06 * 1999
@@ -370,10 +337,27 @@ class GoCModel:
             self.cum_geologic_carbon_to_goc_surf,
             "[PgC]",
         )
+
+        print(
+            "TRACER cumulative carbon to the Marchitto box is ",
+            self.output[15, -1],
+            "[PgC]",
+        )
+        print(
+            "TRACER cumulative carbon to the GoC subsurface is ",
+            self.output[16, -1],
+            "[PgC]",
+        )
+        print(
+            "TRACER cumulative carbon to the GoC surface is ",
+            self.output[17, -1],
+            "[PgC]",
+        )
+
         print("this solver took ", end - start, " seconds.")
 
-        io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
-        io.save_file(self.time, self.result.y, self.carbonate_chemistry)
+        # io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
+        # io.save_file(self.time, self.result.y, self.carbonate_chemistry)
 
 
 if __name__ == "__main__":
