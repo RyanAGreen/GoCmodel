@@ -316,6 +316,7 @@ class GoCModel:
         self.time = np.flipud(self.result.t)  # plot from past to present
         self.output = self.result.y
 
+        # calculate manual cumulative carbon values based on lines 254-288
         self.cum_geologic_carbon_to_marchitto = 0.06 * 748 + 0.06 * 1999
         self.cum_geologic_carbon_to_goc_sub = (
             0.05 * 1499 + 0.07 * 999 + 0.08 * 1000 + 0.08 * 1499
@@ -323,33 +324,33 @@ class GoCModel:
         self.cum_geologic_carbon_to_goc_surf = 0.075 * 998 + 0.1 * 1498
 
         print(
-            "Cumulative carbon to the Marchitto box is ",
+            "Manual cumulative carbon to the Marchitto box is ",
             self.cum_geologic_carbon_to_marchitto,
             "[PgC]",
         )
         print(
-            "Cumulative carbon to the GoC subsurface is ",
+            "Manual cumulative carbon to the GoC subsurface is ",
             self.cum_geologic_carbon_to_goc_sub,
             "[PgC]",
         )
         print(
-            "Cumulative carbon to the GoC surface is ",
+            "Manual cumulative carbon to the GoC surface is ",
             self.cum_geologic_carbon_to_goc_surf,
             "[PgC]",
         )
 
         print(
-            "TRACER cumulative carbon to the Marchitto box is ",
+            "ODE solved tracer cumulative carbon to the Marchitto box is ",
             self.output[15, -1],
             "[PgC]",
         )
         print(
-            "TRACER cumulative carbon to the GoC subsurface is ",
+            "ODE solved tracer cumulative carbon to the GoC subsurface is ",
             self.output[16, -1],
             "[PgC]",
         )
         print(
-            "TRACER cumulative carbon to the GoC surface is ",
+            "ODE solved tracer cumulative carbon to the GoC surface is ",
             self.output[17, -1],
             "[PgC]",
         )
