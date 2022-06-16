@@ -309,7 +309,6 @@ def read_bc(file, row):
                 df["D14CsurfNP"][row] * df["DICsurfNP"][row],
             ],
             [0, 0],
-            [0, 0]
         ]
     )
     return bc
