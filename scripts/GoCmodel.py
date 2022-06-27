@@ -92,6 +92,11 @@ class GoCModel:
         self.transport_matrix = circulation.make_transport_matrix(
             self.num_box, self.num_bc, svedrup_matrix, self.mass
         )
+        self.export_matrix = np.array([[0,0,0,0,1], # GoC surface --> GoC subsurface
+                                       [0,0,1,0,0], # NP surface --> Marchitto
+                                       [0,0,0,0,0],
+                                       [0,0,0,0,0],
+                                       [0,0,0,0,0]])
 
         self.result = None
         self.carbonate_chemistry = None
@@ -215,21 +220,29 @@ class GoCModel:
             carbonate_results.append(carbon_chemistry[term])
         return np.array(carbonate_results)
 
-    # Biological Productivity in Surface GoC (index 2)
+    # Biological Productivity
     def ComputeExportN(self, state):
-        ExportN = np.zeros(3).T
-        N = state.reshape(self.num_tracer, self.num_box)[2, :] / self.mass  # umol/kg N
-        SetN = np.array([1e-6, 1e-7])
+        idxN = 2 # index of nitrate in the tracers array
+        boxesN = [2, 4] # GoC Surface and NP Surface
 
-        timescale = 20  # year
-        if N[2] - SetN[2] > 0:
-            ExportN[2] = (
-                (N[2] - SetN[2]) / timescale * self.mass[2]
-            )  # umol surface N/year
-        else:
-            pass  # not enough nutrients to sustain productivity
+        N = state.reshape(self.num_tracer, self.num_box) # [6 x 3]
+        N = np.hstack((N, self.boundary_condition)) # [6 x 5]
+        N = N[idxN,:] / self.mass # [1 x 5]
 
-        return self.EM @ ExportN
+        ExportN = np.zeros(self.num_box + self.num_bc)
+        SetN = np.array([0, 0, 1e-6, 0, 1e-7])
+
+        timescale = 1  # year
+        for box in boxesN:
+            if N[box] - SetN[box] > 0:
+                ExportN[box] = (N[box] - SetN[box]) / timescale * self.mass[box] # umol surface N/year
+            else:
+                pass  # not enough nutrients to sustain productivity
+
+        product = self.export_matrix @ ExportN # [5 x 5] x [5,] = [5,]
+        product = product[:self.num_box] # the boundary conditions don't receive biological productivity
+
+        return product
 
     def box_model(self, time, statev):
         # pylint: disable=unused-argument
@@ -244,52 +257,46 @@ class GoCModel:
         state_a = self.make_state_a(statev, time, "control")
 
         # multiplying tracers by fluxes
-        d_dt = (self.transport_matrix @ state_a.T).T[
-            :, : self.num_box
-        ]  # [5 x 5] x [5 x 6] = [5 x 6]
-        # [6 x 3][all tracers, all boxes (excluding boundary conditions)]
+        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]  # [5 x 5] x [5 x 6] = [5 x 6]
+                                            # [6 x 3][all tracers, all boxes (excluding boundary conditions)]
 
         time_bp = 20000 - time
 
         # Marchitto box additions #
         if (time_bp <= 16500) and (time_bp > 14500):
             d_dt += self.geologic_carbon_add_marchitto(0.06)
-        # self.cum_geologic_carbon_to_marchitto += 0.06 * 1999
         if (time_bp < 12750) and (time_bp > 12000):
             d_dt += self.geologic_carbon_add_marchitto(0.06)
-        # self.cum_geologic_carbon_to_marchitto += 0.06 * 748
 
         # subsurface addition #
         if (time_bp < 18000) and (time_bp >= 16500):
             d_dt += self.geologic_carbon_add_subsurface(0.05)
             d_dt += self.geologic_carbon_add_marchitto(0.06)
 
-        # self.cum_geologic_carbon_to_goc_sub += 0.05 * 1499
         if (time_bp < 15500) and (time_bp >= 14500):
             d_dt += self.geologic_carbon_add_subsurface(0.07)
 
-        # self.cum_geologic_carbon_to_goc_sub += 0.07 * 999
         if (time_bp <= 14500) and (time_bp >= 13500):
             d_dt += self.geologic_carbon_add_subsurface(0.08)
-        # self.cum_geologic_carbon_to_goc_sub += 0.08 * 1000
+
         if (time_bp < 13500) and (time_bp >= 12000):
             d_dt += self.geologic_carbon_add_subsurface(0.08)
             d_dt += self.geologic_carbon_add_surface(0.1)
-
-        # self.cum_geologic_carbon_to_goc_sub += 0.08 * 1499
 
         # surface addition #
         if (time_bp < 15500) and (time_bp > 14500):
             d_dt += self.geologic_carbon_add_surface(0.075)
 
-        # self.cum_geologic_carbon_to_goc_surf = 0.075 * 998
         if (time_bp < 13500) and (time_bp > 12000):
             d_dt += self.geologic_carbon_add_surface(0.1)
-        # self.cum_geologic_carbon_to_goc_surf = 0.1 * 1498
 
         # To Be added
         # d_dt += self.prod(stateA)
         # d_dt += self.Fix(stateA)
+
+        # Biological Productivity
+        idxN = 2
+        d_dt[idxN] += self.ComputeExportN(statev)
 
         return d_dt.flatten()
 
@@ -317,11 +324,11 @@ class GoCModel:
         self.output = self.result.y
 
         # calculate manual cumulative carbon values based on lines 254-288
-        self.cum_geologic_carbon_to_marchitto = 0.06 * 748 + 0.06 * 1999
+        self.cum_geologic_carbon_to_marchitto = 0.06 * 749 + 0.06 * 2000 + 0.06 * 1500
         self.cum_geologic_carbon_to_goc_sub = (
-            0.05 * 1499 + 0.07 * 999 + 0.08 * 1000 + 0.08 * 1499
+            0.05 * 1500 + 0.07 * 1000 + 0.08 * 1001 + 0.08 * 1500
         )
-        self.cum_geologic_carbon_to_goc_surf = 0.075 * 998 + 0.1 * 1498
+        self.cum_geologic_carbon_to_goc_surf = 0.1 * 1500 + 0.075 * 999 + 0.1 * 1499
 
         print(
             "Manual cumulative carbon to the Marchitto box is ",
