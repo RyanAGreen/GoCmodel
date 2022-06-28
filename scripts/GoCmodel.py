@@ -94,9 +94,9 @@ class GoCModel:
         )
         self.export_matrix = np.array([[0,0,0,0,1], # GoC surface --> GoC subsurface
                                        [0,0,1,0,0], # NP surface --> Marchitto
+                                       [0,-1,0,0,0],
                                        [0,0,0,0,0],
-                                       [0,0,0,0,0],
-                                       [0,0,0,0,0]])
+                                       [-1,0,0,0,0]])
 
         self.result = None
         self.carbonate_chemistry = None
@@ -236,6 +236,7 @@ class GoCModel:
         for box in boxesN:
             if N[box] - SetN[box] > 0:
                 ExportN[box] = (N[box] - SetN[box]) / timescale * self.mass[box] # umol surface N/year
+                self.boundary_condition[idxN,-1] = SetN[-1] # NP Surface is the last index
             else:
                 pass  # not enough nutrients to sustain productivity
 
@@ -296,6 +297,7 @@ class GoCModel:
 
         # Biological Productivity
         idxN = 2
+        d_dt[idxN] += self.ComputeExportN(statev)
         d_dt[idxN] += self.ComputeExportN(statev)
 
         return d_dt.flatten()
