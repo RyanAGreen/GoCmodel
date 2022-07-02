@@ -92,11 +92,11 @@ class GoCModel:
         self.transport_matrix = circulation.make_transport_matrix(
             self.num_box, self.num_bc, svedrup_matrix, self.mass
         )
-        self.export_matrix = np.array([[0,0,0,0,1], # GoC surface --> GoC subsurface
-                                       [0,0,1,0,0], # NP surface --> Marchitto
-                                       [0,-1,0,0,0],
-                                       [0,0,0,0,0],
-                                       [-1,0,0,0,0]])
+        self.export_matrix = np.array([[0, 0, 0, 0, 1], # GoC surface --> GoC subsurface
+                                       [0, 0, 1, 0, 0], # NP surface --> Marchitto
+                                       [0, 0,-1, 0, 0],
+                                       [0, 0, 0, 0, 0],
+                                       [0, 0, 0, 0,-1]])
 
         self.result = None
         self.carbonate_chemistry = None
@@ -236,11 +236,18 @@ class GoCModel:
         for box in boxesN:
             if N[box] - SetN[box] > 0:
                 ExportN[box] = (N[box] - SetN[box]) / timescale * self.mass[box] # umol surface N/year
-                self.boundary_condition[idxN,-1] = SetN[-1] # NP Surface is the last index
+                self.boundary_condition[idxN,4] -= ExportN[4]
+                self.boundary_condition[0] -= ExportN[4] * 106 / 16 # Redfield ratio
             else:
                 pass  # not enough nutrients to sustain productivity
 
         product = self.export_matrix @ ExportN # [5 x 5] x [5,] = [5,]
+                                               # Let X be the amount from GoC surface to GoC subsurface
+                                               # Let Y be the amount from NP surface to Marchitto
+                                               # Then, ExportN will equal a column vector [0,0,X,0,Y]
+                                               # Finally, EM @ ExportN will equal a column vector [Y,X,-X,0,Y],
+                                               # which is correct and can be added to d_dt
+
         product = product[:self.num_box] # the boundary conditions don't receive biological productivity
 
         return product
@@ -296,9 +303,9 @@ class GoCModel:
         # d_dt += self.Fix(stateA)
 
         # Biological Productivity
-        idxN = 2
-        d_dt[idxN] += self.ComputeExportN(statev)
-        d_dt[idxN] += self.ComputeExportN(statev)
+        product = self.ComputeExportN(statev)
+        d_dt[2] += product
+        d_dt[0] += product * 106 / 16 # Redfield ratio
 
         return d_dt.flatten()
 
