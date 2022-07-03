@@ -146,58 +146,29 @@ class GoCModel:
 
         return state_a
 
-    def geologic_carbon_add_surface(self, rate):
-        """geologic carbon addition"""
-        carbon_flux = rate * 1e15 / 12 * 1e6 / self.mass[2]  # convert PgC to umol / kg
-
-        d_dt = np.zeros((self.num_tracer, self.num_box))
-        # DIC to surface
-        d_dt[0, 2] = carbon_flux
-        # ALK to surface
-        d_dt[1, 2] = 1 * carbon_flux
-        # d13C to surface
-        d_dt[3, 2] = -9 * carbon_flux
-        # D14C to surface
-        d_dt[4, 2] = -1000 * carbon_flux
-        # cum carbon to surface
-        d_dt[5, 2] = rate
-
-        return d_dt
-
-    def geologic_carbon_add_subsurface(self, rate):
+    def geologic_carbon_add(self, rate, box):
         """geologic carbon addition"""
 
-        carbon_flux = rate * 1e15 / 12 * 1e6 / self.mass[1]  # convert PgC to umol / kg
+        if box == "marchitto":
+            i = 0
+        elif box == "subsurface":
+            i = 1
+        elif box == "surface":
+            i = 2
+
+        carbon_flux = rate * 1e15 / 12 * 1e6 / self.mass[i]
 
         d_dt = np.zeros((self.num_tracer, self.num_box))
-        # DIC to subsurface
-        d_dt[0, 1] = carbon_flux
-        # ALK to subsurface
-        d_dt[1, 1] = 1 * carbon_flux
-        # d13C to subsurface
-        d_dt[3, 1] = -9 * carbon_flux
-        # D14C to subsurface
-        d_dt[4, 1] = -1000 * carbon_flux
-        # Cum carbon to subsurface
-        d_dt[5, 1] = rate
-
-        return d_dt
-
-    def geologic_carbon_add_marchitto(self, rate):
-
-        carbon_flux = rate * 1e15 / 12 * 1e6 / self.mass[0]  # convert PgC to umol / kg
-
-        d_dt = np.zeros((self.num_tracer, self.num_box))
-        # DIC to Marchitto
-        d_dt[0, 0] = carbon_flux
-        # ALK to Marchitto
-        d_dt[1, 0] = 1 * carbon_flux
-        # d13C to Marchitto
-        d_dt[3, 0] = -9 * carbon_flux
-        # D14C to Marchitto
-        d_dt[4, 0] = -1000 * carbon_flux
-        # Cum Carbon to Marchitto
-        d_dt[5, 0] = rate
+        # DIC
+        d_dt[0, i] = carbon_flux
+        # ALK
+        d_dt[1, i] = 1 * carbon_flux
+        # d13C
+        d_dt[3, i] = -9 * carbon_flux
+        # D14C
+        d_dt[4, i] = -1000 * carbon_flux
+        # Cum Carbon
+        d_dt[5, i] = rate
 
         return d_dt
 
@@ -272,35 +243,31 @@ class GoCModel:
 
         # Marchitto box additions #
         if (time_bp <= 16500) and (time_bp > 14500):
-            d_dt += self.geologic_carbon_add_marchitto(0.06)
+            d_dt += self.geologic_carbon_add(0.06, "marchitto")
         if (time_bp < 12750) and (time_bp > 12000):
-            d_dt += self.geologic_carbon_add_marchitto(0.06)
+            d_dt += self.geologic_carbon_add(0.06, "marchitto")
 
         # subsurface addition #
         if (time_bp < 18000) and (time_bp >= 16500):
-            d_dt += self.geologic_carbon_add_subsurface(0.05)
-            d_dt += self.geologic_carbon_add_marchitto(0.06)
+            d_dt += self.geologic_carbon_add(0.05, "subsurface")
+            d_dt += self.geologic_carbon_add(0.06, "marchitto")
 
         if (time_bp < 15500) and (time_bp >= 14500):
-            d_dt += self.geologic_carbon_add_subsurface(0.07)
+            d_dt += self.geologic_carbon_add(0.07, "subsurface")
 
         if (time_bp <= 14500) and (time_bp >= 13500):
-            d_dt += self.geologic_carbon_add_subsurface(0.08)
+            d_dt += self.geologic_carbon_add(0.08, "subsurface")
 
         if (time_bp < 13500) and (time_bp >= 12000):
-            d_dt += self.geologic_carbon_add_subsurface(0.08)
-            d_dt += self.geologic_carbon_add_surface(0.1)
+            d_dt += self.geologic_carbon_add(0.08, "subsurface")
+            d_dt += self.geologic_carbon_add(0.1, "surface")
 
         # surface addition #
         if (time_bp < 15500) and (time_bp > 14500):
-            d_dt += self.geologic_carbon_add_surface(0.075)
+            d_dt += self.geologic_carbon_add(0.075, "surface")
 
         if (time_bp < 13500) and (time_bp > 12000):
-            d_dt += self.geologic_carbon_add_surface(0.1)
-
-        # To Be added
-        # d_dt += self.prod(stateA)
-        # d_dt += self.Fix(stateA)
+            d_dt += self.geologic_carbon_add(0.1, "surface")
 
         # Biological Productivity
         product = self.ComputeExportN(statev)
