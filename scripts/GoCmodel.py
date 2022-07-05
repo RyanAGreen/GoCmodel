@@ -262,7 +262,7 @@ class GoCModel:
         N = N[idxN, :] / self.mass  # [1 x 5] converting to concentration
 
         ExportN = np.zeros(self.num_box + self.num_bc)
-        SetN = np.array([0, 0, 1e-6, 0, 1e-7])
+        SetN = np.array([0, 0, 1e-6, 0, 1e-6])
 
         timescale = 1  # year
         for box in boxesN:
