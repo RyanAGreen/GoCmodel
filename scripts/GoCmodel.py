@@ -92,11 +92,15 @@ class GoCModel:
         self.transport_matrix = circulation.make_transport_matrix(
             self.num_box, self.num_bc, svedrup_matrix, self.mass
         )
-        self.export_matrix = np.array([[0,0,0,0,1], # GoC surface --> GoC subsurface
-                                       [0,0,1,0,0], # NP surface --> Marchitto
-                                       [0,0,0,0,0],
-                                       [0,0,0,0,0],
-                                       [0,0,0,0,0]])
+        self.export_matrix = np.array(
+            [
+                [0, 0, 0, 0, 1],  # GoC surface --> GoC subsurface
+                [0, 0, 1, 0, 0],  # NP surface --> Marchitto
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0],
+            ]
+        )
 
         self.result = None
         self.carbonate_chemistry = None
@@ -214,20 +218,70 @@ class GoCModel:
             alk.append(self.result.y[i + 3, :])
 
         carbon_chemistry = pyco2.sys(par1=alk, par2=dic, par1_type=1, par2_type=2)
-        values = ["HCO3", "CO3", "CO2", "pH", "saturation_calcite", "pCO2"]
+        values = ["HCO3", "CO3", "CO2", "pH", "saturation_calcite", "pCO2", "k_CO2"]
         carbonate_results = []
         for term in values:
             carbonate_results.append(carbon_chemistry[term])
         return np.array(carbonate_results)
 
+    def gas_exchange(
+        self,
+        carbonic_acid,
+        atm_co2,
+        k0,
+        surface_area,
+        carbon_13_atm_moles,
+        carbon_14_atm_moles,
+        carbon_13_surface_umol,
+        carbon_14_surface_umol,
+        temp=25,
+    ):
+        """calculates air to sea and sea to air gas exchange"""
+        N = 15
+        for dt in range(1, N + 1):
+            # 1536000 / 16 / 32
+            carbon_ingassed = (
+                k0 * atm_co2 * surface_area * (1536000 / ((N + 1) / 2 * N)) * dt
+            )
+            # * (1500* 1/45) * 1024;
+            # reconsider *1024 ... µM= 1e-3mol/m3 ... nothing about kg ...
+            # I don't know where 153600 comes from? - Ryan
+
+            carbon_outgassed = (
+                carbonic_acid * surface_area * (1536000 / ((N + 1) / 2 * N)) * dt
+            )
+            # * (1500* 1/45) * 1024;
+
+            d13Fsa = (
+                (carbon_13_surface_umol / self.state_v0[2])
+                + (0.107 * temp - 10.53 - 0.875)
+            ) * carbon_outgassed
+            d13Fas = (carbon_13_atm_moles / atm_co2 - 0.875) * carbon_ingassed
+            d14Fsa = (
+                (carbon_14_surface_umol / self.state_v0[2])
+                + 2 * (0.107 * temp - 10.53 - 0.875)
+            ) * carbon_outgassed
+            d14Fas = (carbon_14_atm_moles / atm_co2 - 2 * 0.875) * carbon_ingassed
+
+            # difference in carbon change converted to concentration
+            # not sure if state_v0 is the way to adjust the carbon inventory during the ODE solver
+            self.state_v0[2] += (carbon_ingassed - carbon_outgassed) / self.mass[
+                2
+            ]  # mol / time step
+        # This will be used when I change the atmospheric CO2 value in CYCLOPS
+        # atm.ppm -= (carbon_ingassed.sum() - carbon_outgassed.sum()) / (1.773E+20)
+
+        # after this I will need to rerun the carbonate solver for the next time step
+        return d13Fas, d14Fas, d13Fsa, d14Fsa, carbon_ingassed, carbon_outgassed
+
     # Biological Productivity
     def ComputeExportN(self, state):
-        idxN = 2 # index of nitrate in the tracers array
-        boxesN = [2, 4] # GoC Surface and NP Surface
+        idxN = 2  # index of nitrate in the tracers array
+        boxesN = [2, 4]  # GoC Surface and NP Surface
 
-        N = state.reshape(self.num_tracer, self.num_box) # [6 x 3]
-        N = np.hstack((N, self.boundary_condition)) # [6 x 5]
-        N = N[idxN,:] / self.mass # [1 x 5]
+        N = state.reshape(self.num_tracer, self.num_box)  # [6 x 3]
+        N = np.hstack((N, self.boundary_condition))  # [6 x 5]
+        N = N[idxN, :] / self.mass  # [1 x 5]
 
         ExportN = np.zeros(self.num_box + self.num_bc)
         SetN = np.array([0, 0, 1e-6, 0, 1e-7])
@@ -235,12 +289,16 @@ class GoCModel:
         timescale = 1  # year
         for box in boxesN:
             if N[box] - SetN[box] > 0:
-                ExportN[box] = (N[box] - SetN[box]) / timescale * self.mass[box] # umol surface N/year
+                ExportN[box] = (
+                    (N[box] - SetN[box]) / timescale * self.mass[box]
+                )  # umol surface N/year
             else:
                 pass  # not enough nutrients to sustain productivity
 
-        product = self.export_matrix @ ExportN # [5 x 5] x [5,] = [5,]
-        product = product[:self.num_box] # the boundary conditions don't receive biological productivity
+        product = self.export_matrix @ ExportN  # [5 x 5] x [5,] = [5,]
+        product = product[
+            : self.num_box
+        ]  # the boundary conditions don't receive biological productivity
 
         return product
 
@@ -257,8 +315,10 @@ class GoCModel:
         state_a = self.make_state_a(statev, time, "control")
 
         # multiplying tracers by fluxes
-        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]  # [5 x 5] x [5 x 6] = [5 x 6]
-                                            # [6 x 3][all tracers, all boxes (excluding boundary conditions)]
+        d_dt = (self.transport_matrix @ state_a.T).T[
+            :, : self.num_box
+        ]  # [5 x 5] x [5 x 6] = [5 x 6]
+        # [6 x 3][all tracers, all boxes (excluding boundary conditions)]
 
         time_bp = 20000 - time
 
