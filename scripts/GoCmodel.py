@@ -198,13 +198,13 @@ class GoCModel:
     def gas_exchange(
         self,
         carbonic_acid,
-        atm_co2,
         k0,
         surface_area,
         carbon_13_atm_moles,
         carbon_14_atm_moles,
         carbon_13_surface_umol,
         carbon_14_surface_umol,
+        atm_co2=280,
         temp=25,
     ):
         """calculates air to sea and sea to air gas exchange"""
@@ -223,16 +223,16 @@ class GoCModel:
             )
             # * (1500* 1/45) * 1024;
 
-            d13Fsa = (
+            d13_outgassed = (
                 (carbon_13_surface_umol / self.state_v0[2])
                 + (0.107 * temp - 10.53 - 0.875)
             ) * carbon_outgassed
-            d13Fas = (carbon_13_atm_moles / atm_co2 - 0.875) * carbon_ingassed
-            d14Fsa = (
+            d13_ingassed = (carbon_13_atm_moles / atm_co2 - 0.875) * carbon_ingassed
+            d14_outgassed = (
                 (carbon_14_surface_umol / self.state_v0[2])
                 + 2 * (0.107 * temp - 10.53 - 0.875)
             ) * carbon_outgassed
-            d14Fas = (carbon_14_atm_moles / atm_co2 - 2 * 0.875) * carbon_ingassed
+            d14_ingassed = (carbon_14_atm_moles / atm_co2 - 2 * 0.875) * carbon_ingassed
 
             # difference in carbon change converted to concentration
             # not sure if state_v0 is the way to adjust the carbon inventory during the ODE solver
@@ -243,7 +243,14 @@ class GoCModel:
         # atm.ppm -= (carbon_ingassed.sum() - carbon_outgassed.sum()) / (1.773E+20)
 
         # after this I will need to rerun the carbonate solver for the next time step
-        return d13Fas, d14Fas, d13Fsa, d14Fsa, carbon_ingassed, carbon_outgassed
+        return (
+            d13_ingassed,
+            d14_ingassed,
+            d13_outgassed,
+            d14_outgassed,
+            carbon_ingassed,
+            carbon_outgassed,
+        )
 
     # Biological Productivity
     def ComputeExportN(self, state):
@@ -252,7 +259,7 @@ class GoCModel:
 
         N = state.reshape(self.num_tracer, self.num_box)  # [6 x 3]
         N = np.hstack((N, self.boundary_condition))  # [6 x 5]
-        N = N[idxN, :] / self.mass  # [1 x 5]
+        N = N[idxN, :] / self.mass  # [1 x 5] converting to concentration
 
         ExportN = np.zeros(self.num_box + self.num_bc)
         SetN = np.array([0, 0, 1e-6, 0, 1e-7])
