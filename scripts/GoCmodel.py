@@ -49,7 +49,7 @@ class GoCModel:
         # Setting up inital values
         self.carbon = np.array([2400, 2400, 2300])  # umol/kg
         self.alkalinity = np.array([2450, 2450, 2450])  # umol/kg
-        self.nitrate = np.array([30, 30, 30])  # umol/kg
+        self.phosphorus = np.array([30, 30, 30])  # umol/kg
         self.del_13_c = (
             np.array([0.1, 0.1, 0.1]) * self.carbon
         )  # delta [permil] * concentration
@@ -68,7 +68,7 @@ class GoCModel:
             (
                 self.carbon,
                 self.alkalinity,
-                self.nitrate,
+                self.phosphorus,
                 self.del_13_c,
                 self.del_14_c,
                 self.cum_geologic_carbon,
@@ -252,30 +252,29 @@ class GoCModel:
             carbon_outgassed,
         )
 
-    # Biological Productivity
-    def ComputeExportN(self, state):
-        idxN = 2  # index of nitrate in the tracers array
-        boxesN = [2, 4]  # GoC Surface and NP Surface
+    # Biological Productivity (Soft Tissue Pump)
+    def ComputeExportP(self, state):
+        idxP = 2  # index of phosphorus in the tracers array
+        boxesP = [2, 4]  # GoC Surface and NP Surface
 
-        N = state.reshape(self.num_tracer, self.num_box)  # [6 x 3]
-        N = np.hstack((N, self.boundary_condition))  # [6 x 5]
-        N = N[idxN, :] / self.mass  # [1 x 5] converting to concentration
+        state = state.reshape(self.num_tracer, self.num_box)  # [6 x 3]
+        state = np.hstack((state, self.boundary_condition))  # [6 x 5]
+        P = state[idxP, :] / self.mass  # [1 x 5] converting to concentration
 
-        ExportN = np.zeros(self.num_box + self.num_bc)
-        SetN = np.array([0, 0, 1e-6, 0, 1e-6])
-
+        ExportP = np.zeros(self.num_box + self.num_bc)
+        SetP = np.array([0, 0, 1e-6, 0, 1e-6])
         timescale = 1  # year
-        for box in boxesN:
-            if N[box] - SetN[box] > 0:
-                ExportN[box] = (
-                    (N[box] - SetN[box]) / timescale * self.mass[box]
+        for box in boxesP:
+            if P[box] - SetP[box] > 0:
+                ExportP[box] = (
+                    (P[box] - SetP[box]) / timescale * self.mass[box]
                 )  # umol surface N/year
-                self.boundary_condition[idxN, 4] -= ExportN[4]
-                self.boundary_condition[0] -= ExportN[4] * 106 / 16  # Redfield ratio
+                self.boundary_condition[idxP, 1] -= ExportP[4]
+                self.boundary_condition[0] -= ExportP[4] * 106 # Redfield ratio
             else:
                 pass  # not enough nutrients to sustain productivity
 
-        product = self.export_matrix @ ExportN  # [5 x 5] x [5,] = [5,]
+        product = self.export_matrix @ ExportP  # [5 x 5] x [5,] = [5,]
         # Let X be the amount from GoC surface to GoC subsurface
         # Let Y be the amount from NP surface to Marchitto
         # Then, ExportN will equal a column vector [0,0,X,0,Y]
@@ -308,8 +307,10 @@ class GoCModel:
 
         time_bp = 20000 - time
 
+        time_rounded = int(time_bp)
+
         # Marchitto box additions #
-        if (time_bp <= 16500) and (time_bp > 14500):
+        if (time_bp < 16500) and (time_bp > 14500):
             d_dt += self.geologic_carbon_add(0.06, "marchitto")
         if (time_bp < 12750) and (time_bp > 12000):
             d_dt += self.geologic_carbon_add(0.06, "marchitto")
@@ -336,10 +337,10 @@ class GoCModel:
         if (time_bp < 13500) and (time_bp > 12000):
             d_dt += self.geologic_carbon_add(0.1, "surface")
 
-        # Biological Productivity
-        product = self.ComputeExportN(statev)
+        # Biological Productivity (Soft Tissue Pump)
+        product = self.ComputeExportP(statev)
         d_dt[2] += product
-        d_dt[0] += product * 106 / 16  # Redfield ratio
+        d_dt[0] += product * 106 # Redfield ratio
 
         return d_dt.flatten()
 
@@ -410,7 +411,31 @@ class GoCModel:
         # io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
         # io.save_file(self.time, self.result.y, self.carbonate_chemistry)
 
+    def plot_rate(self):
+        rate_geologic_carbon_to_marchitto = np.zeros((20000))
+        rate_geologic_carbon_to_goc_sub = np.zeros((20000))
+        rate_geologic_carbon_to_goc_surf = np.zeros((20000))
+
+        rate_geologic_carbon_to_goc_sub[12000:13500] = 0.08
+        rate_geologic_carbon_to_goc_sub[13500:14500] = 0.08
+        rate_geologic_carbon_to_goc_sub[14500:15500] = 0.07
+        rate_geologic_carbon_to_goc_sub[16500:18000] = 0.05
+
+        rate_geologic_carbon_to_goc_surf[12000:13500] = 0.01
+        rate_geologic_carbon_to_goc_surf[14500:15500] = 0.075
+        rate_geologic_carbon_to_goc_surf[14500:15500] = 0.075
+
+        rate_geologic_carbon_to_marchitto[12000:12750] = 0.06
+        rate_geologic_carbon_to_marchitto[14500:16500] = 0.06
+        rate_geologic_carbon_to_marchitto[16500:18000] = 0.08
+
+        plt.plot(rate_geologic_carbon_to_goc_sub, label="GoC sub")
+        plt.plot(rate_geologic_carbon_to_goc_surf, label="GoC surf")
+        plt.plot(rate_geologic_carbon_to_marchitto, label="Marchitto")
+        plt.legend()
+        plt.show()
 
 if __name__ == "__main__":
     ModelInstance = GoCModel()
     ModelInstance.run_box_model(20000, 2001)
+    ModelInstance.plot_rate()
