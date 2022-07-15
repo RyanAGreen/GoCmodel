@@ -62,6 +62,8 @@ class GoCModel:
         self.cum_geologic_carbon_to_goc_surf = 0
         self.cum_geologic_carbon = np.array([0, 0, 0])
 
+        self.CaRatio = 0.4
+
         # Packing initial conditions in matrixes
         # flat array (18,)
         self.state_v0 = np.hstack(
@@ -252,7 +254,7 @@ class GoCModel:
             carbon_outgassed,
         )
 
-    # Biological Productivity (Soft Tissue Pump)
+    # Biological Productivity
     def ComputeExportP(self, state):
         idxP = 2  # index of phosphorus in the tracers array
         boxesP = [2, 4]  # GoC Surface and NP Surface
@@ -261,31 +263,49 @@ class GoCModel:
         state = np.hstack((state, self.boundary_condition))  # [6 x 5]
         P = state[idxP, :] / self.mass  # [1 x 5] converting to concentration
 
+        offset_value = 20
+        del_13_c_cc = state[3] / state[0]
+        del_13_c_org = del_13_c_cc + offset_value
+        del_14_c_cc = state[4] / state[0]
+        del_14_c_org = del_13_c_cc + 2 * offset_value
+
         ExportP = np.zeros(self.num_box + self.num_bc)
-        SetP = np.array([0, 0, 1e-6, 0, 1e-6])
+        SetP = np.array([0, 0, 0.001, 0, 0.001])
         timescale = 1  # year
         for box in boxesP:
             if P[box] - SetP[box] > 0:
+                print("Export")
                 ExportP[box] = (
                     (P[box] - SetP[box]) / timescale * self.mass[box]
                 )  # umol surface N/year
-                self.boundary_condition[idxP, 1] -= ExportP[4]
-                self.boundary_condition[0] -= ExportP[4] * 106 # Redfield ratio
             else:
                 pass  # not enough nutrients to sustain productivity
 
-        product = self.export_matrix @ ExportP  # [5 x 5] x [5,] = [5,]
+        ExportCa = ExportP * 106 * self.CaRatio
+
+        self.boundary_condition[idxP, 1] -= ExportP[4]
+        self.boundary_condition[0, 1] -= ExportP[4] * 106 # Redfield ratio
+        self.boundary_condition[3, 1] -= ExportP[4] * 106 * del_13_c_org[4]
+        self.boundary_condition[4, 1] -= ExportP[4] * 106 * del_14_c_org[4]
+
+        self.boundary_condition[0, 1] -= ExportCa[4]
+        self.boundary_condition[1, 1] -= ExportCa[4] * 2
+        self.boundary_condition[3, 1] -= ExportCa[4] * del_13_c_org[4]
+        self.boundary_condition[4, 1] -= ExportCa[4] * del_14_c_org[4]
+
+        productP = self.export_matrix @ ExportP  # [5 x 5] x [5,] = [5,]
         # Let X be the amount from GoC surface to GoC subsurface
         # Let Y be the amount from NP surface to Marchitto
         # Then, ExportN will equal a column vector [0,0,X,0,Y]
         # Finally, EM @ ExportN will equal a column vector [Y,X,-X,0,Y],
         # which is correct and can be added to d_dt
+        productP = productP[:self.num_box]  # d_dt.shape[1] is the number of boxes
+        productCa = self.export_matrix @ ExportCa
+        productCa = productCa[:self.num_box]
+        del_13_c_org = del_13_c_org[:self.num_box]
+        del_14_c_org = del_14_c_org[:self.num_box]
 
-        product = product[
-            : self.num_box
-        ]  # the boundary conditions don't receive biological productivity
-
-        return product
+        return productP, productCa, del_13_c_org, del_14_c_org
 
     def box_model(self, time, statev):
         # pylint: disable=unused-argument
@@ -337,10 +357,17 @@ class GoCModel:
         if (time_bp < 13500) and (time_bp > 12000):
             d_dt += self.geologic_carbon_add(0.1, "surface")
 
-        # Biological Productivity (Soft Tissue Pump)
-        product = self.ComputeExportP(statev)
-        d_dt[2] += product
-        d_dt[0] += product * 106 # Redfield ratio
+        # Biological Productivity
+        productP, productCa, del_13_c_org, del_14_c_org = self.ComputeExportP(statev)
+        d_dt[2] += productP
+        d_dt[0] += productP * 106 # Redfield ratio
+        d_dt[3] += productP * 106 * del_13_c_org
+        d_dt[4] += productP * 106 * del_14_c_org
+
+        d_dt[0] += productP
+        d_dt[1] += productCa * 2
+        d_dt[3] += productP * del_13_c_org
+        d_dt[4] += productP * del_14_c_org
 
         return d_dt.flatten()
 
