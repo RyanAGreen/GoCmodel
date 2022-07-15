@@ -261,7 +261,7 @@ class GoCModel:
 
         state = state.reshape(self.num_tracer, self.num_box)  # [6 x 3]
         state = np.hstack((state, self.boundary_condition))  # [6 x 5]
-        P = state[idxP, :] / self.mass  # [1 x 5] converting to concentration
+        P = state[idxP, :] # [1 x 5]
 
         offset_value = 20
         del_13_c_cc = state[3] / state[0]
@@ -274,7 +274,6 @@ class GoCModel:
         timescale = 1  # year
         for box in boxesP:
             if P[box] - SetP[box] > 0:
-                print("Export")
                 ExportP[box] = (
                     (P[box] - SetP[box]) / timescale * self.mass[box]
                 )  # umol surface N/year
@@ -285,6 +284,7 @@ class GoCModel:
 
         self.boundary_condition[idxP, 1] -= ExportP[4]
         self.boundary_condition[0, 1] -= ExportP[4] * 106 # Redfield ratio
+        self.boundary_condition[1, 1] -= ExportCa[4] * -16
         self.boundary_condition[3, 1] -= ExportP[4] * 106 * del_13_c_org[4]
         self.boundary_condition[4, 1] -= ExportP[4] * 106 * del_14_c_org[4]
 
@@ -359,8 +359,9 @@ class GoCModel:
 
         # Biological Productivity
         productP, productCa, del_13_c_org, del_14_c_org = self.ComputeExportP(statev)
-        d_dt[2] += productP
         d_dt[0] += productP * 106 # Redfield ratio
+        d_dt[1] += productP * -16
+        d_dt[2] += productP
         d_dt[3] += productP * 106 * del_13_c_org
         d_dt[4] += productP * 106 * del_14_c_org
 
