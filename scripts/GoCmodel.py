@@ -46,6 +46,36 @@ class GoCModel:
             ]
         )
 
+        #mass of the atmopsere from NASA and from SCPM_parameters.py
+
+        self.mass_of_atm = 5.1e18 #kg
+        self.mol_of_atm = 28.97 #mean molecular weight ??units??
+
+        #volume of atm (mols)
+
+        self.atm_volume = (self.mass_of_atm * 1e3) / self.mol_of_atm
+
+        # CO2 Solubility parameters from Weiss (1974), in mol/ (kg atm)
+        self.A1_C = -60.3409
+        self.A2_C = 93.4517
+        self.A3_C = 23.3585
+        self.B1_C = 0.023517
+        self.B2_C = -0.023656
+        self.B3_C = 0.0047036
+
+         #surface area of GoC and surface volume
+
+        self.surf_volume = 1.65e13 #m^3
+        self.surf_area = self.surf_volume / 200 #m^2
+
+        #piston velocity for air-sea gas exchange (from SCPM_paramters.py)
+
+        self.PV0 = 3.0 #m/day
+
+        # The "thermodynamic fractionation factor" for carbon isotopes in air-sea exchange
+        self.FK = 0.9995 # no units...0.99915 Stabe carbon as per Schmittner et al(2013) and SCPM_parameters.py
+        self.FKR = 0.9990 # no units...0.9990 Radiocarbon as per Toggweiler and Sarmiento (1985) SCPM_paramters.py
+
         # Setting up inital values
         self.carbon = np.array([2400, 2400, 2300])  # umol/kg
         self.alkalinity = np.array([2450, 2450, 2450])  # umol/kg
@@ -251,6 +281,57 @@ class GoCModel:
             carbon_ingassed,
             carbon_outgassed,
         )
+
+
+      def air_sea_gas_exchange(self, temp=25, Kelv =273.15, SWD=1029): #every string is a variable we do not have data for yet
+
+        # K0 from GLODAP_processing.py and Wiess 1974...need to know the salinity (Sal) and its units
+        self.K0 = np.exp((self.A1_C + self.A2_C * (100.0/((Temp+Kelv))) + self.A3_C*np.log((Temp+Kelv)/100.0) + ('Sal') * (self.B1_C + self.B2_C *((Temp+Kelv)/100.0) + self.B3_C * (((Temp+Kelv)/100.0)**2)))) # mol/ kg atm
+        
+        #air-sea surface gas transfer
+        def makeFXarr(PV0, secsday=86400):
+             makeFXarr = np.zeros([3,1]) # [3x1] so it can multiply
+             makeFXarr[2,0] = (self.PV0/secsday) # but only doing surface box
+             return makeFXarr  # m/s
+
+        self.surf_gas_flux = makeFXarr(PV0, secsday=86400) #* self.surface_area  # m^3 / s
+
+     
+        cflux1 = ((SWD*self.K0*1e6*self.surf_gas_flux*('AtCO2'-'pCO2'))) #umol/(s m^2)
+        cflux = cflux1 / self.surf_volume  #WHY DIVIDING BY VOLUME??
+        Carbon_flux = -sum(cflux1) 
+
+        # d13C air-sea fractionation factors
+        FSA = np.zeros([3,1])
+        FSA=(-9.866/(temp + Kelv) +1.02412) # Mook (1974)  unitless           
+        FAS = np.zeros([3,1])
+        FAS=(-0.373/(temp + Kelv) +1.00019) # Mook (1974)  unitless
+
+        # radiocarbon air-sea fractination factors
+        FSAR = 0.92182 
+        FASR = 0.99786
+
+        #air-sea flux 13C
+        kinetic_frac = SWD * self.K0 * self.surf_gas_flux * self.FK * 1e6 # umol / (atm s)
+        del_13_c_ppmil = self.del_13_c[2,0] / self.carbon #ppmil
+        
+        SCPCO2 = kinetic_frac*(((FAS*('del_13_c_atm_ppmil' / 'AtCO2')) * 'AtCO2') - (FSA*(del_13_c_ppmil / 'pCO2')*'pCO2')) # umol / m^2 s
+        Scflux = SCPCO2 / self.surf_volume # Ocean boxes ...umol/ (s m^3) ??
+            #AtSCflux=-sum(SCPCO2)/Varrat # Atmosphere
+        
+        #air-sea flux 14C
+        radio_kinetic_frac = SWD * self.K0 * self.surf_gas_fluc * self.FKR *1e6 # umol / (atm s)
+        del_14_c_ppmil = self.del_14_c[2,0] / self.carbon #ppmil
+
+        RCPCO2 = radio_kinetic_frac*(((FASR*('del_14_c_atm_ppmil' / 'AtCO2')) * 'AtCO2') - (FSAR*(del_14_c_ppmil / 'pCO2') * 'pCO2')) # umol / m^2 s
+        Rcflux = RCPCO2 / self.surf_volume
+            #AtRCflux=-sum(RCPCO2)/Varrat # Atmosphere
+
+        
+
+
+
+
 
     # Biological Productivity
     def ComputeExportN(self, state):
