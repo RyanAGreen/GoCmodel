@@ -256,25 +256,6 @@ class GoCModel:
             )
         )  # mol/ kg atm
 
-    def air_sea_gas_exchange(
-        self, temp=25, Kelv=273.15, SWD=1029
-    ):  # every string is a variable we do not have data for yet
-
-        # K0 from GLODAP_processing.py and Wiess 1974...need to know the salinity (Sal) and its units
-        self.K0 = np.exp(
-            (
-                self.A1_C
-                + self.A2_C * (100.0 / ((temp + Kelv)))
-                + self.A3_C * np.log((temp + Kelv) / 100.0)
-                + ("Sal")
-                * (
-                    self.B1_C
-                    + self.B2_C * ((temp + Kelv) / 100.0)
-                    + self.B3_C * (((temp + Kelv) / 100.0) ** 2)
-                )
-            )
-        )  # mol/ kg atm
-
         # air-sea surface gas transfer
         def makeFXarr(PV0, secsday=86400):
             makeFXarr = np.zeros([3, 1])  # [3x1] so it can multiply
