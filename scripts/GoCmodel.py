@@ -134,6 +134,16 @@ class GoCModel:
             ]
         )
 
+        self.remin_matrix = np.array(
+            [
+                [0, 0, 0, 0, 0.75],  # 0.75 for Marchitto
+                [0, 0, 0.25, 0, 0],  # 0.25 for GoC Subsurface
+                [0, 0,-0.25, 0, 0],
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0,-0.75],
+            ]
+        )
+
         self.result = None
         self.carbonate_chemistry = None
         self.time = None
@@ -331,7 +341,7 @@ class GoCModel:
 
 
     # Biological Productivity
-    def ComputeExportP(self, current_state):
+    def productivity(self, current_state):
         idxP = 2  # index of phosphorus in the tracers array
         boxesP = [2, 4]  # GoC Surface and NP Surface
 
@@ -343,30 +353,59 @@ class GoCModel:
         del_14_c_cc = state[4] / state[0]
         del_14_c_org = del_14_c_cc + 2 * offset_value
 
-        ExportP = np.zeros(self.num_box + self.num_bc)
-        SetP = np.array([0, 0, 1.5, 0, 0.001])
-        timescale = 1  # year
+        exportP = np.zeros(self.num_box + self.num_bc)
+        setP = np.array([0, 0, 0.001, 0, 0.001])
+        timescale = 5  # year
         for box in boxesP:
-            if P[box] - SetP[box] > 0:
-                ExportP[box] = (P[box] - SetP[box]) / timescale # umol surface N/year
+            if P[box] - setP[box] > 0:
+                exportP[box] = (P[box] - setP[box]) / timescale # umol surface N/year
             else:
                 pass  # not enough nutrients to sustain productivity
 
-        ExportCa = ExportP * 106 * self.CaRatio
+        exportCa = exportP * 106 * self.CaRatio
 
-        productP = self.export_matrix @ ExportP  # [5 x 5] x [5,] = [5,]
+        productP = self.export_matrix @ exportP  # [5 x 5] x [5,] = [5,]
         # Let X be the amount from GoC surface to GoC subsurface
         # Let Y be the amount from NP surface to Marchitto
         # Then, ExportN will equal a column vector [0,0,X,0,Y]
         # Finally, EM @ ExportN will equal a column vector [Y,X,-X,0,Y],
         # which is correct and can be added to d_dt
-        productP = productP[:self.num_box]  # d_dt.shape[1] is the number of boxes
-        productCa = self.export_matrix @ ExportCa
+        productP = productP[:self.num_box]
+        productCa = self.export_matrix @ exportCa
         productCa = productCa[:self.num_box]
-        del_13_c_org = del_13_c_org[:self.num_box]
-        del_14_c_org = del_14_c_org[:self.num_box]
 
-        return productP, productCa, del_13_c_org, del_14_c_org
+        d_dt = np.zeros((self.num_tracer, self.num_box))
+        d_dt[0] += productP * 106 # Redfield ratio
+        d_dt[1] += productP * -16
+        d_dt[2] += productP
+        d_dt[3] += productP * 106 * del_13_c_org[:self.num_box]
+        d_dt[4] += productP * 106 * del_14_c_org[:self.num_box]
+
+        d_dt[0] += productCa
+        d_dt[1] += productCa * 2
+        d_dt[3] += productCa * del_13_c_org[:self.num_box]
+        d_dt[4] += productCa * del_14_c_org[:self.num_box]
+
+        return d_dt, exportP, del_13_c_org, del_14_c_org
+
+    # Remineralization
+    def remin(self, exportP, del_13_c_org, del_14_c_org):
+        addOrg = self.remin_matrix @ exportP
+        addOrg_del_13_c = self.remin_matrix @ (exportP * del_13_c_org)
+        addOrg_del_14_c = self.remin_matrix @ (exportP * del_14_c_org)
+
+        addOrg = addOrg[:self.num_box]
+        addOrg_del_13_c = addOrg_del_13_c[:self.num_box]
+        addOrg_del_14_c = addOrg_del_14_c[:self.num_box]
+
+        d_dt = np.zeros((self.num_tracer, self.num_box))
+        d_dt[0] += addOrg * 106
+        d_dt[1] += addOrg * -16
+        d_dt[2] += addOrg
+        d_dt[3] += addOrg_del_13_c * 106
+        d_dt[4] += addOrg_del_14_c * 106
+
+        return d_dt
 
     def box_model(self, time, statev):
         # pylint: disable=unused-argument
@@ -383,7 +422,6 @@ class GoCModel:
         time_bp = 20000 - time
 
         time_rounded = int(time_bp)
-        print(time_rounded)
 
         # Marchitto box additions #
         # if (time_bp < 16500) and (time_bp > 14500):
@@ -413,24 +451,13 @@ class GoCModel:
         # if (time_bp < 13500) and (time_bp > 12000):
         #     d_dt += self.geologic_carbon_add(0.1, "surface")
 
-        # Biological Productivity
-        productP, productCa, del_13_c_org, del_14_c_org = self.ComputeExportP(state_a[:,:self.num_box])
-
+        # Biological Productivity (Soft Tissue + Carbonate)
+        d_dt_export, ExportP, del_13_c_org, del_14_c_org = self.productivity(state_a[:,:self.num_box])
+        d_dt_remin = self.remin(ExportP, del_13_c_org, del_14_c_org)
         # multiplying tracers by fluxes
-        d_dt = (self.transport_matrix @ state_a.T).T[
-            :, : self.num_box
-        ]  # [5 x 5] x [5 x 6] = [5 x 6]
-        # [6 x 3][all tracers, all boxes (excluding boundary conditions)]
-        d_dt[0] += productP * 106 # Redfield ratio
-        d_dt[1] += productP * -16
-        d_dt[2] += productP
-        d_dt[3] += productP * 106 * del_13_c_org
-        d_dt[4] += productP * 106 * del_14_c_org
-
-        d_dt[0] += productCa
-        d_dt[1] += productCa * 2
-        d_dt[3] += productCa * del_13_c_org
-        d_dt[4] += productCa * del_14_c_org
+        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]  # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
+        d_dt += d_dt_export
+        d_dt += d_dt_remin
 
         return d_dt.flatten()
 
@@ -479,7 +506,6 @@ class GoCModel:
             self.cum_geologic_carbon_to_goc_surf,
             "[PgC]",
         )
-
         print(
             "ODE solved tracer cumulative carbon to the Marchitto box is ",
             self.output[15, -1],
