@@ -409,34 +409,37 @@ class GoCModel:
         time_bp = 20000 - time
 
         time_rounded = int(time_bp)
+        print(time_rounded)
+
+        d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
 
         # Marchitto box additions #
-        # if (time_bp < 16500) and (time_bp > 14500):
-        #     d_dt += self.geologic_carbon_add(0.06, "marchitto")
-        # if (time_bp < 12750) and (time_bp > 12000):
-        #     d_dt += self.geologic_carbon_add(0.06, "marchitto")
-        #
-        # # subsurface addition #
-        # if (time_bp < 18000) and (time_bp >= 16500):
-        #     d_dt += self.geologic_carbon_add(0.05, "subsurface")
-        #     d_dt += self.geologic_carbon_add(0.06, "marchitto")
-        #
-        # if (time_bp < 15500) and (time_bp >= 14500):
-        #     d_dt += self.geologic_carbon_add(0.07, "subsurface")
-        #
-        # if (time_bp <= 14500) and (time_bp >= 13500):
-        #     d_dt += self.geologic_carbon_add(0.08, "subsurface")
-        #
-        # if (time_bp < 13500) and (time_bp >= 12000):
-        #     d_dt += self.geologic_carbon_add(0.08, "subsurface")
-        #     d_dt += self.geologic_carbon_add(0.1, "surface")
-        #
-        # # surface addition #
-        # if (time_bp < 15500) and (time_bp > 14500):
-        #     d_dt += self.geologic_carbon_add(0.075, "surface")
-        #
-        # if (time_bp < 13500) and (time_bp > 12000):
-        #     d_dt += self.geologic_carbon_add(0.1, "surface")
+        if (time_bp < 16500) and (time_bp > 14500):
+            d_dt_geologic += self.geologic_carbon_add(0.06, "marchitto")
+        if (time_bp < 12750) and (time_bp > 12000):
+            d_dt_geologic += self.geologic_carbon_add(0.06, "marchitto")
+
+        # subsurface addition #
+        if (time_bp < 18000) and (time_bp >= 16500):
+            d_dt_geologic += self.geologic_carbon_add(0.05, "subsurface")
+            d_dt_geologic += self.geologic_carbon_add(0.06, "marchitto")
+
+        if (time_bp < 15500) and (time_bp >= 14500):
+            d_dt_geologic += self.geologic_carbon_add(0.07, "subsurface")
+
+        if (time_bp <= 14500) and (time_bp >= 13500):
+            d_dt_geologic += self.geologic_carbon_add(0.08, "subsurface")
+
+        if (time_bp < 13500) and (time_bp >= 12000):
+            d_dt_geologic += self.geologic_carbon_add(0.08, "subsurface")
+            d_dt_geologic += self.geologic_carbon_add(0.1, "surface")
+
+        # surface addition #
+        if (time_bp < 15500) and (time_bp > 14500):
+            d_dt_geologic += self.geologic_carbon_add(0.075, "surface")
+
+        if (time_bp < 13500) and (time_bp > 12000):
+            d_dt_geologic += self.geologic_carbon_add(0.1, "surface")
 
         # Biological Productivity (Soft Tissue + Carbonate)
         d_dt_export, exportP, del_13_c_org, del_14_c_org = self.productivity(
@@ -444,9 +447,9 @@ class GoCModel:
         )
         d_dt_remin = self.remin(exportP, del_13_c_org, del_14_c_org)
         # multiplying tracers by fluxes
-        d_dt = (self.transport_matrix @ state_a.T).T[
-            :, : self.num_box
-        ]  # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
+        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]  # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
+
+        d_dt += d_dt_geologic
         d_dt += d_dt_export
         d_dt += d_dt_remin
 
