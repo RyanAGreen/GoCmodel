@@ -235,13 +235,13 @@ class GoCModel:
         self.K0 = np.exp(
             (
                 self.A1_C
-                + self.A2_C * (100.0 / ((Temp + Kelv)))
-                + self.A3_C * np.log((Temp + Kelv) / 100.0)
+                + self.A2_C * (100.0 / ((temp + Kelv)))
+                + self.A3_C * np.log((temp + Kelv) / 100.0)
                 + ("Sal")
                 * (
                     self.B1_C
-                    + self.B2_C * ((Temp + Kelv) / 100.0)
-                    + self.B3_C * (((Temp + Kelv) / 100.0) ** 2)
+                    + self.B2_C * ((temp + Kelv) / 100.0)
+                    + self.B3_C * (((temp + Kelv) / 100.0) ** 2)
                 )
             )
         )  # mol/ kg atm
@@ -254,13 +254,13 @@ class GoCModel:
         self.K0 = np.exp(
             (
                 self.A1_C
-                + self.A2_C * (100.0 / ((Temp + Kelv)))
-                + self.A3_C * np.log((Temp + Kelv) / 100.0)
+                + self.A2_C * (100.0 / ((temp + Kelv)))
+                + self.A3_C * np.log((temp + Kelv) / 100.0)
                 + ("Sal")
                 * (
                     self.B1_C
-                    + self.B2_C * ((Temp + Kelv) / 100.0)
-                    + self.B3_C * (((Temp + Kelv) / 100.0) ** 2)
+                    + self.B2_C * ((temp + Kelv) / 100.0)
+                    + self.B3_C * (((temp + Kelv) / 100.0) ** 2)
                 )
             )
         )  # mol/ kg atm
@@ -272,7 +272,7 @@ class GoCModel:
             return makeFXarr  # m/s
 
         self.surf_gas_flux = makeFXarr(
-            PV0, secsday=86400
+            self.PV0, secsday=86400
         )  # * self.surface_area  # m^3 / s
 
         cflux1 = (
@@ -410,7 +410,7 @@ class GoCModel:
             :, : self.num_box
         ]  # [5 x 5] x [5 x 6] = [5 x 6]
         # [6 x 3][all tracers, all boxes (excluding boundary conditions)]
-        d_dt[0] += productP * 106 # Redfield ratio
+        d_dt[0] += productP * 106  # Redfield ratio
         d_dt[1] += productP * -16
         d_dt[2] += productP
         d_dt[3] += productP * 106 * del_13_c_org
