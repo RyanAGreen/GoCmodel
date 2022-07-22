@@ -410,16 +410,16 @@ class GoCModel:
             :, : self.num_box
         ]  # [5 x 5] x [5 x 6] = [5 x 6]
         # [6 x 3][all tracers, all boxes (excluding boundary conditions)]
-        # d_dt[0] += productP * 106 # Redfield ratio
-        # d_dt[1] += productP * -16
+        d_dt[0] += productP * 106 # Redfield ratio
+        d_dt[1] += productP * -16
         d_dt[2] += productP
-        # d_dt[3] += productP * 106 * del_13_c_org
-        # d_dt[4] += productP * 106 * del_14_c_org
+        d_dt[3] += productP * 106 * del_13_c_org
+        d_dt[4] += productP * 106 * del_14_c_org
 
-        # d_dt[0] += productCa
-        # d_dt[1] += productCa * 2
-        # d_dt[3] += productCa * del_13_c_org
-        # d_dt[4] += productCa * del_14_c_org
+        d_dt[0] += productCa
+        d_dt[1] += productCa * 2
+        d_dt[3] += productCa * del_13_c_org
+        d_dt[4] += productCa * del_14_c_org
 
         return d_dt.flatten()
 
@@ -487,7 +487,7 @@ class GoCModel:
 
         print("this solver took ", end - start, " seconds.")
 
-        # io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
+        io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
         # io.save_file(self.time, self.result.y, self.carbonate_chemistry)
 
     def plot_rate(self):
