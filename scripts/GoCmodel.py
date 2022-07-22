@@ -46,12 +46,12 @@ class GoCModel:
             ]
         )
 
-        #mass of the atmopsere from NASA and from SCPM_parameters.py
+        # mass of the atmopsere from NASA and from SCPM_parameters.py
 
-        self.mass_of_atm = 5.1e18 #kg
-        self.mol_of_atm = 28.97 #mean molecular weight ??units??
+        self.mass_of_atm = 5.1e18  # kg
+        self.mol_of_atm = 28.97  # mean molecular weight ??units??
 
-        #volume of atm (mols)
+        # volume of atm (mols)
 
         self.atm_volume = (self.mass_of_atm * 1e3) / self.mol_of_atm
 
@@ -63,18 +63,18 @@ class GoCModel:
         self.B2_C = -0.023656
         self.B3_C = 0.0047036
 
-         #surface area of GoC and surface volume
+        # surface area of GoC and surface volume
 
-        self.surf_volume = 1.65e13 #m^3
-        self.surf_area = self.surf_volume / 200 #m^2
+        self.surf_volume = 1.65e13  # m^3
+        self.surf_area = self.surf_volume / 200  # m^2
 
-        #piston velocity for air-sea gas exchange (from SCPM_paramters.py)
+        # piston velocity for air-sea gas exchange (from SCPM_paramters.py)
 
-        self.PV0 = 3.0 #m/day
+        self.PV0 = 3.0  # m/day
 
         # The "thermodynamic fractionation factor" for carbon isotopes in air-sea exchange
-        self.FK = 0.9995 # no units...0.99915 Stabe carbon as per Schmittner et al(2013) and SCPM_parameters.py
-        self.FKR = 0.9990 # no units...0.9990 Radiocarbon as per Toggweiler and Sarmiento (1985) SCPM_paramters.py
+        self.FK = 0.9995  # no units...0.99915 Stabe carbon as per Schmittner et al(2013) and SCPM_parameters.py
+        self.FKR = 0.9990  # no units...0.9990 Radiocarbon as per Toggweiler and Sarmiento (1985) SCPM_paramters.py
 
         # Setting up inital values
         self.carbon = np.array([2400, 2400, 2300])  # umol/kg
@@ -227,113 +227,76 @@ class GoCModel:
             carbonate_results.append(carbon_chemistry[term])
         return np.array(carbonate_results)
 
-    def gas_exchange(
-        self,
-        carbonic_acid,
-        k0,
-        surface_area,
-        carbon_13_atm_moles,
-        carbon_14_atm_moles,
-        carbon_13_surface_umol,
-        carbon_14_surface_umol,
-        atm_co2=280,
-        temp=25,
-    ):
-        """calculates air to sea and sea to air gas exchange"""
-        N = 15
-        for dt in range(1, N + 1):
-            # 1536000 / 16 / 32
-            carbon_ingassed = (
-                k0 * atm_co2 * surface_area * (1536000 / ((N + 1) / 2 * N)) * dt
-            )
-            # * (1500* 1/45) * 1024;
-            # reconsider *1024 ... µM= 1e-3mol/m3 ... nothing about kg ...
-            # I don't know where 153600 comes from? - Ryan
-
-            carbon_outgassed = (
-                carbonic_acid * surface_area * (1536000 / ((N + 1) / 2 * N)) * dt
-            )
-            # * (1500* 1/45) * 1024;
-
-            d13_outgassed = (
-                (carbon_13_surface_umol / self.state_v0[2])
-                + (0.107 * temp - 10.53 - 0.875)
-            ) * carbon_outgassed
-            d13_ingassed = (carbon_13_atm_moles / atm_co2 - 0.875) * carbon_ingassed
-            d14_outgassed = (
-                (carbon_14_surface_umol / self.state_v0[2])
-                + 2 * (0.107 * temp - 10.53 - 0.875)
-            ) * carbon_outgassed
-            d14_ingassed = (carbon_14_atm_moles / atm_co2 - 2 * 0.875) * carbon_ingassed
-
-            # difference in carbon change converted to concentration
-            # not sure if state_v0 is the way to adjust the carbon inventory during the ODE solver
-            self.state_v0[2] += (carbon_ingassed - carbon_outgassed) / self.mass[
-                2
-            ]  # mol / time step
-        # This will be used when I change the atmospheric CO2 value in CYCLOPS
-        # atm.ppm -= (carbon_ingassed.sum() - carbon_outgassed.sum()) / (1.773E+20)
-
-        # after this I will need to rerun the carbonate solver for the next time step
-        return (
-            d13_ingassed,
-            d14_ingassed,
-            d13_outgassed,
-            d14_outgassed,
-            carbon_ingassed,
-            carbon_outgassed,
-        )
-
-
-      def air_sea_gas_exchange(self, temp=25, Kelv =273.15, SWD=1029): #every string is a variable we do not have data for yet
+    def air_sea_gas_exchange(
+        self, temp=25, Kelv=273.15, SWD=1029
+    ):  # every string is a variable we do not have data for yet
 
         # K0 from GLODAP_processing.py and Wiess 1974...need to know the salinity (Sal) and its units
-        self.K0 = np.exp((self.A1_C + self.A2_C * (100.0/((Temp+Kelv))) + self.A3_C*np.log((Temp+Kelv)/100.0) + ('Sal') * (self.B1_C + self.B2_C *((Temp+Kelv)/100.0) + self.B3_C * (((Temp+Kelv)/100.0)**2)))) # mol/ kg atm
-        
-        #air-sea surface gas transfer
+        self.K0 = np.exp(
+            (
+                self.A1_C
+                + self.A2_C * (100.0 / ((Temp + Kelv)))
+                + self.A3_C * np.log((Temp + Kelv) / 100.0)
+                + ("Sal")
+                * (
+                    self.B1_C
+                    + self.B2_C * ((Temp + Kelv) / 100.0)
+                    + self.B3_C * (((Temp + Kelv) / 100.0) ** 2)
+                )
+            )
+        )  # mol/ kg atm
+
+        # air-sea surface gas transfer
         def makeFXarr(PV0, secsday=86400):
-             makeFXarr = np.zeros([3,1]) # [3x1] so it can multiply
-             makeFXarr[2,0] = (self.PV0/secsday) # but only doing surface box
-             return makeFXarr  # m/s
+            makeFXarr = np.zeros([3, 1])  # [3x1] so it can multiply
+            makeFXarr[2, 0] = self.PV0 / secsday  # but only doing surface box
+            return makeFXarr  # m/s
 
-        self.surf_gas_flux = makeFXarr(PV0, secsday=86400) #* self.surface_area  # m^3 / s
+        self.surf_gas_flux = makeFXarr(
+            PV0, secsday=86400
+        )  # * self.surface_area  # m^3 / s
 
-     
-        cflux1 = ((SWD*self.K0*1e6*self.surf_gas_flux*('AtCO2'-'pCO2'))) #umol/(s m^2)
-        cflux = cflux1 / self.surf_volume  #WHY DIVIDING BY VOLUME??
-        Carbon_flux = -sum(cflux1) 
+        cflux1 = (
+            SWD * self.K0 * 1e6 * self.surf_gas_flux * ("AtCO2" - "pCO2")
+        )  # umol/(s m^2)
+        cflux = cflux1 / self.surf_volume  # WHY DIVIDING BY VOLUME??
+        Carbon_flux = -sum(cflux1)
 
         # d13C air-sea fractionation factors
-        FSA = np.zeros([3,1])
-        FSA=(-9.866/(temp + Kelv) +1.02412) # Mook (1974)  unitless           
-        FAS = np.zeros([3,1])
-        FAS=(-0.373/(temp + Kelv) +1.00019) # Mook (1974)  unitless
+        FSA = np.zeros([3, 1])
+        FSA = -9.866 / (temp + Kelv) + 1.02412  # Mook (1974)  unitless
+        FAS = np.zeros([3, 1])
+        FAS = -0.373 / (temp + Kelv) + 1.00019  # Mook (1974)  unitless
 
         # radiocarbon air-sea fractination factors
-        FSAR = 0.92182 
+        FSAR = 0.92182
         FASR = 0.99786
 
-        #air-sea flux 13C
-        kinetic_frac = SWD * self.K0 * self.surf_gas_flux * self.FK * 1e6 # umol / (atm s)
-        del_13_c_ppmil = self.del_13_c[2,0] / self.carbon #ppmil
-        
-        SCPCO2 = kinetic_frac*(((FAS*('del_13_c_atm_ppmil' / 'AtCO2')) * 'AtCO2') - (FSA*(del_13_c_ppmil / 'pCO2')*'pCO2')) # umol / m^2 s
-        Scflux = SCPCO2 / self.surf_volume # Ocean boxes ...umol/ (s m^3) ??
-            #AtSCflux=-sum(SCPCO2)/Varrat # Atmosphere
-        
-        #air-sea flux 14C
-        radio_kinetic_frac = SWD * self.K0 * self.surf_gas_fluc * self.FKR *1e6 # umol / (atm s)
-        del_14_c_ppmil = self.del_14_c[2,0] / self.carbon #ppmil
+        # air-sea flux 13C
+        kinetic_frac = (
+            SWD * self.K0 * self.surf_gas_flux * self.FK * 1e6
+        )  # umol / (atm s)
+        del_13_c_ppmil = self.del_13_c[2, 0] / self.carbon  # ppmil
 
-        RCPCO2 = radio_kinetic_frac*(((FASR*('del_14_c_atm_ppmil' / 'AtCO2')) * 'AtCO2') - (FSAR*(del_14_c_ppmil / 'pCO2') * 'pCO2')) # umol / m^2 s
+        SCPCO2 = kinetic_frac * (
+            ((FAS * ("del_13_c_atm_ppmil" / "AtCO2")) * "AtCO2")
+            - (FSA * (del_13_c_ppmil / "pCO2") * "pCO2")
+        )  # umol / m^2 s
+        Scflux = SCPCO2 / self.surf_volume  # Ocean boxes ...umol/ (s m^3) ??
+        # AtSCflux=-sum(SCPCO2)/Varrat # Atmosphere
+
+        # air-sea flux 14C
+        radio_kinetic_frac = (
+            SWD * self.K0 * self.surf_gas_fluc * self.FKR * 1e6
+        )  # umol / (atm s)
+        del_14_c_ppmil = self.del_14_c[2, 0] / self.carbon  # ppmil
+
+        RCPCO2 = radio_kinetic_frac * (
+            ((FASR * ("del_14_c_atm_ppmil" / "AtCO2")) * "AtCO2")
+            - (FSAR * (del_14_c_ppmil / "pCO2") * "pCO2")
+        )  # umol / m^2 s
         Rcflux = RCPCO2 / self.surf_volume
-            #AtRCflux=-sum(RCPCO2)/Varrat # Atmosphere
-
-        
-
-
-
-
+        # AtRCflux=-sum(RCPCO2)/Varrat # Atmosphere
 
     # Biological Productivity
     def ComputeExportP(self, state):
@@ -342,13 +305,13 @@ class GoCModel:
 
         state = state.reshape(self.num_tracer, self.num_box)  # [6 x 3]
         state = np.hstack((state, self.boundary_condition))  # [6 x 5]
-        P = state[idxP, :] # [1 x 5]
+        P = state[idxP, :]  # [1 x 5]
 
         offset_value = 20
         del_13_c_cc = state[3] / state[0]
         del_13_c_org = del_13_c_cc + offset_value
         del_14_c_cc = state[4] / state[0]
-        del_14_c_org = del_13_c_cc + 2 * offset_value
+        del_14_c_org = del_14_c_cc + 2 * offset_value
 
         ExportP = np.zeros(self.num_box + self.num_bc)
         SetP = np.array([0, 0, 0.001, 0, 0.001])
@@ -364,7 +327,7 @@ class GoCModel:
         ExportCa = ExportP * 106 * self.CaRatio
 
         self.boundary_condition[idxP, 1] -= ExportP[4]
-        self.boundary_condition[0, 1] -= ExportP[4] * 106 # Redfield ratio
+        self.boundary_condition[0, 1] -= ExportP[4] * 106  # Redfield ratio
         self.boundary_condition[1, 1] -= ExportCa[4] * -16
         self.boundary_condition[3, 1] -= ExportP[4] * 106 * del_13_c_org[4]
         self.boundary_condition[4, 1] -= ExportP[4] * 106 * del_14_c_org[4]
@@ -380,11 +343,11 @@ class GoCModel:
         # Then, ExportN will equal a column vector [0,0,X,0,Y]
         # Finally, EM @ ExportN will equal a column vector [Y,X,-X,0,Y],
         # which is correct and can be added to d_dt
-        productP = productP[:self.num_box]  # d_dt.shape[1] is the number of boxes
+        productP = productP[: self.num_box]  # d_dt.shape[1] is the number of boxes
         productCa = self.export_matrix @ ExportCa
-        productCa = productCa[:self.num_box]
-        del_13_c_org = del_13_c_org[:self.num_box]
-        del_14_c_org = del_14_c_org[:self.num_box]
+        productCa = productCa[: self.num_box]
+        del_13_c_org = del_13_c_org[: self.num_box]
+        del_14_c_org = del_14_c_org[: self.num_box]
 
         return productP, productCa, del_13_c_org, del_14_c_org
 
@@ -440,7 +403,8 @@ class GoCModel:
 
         # Biological Productivity
         productP, productCa, del_13_c_org, del_14_c_org = self.ComputeExportP(statev)
-        d_dt[0] += productP * 106 # Redfield ratio
+
+        d_dt[0] += productP * 106  # Redfield ratio
         d_dt[1] += productP * -16
         d_dt[2] += productP
         d_dt[3] += productP * 106 * del_13_c_org
@@ -543,6 +507,7 @@ class GoCModel:
         plt.plot(rate_geologic_carbon_to_marchitto, label="Marchitto")
         plt.legend()
         plt.show()
+
 
 if __name__ == "__main__":
     ModelInstance = GoCModel()
