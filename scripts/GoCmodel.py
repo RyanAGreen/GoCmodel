@@ -79,7 +79,7 @@ class GoCModel:
         # Setting up inital values
         self.carbon = np.array([2400, 2400, 2300])  # umol/kg
         self.alkalinity = np.array([2450, 2450, 2450])  # umol/kg
-        self.phosphorus = np.array([30, 30, 30])  # umol/kg
+        self.phosphorus = np.array([0.001, 0.001, 0.001])  # umol/kg
         self.del_13_c = (
             np.array([0.1, 0.1, 0.1]) * self.carbon
         )  # delta [permil] * concentration
@@ -285,42 +285,42 @@ class GoCModel:
         )
 
 
-      def air_sea_gas_exchange(self, temp=25, Kelv =273.15, SWD=1029): #every string is a variable we do not have data for yet
+    def air_sea_gas_exchange(self, temp=25, Kelv =273.15, SWD=1029): #every string is a variable we do not have data for yet
 
         # K0 from GLODAP_processing.py and Wiess 1974...need to know the salinity (Sal) and its units
         self.K0 = np.exp((self.A1_C + self.A2_C * (100.0/((Temp+Kelv))) + self.A3_C*np.log((Temp+Kelv)/100.0) + ('Sal') * (self.B1_C + self.B2_C *((Temp+Kelv)/100.0) + self.B3_C * (((Temp+Kelv)/100.0)**2)))) # mol/ kg atm
-        
+
         #air-sea surface gas transfer
         def makeFXarr(PV0, secsday=86400):
-             makeFXarr = np.zeros([3,1]) # [3x1] so it can multiply
-             makeFXarr[2,0] = (self.PV0/secsday) # but only doing surface box
-             return makeFXarr  # m/s
+            makeFXarr = np.zeros([3,1]) # [3x1] so it can multiply
+            makeFXarr[2,0] = (self.PV0/secsday) # but only doing surface box
+            return makeFXarr  # m/s
 
         self.surf_gas_flux = makeFXarr(PV0, secsday=86400) #* self.surface_area  # m^3 / s
 
-     
+
         cflux1 = ((SWD*self.K0*1e6*self.surf_gas_flux*('AtCO2'-'pCO2'))) #umol/(s m^2)
         cflux = cflux1 / self.surf_volume  #WHY DIVIDING BY VOLUME??
-        Carbon_flux = -sum(cflux1) 
+        Carbon_flux = -sum(cflux1)
 
         # d13C air-sea fractionation factors
         FSA = np.zeros([3,1])
-        FSA=(-9.866/(temp + Kelv) +1.02412) # Mook (1974)  unitless           
+        FSA=(-9.866/(temp + Kelv) +1.02412) # Mook (1974)  unitless
         FAS = np.zeros([3,1])
         FAS=(-0.373/(temp + Kelv) +1.00019) # Mook (1974)  unitless
 
         # radiocarbon air-sea fractination factors
-        FSAR = 0.92182 
+        FSAR = 0.92182
         FASR = 0.99786
 
         #air-sea flux 13C
         kinetic_frac = SWD * self.K0 * self.surf_gas_flux * self.FK * 1e6 # umol / (atm s)
         del_13_c_ppmil = self.del_13_c[2,0] / self.carbon #ppmil
-        
+
         SCPCO2 = kinetic_frac*(((FAS*('del_13_c_atm_ppmil' / 'AtCO2')) * 'AtCO2') - (FSA*(del_13_c_ppmil / 'pCO2')*'pCO2')) # umol / m^2 s
         Scflux = SCPCO2 / self.surf_volume # Ocean boxes ...umol/ (s m^3) ??
             #AtSCflux=-sum(SCPCO2)/Varrat # Atmosphere
-        
+
         #air-sea flux 14C
         radio_kinetic_frac = SWD * self.K0 * self.surf_gas_fluc * self.FKR *1e6 # umol / (atm s)
         del_14_c_ppmil = self.del_14_c[2,0] / self.carbon #ppmil
@@ -329,50 +329,30 @@ class GoCModel:
         Rcflux = RCPCO2 / self.surf_volume
             #AtRCflux=-sum(RCPCO2)/Varrat # Atmosphere
 
-        
-
-
-
-
 
     # Biological Productivity
-    def ComputeExportP(self, state):
+    def ComputeExportP(self, current_state):
         idxP = 2  # index of phosphorus in the tracers array
         boxesP = [2, 4]  # GoC Surface and NP Surface
 
-        state = state.reshape(self.num_tracer, self.num_box)  # [6 x 3]
-        state = np.hstack((state, self.boundary_condition))  # [6 x 5]
+        state = np.hstack((current_state, self.boundary_condition))  # [6 x 5]
         P = state[idxP, :] # [1 x 5]
-
         offset_value = 20
         del_13_c_cc = state[3] / state[0]
         del_13_c_org = del_13_c_cc + offset_value
         del_14_c_cc = state[4] / state[0]
-        del_14_c_org = del_13_c_cc + 2 * offset_value
+        del_14_c_org = del_14_c_cc + 2 * offset_value
 
         ExportP = np.zeros(self.num_box + self.num_bc)
-        SetP = np.array([0, 0, 0.001, 0, 0.001])
+        SetP = np.array([0, 0, 1.5, 0, 0.001])
         timescale = 1  # year
         for box in boxesP:
             if P[box] - SetP[box] > 0:
-                ExportP[box] = (
-                    (P[box] - SetP[box]) / timescale * self.mass[box]
-                )  # umol surface N/year
+                ExportP[box] = (P[box] - SetP[box]) / timescale # umol surface N/year
             else:
                 pass  # not enough nutrients to sustain productivity
 
         ExportCa = ExportP * 106 * self.CaRatio
-
-        self.boundary_condition[idxP, 1] -= ExportP[4]
-        self.boundary_condition[0, 1] -= ExportP[4] * 106 # Redfield ratio
-        self.boundary_condition[1, 1] -= ExportCa[4] * -16
-        self.boundary_condition[3, 1] -= ExportP[4] * 106 * del_13_c_org[4]
-        self.boundary_condition[4, 1] -= ExportP[4] * 106 * del_14_c_org[4]
-
-        self.boundary_condition[0, 1] -= ExportCa[4]
-        self.boundary_condition[1, 1] -= ExportCa[4] * 2
-        self.boundary_condition[3, 1] -= ExportCa[4] * del_13_c_org[4]
-        self.boundary_condition[4, 1] -= ExportCa[4] * del_14_c_org[4]
 
         productP = self.export_matrix @ ExportP  # [5 x 5] x [5,] = [5,]
         # Let X be the amount from GoC surface to GoC subsurface
@@ -400,56 +380,57 @@ class GoCModel:
 
         state_a = self.make_state_a(statev, time, "control")
 
+        time_bp = 20000 - time
+
+        time_rounded = int(time_bp)
+        print(time_rounded)
+
+        # Marchitto box additions #
+        # if (time_bp < 16500) and (time_bp > 14500):
+        #     d_dt += self.geologic_carbon_add(0.06, "marchitto")
+        # if (time_bp < 12750) and (time_bp > 12000):
+        #     d_dt += self.geologic_carbon_add(0.06, "marchitto")
+        #
+        # # subsurface addition #
+        # if (time_bp < 18000) and (time_bp >= 16500):
+        #     d_dt += self.geologic_carbon_add(0.05, "subsurface")
+        #     d_dt += self.geologic_carbon_add(0.06, "marchitto")
+        #
+        # if (time_bp < 15500) and (time_bp >= 14500):
+        #     d_dt += self.geologic_carbon_add(0.07, "subsurface")
+        #
+        # if (time_bp <= 14500) and (time_bp >= 13500):
+        #     d_dt += self.geologic_carbon_add(0.08, "subsurface")
+        #
+        # if (time_bp < 13500) and (time_bp >= 12000):
+        #     d_dt += self.geologic_carbon_add(0.08, "subsurface")
+        #     d_dt += self.geologic_carbon_add(0.1, "surface")
+        #
+        # # surface addition #
+        # if (time_bp < 15500) and (time_bp > 14500):
+        #     d_dt += self.geologic_carbon_add(0.075, "surface")
+        #
+        # if (time_bp < 13500) and (time_bp > 12000):
+        #     d_dt += self.geologic_carbon_add(0.1, "surface")
+
+        # Biological Productivity
+        productP, productCa, del_13_c_org, del_14_c_org = self.ComputeExportP(state_a[:,:self.num_box])
+
         # multiplying tracers by fluxes
         d_dt = (self.transport_matrix @ state_a.T).T[
             :, : self.num_box
         ]  # [5 x 5] x [5 x 6] = [5 x 6]
         # [6 x 3][all tracers, all boxes (excluding boundary conditions)]
-
-        time_bp = 20000 - time
-
-        time_rounded = int(time_bp)
-
-        # Marchitto box additions #
-        if (time_bp < 16500) and (time_bp > 14500):
-            d_dt += self.geologic_carbon_add(0.06, "marchitto")
-        if (time_bp < 12750) and (time_bp > 12000):
-            d_dt += self.geologic_carbon_add(0.06, "marchitto")
-
-        # subsurface addition #
-        if (time_bp < 18000) and (time_bp >= 16500):
-            d_dt += self.geologic_carbon_add(0.05, "subsurface")
-            d_dt += self.geologic_carbon_add(0.06, "marchitto")
-
-        if (time_bp < 15500) and (time_bp >= 14500):
-            d_dt += self.geologic_carbon_add(0.07, "subsurface")
-
-        if (time_bp <= 14500) and (time_bp >= 13500):
-            d_dt += self.geologic_carbon_add(0.08, "subsurface")
-
-        if (time_bp < 13500) and (time_bp >= 12000):
-            d_dt += self.geologic_carbon_add(0.08, "subsurface")
-            d_dt += self.geologic_carbon_add(0.1, "surface")
-
-        # surface addition #
-        if (time_bp < 15500) and (time_bp > 14500):
-            d_dt += self.geologic_carbon_add(0.075, "surface")
-
-        if (time_bp < 13500) and (time_bp > 12000):
-            d_dt += self.geologic_carbon_add(0.1, "surface")
-
-        # Biological Productivity
-        productP, productCa, del_13_c_org, del_14_c_org = self.ComputeExportP(statev)
-        d_dt[0] += productP * 106 # Redfield ratio
-        d_dt[1] += productP * -16
+        # d_dt[0] += productP * 106 # Redfield ratio
+        # d_dt[1] += productP * -16
         d_dt[2] += productP
-        d_dt[3] += productP * 106 * del_13_c_org
-        d_dt[4] += productP * 106 * del_14_c_org
+        # d_dt[3] += productP * 106 * del_13_c_org
+        # d_dt[4] += productP * 106 * del_14_c_org
 
-        d_dt[0] += productP
-        d_dt[1] += productCa * 2
-        d_dt[3] += productP * del_13_c_org
-        d_dt[4] += productP * del_14_c_org
+        # d_dt[0] += productCa
+        # d_dt[1] += productCa * 2
+        # d_dt[3] += productCa * del_13_c_org
+        # d_dt[4] += productCa * del_14_c_org
 
         return d_dt.flatten()
 
