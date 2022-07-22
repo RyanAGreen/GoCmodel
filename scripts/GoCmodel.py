@@ -138,9 +138,9 @@ class GoCModel:
             [
                 [0, 0, 0, 0, 0.75],  # 0.75 for Marchitto
                 [0, 0, 0.25, 0, 0],  # 0.25 for GoC Subsurface
-                [0, 0,-0.25, 0, 0],
+                [0, 0, -0.25, 0, 0],
                 [0, 0, 0, 0, 0],
-                [0, 0, 0, 0,-0.75],
+                [0, 0, 0, 0, -0.75],
             ]
         )
 
@@ -344,13 +344,8 @@ class GoCModel:
         setP = np.array([0, 0, 0.001, 0, 0.001])
         timescale = 5  # year
         for box in boxesP:
-<<<<<<< HEAD
             if P[box] - setP[box] > 0:
-                exportP[box] = (P[box] - setP[box]) / timescale # umol surface N/year
-=======
-            if P[box] - SetP[box] > 0:
-                ExportP[box] = (P[box] - SetP[box]) / timescale  # umol surface N/year
->>>>>>> de31366221d2ad9886734974c39d433d87ad4f01
+                exportP[box] = (P[box] - setP[box]) / timescale  # umol surface N/year
             else:
                 pass  # not enough nutrients to sustain productivity
 
@@ -362,29 +357,21 @@ class GoCModel:
         # Then, ExportN will equal a column vector [0,0,X,0,Y]
         # Finally, EM @ ExportN will equal a column vector [Y,X,-X,0,Y],
         # which is correct and can be added to d_dt
-<<<<<<< HEAD
-        productP = productP[:self.num_box]
+        productP = productP[: self.num_box]
         productCa = self.export_matrix @ exportCa
-        productCa = productCa[:self.num_box]
-=======
-        productP = productP[: self.num_box]  # d_dt.shape[1] is the number of boxes
-        productCa = self.export_matrix @ ExportCa
         productCa = productCa[: self.num_box]
-        del_13_c_org = del_13_c_org[: self.num_box]
-        del_14_c_org = del_14_c_org[: self.num_box]
->>>>>>> de31366221d2ad9886734974c39d433d87ad4f01
 
         d_dt = np.zeros((self.num_tracer, self.num_box))
-        d_dt[0] += productP * 106 # Redfield ratio
+        d_dt[0] += productP * 106  # Redfield ratio
         d_dt[1] += productP * -16
         d_dt[2] += productP
-        d_dt[3] += productP * 106 * del_13_c_org[:self.num_box]
-        d_dt[4] += productP * 106 * del_14_c_org[:self.num_box]
+        d_dt[3] += productP * 106 * del_13_c_org[: self.num_box]
+        d_dt[4] += productP * 106 * del_14_c_org[: self.num_box]
 
         d_dt[0] += productCa
         d_dt[1] += productCa * 2
-        d_dt[3] += productCa * del_13_c_org[:self.num_box]
-        d_dt[4] += productCa * del_14_c_org[:self.num_box]
+        d_dt[3] += productCa * del_13_c_org[: self.num_box]
+        d_dt[4] += productCa * del_14_c_org[: self.num_box]
 
         return d_dt, exportP, del_13_c_org, del_14_c_org
 
@@ -394,9 +381,9 @@ class GoCModel:
         addOrg_del_13_c = self.remin_matrix @ (exportP * del_13_c_org)
         addOrg_del_14_c = self.remin_matrix @ (exportP * del_14_c_org)
 
-        addOrg = addOrg[:self.num_box]
-        addOrg_del_13_c = addOrg_del_13_c[:self.num_box]
-        addOrg_del_14_c = addOrg_del_14_c[:self.num_box]
+        addOrg = addOrg[: self.num_box]
+        addOrg_del_13_c = addOrg_del_13_c[: self.num_box]
+        addOrg_del_14_c = addOrg_del_14_c[: self.num_box]
 
         d_dt = np.zeros((self.num_tracer, self.num_box))
         d_dt[0] += addOrg * 106
@@ -451,36 +438,17 @@ class GoCModel:
         # if (time_bp < 13500) and (time_bp > 12000):
         #     d_dt += self.geologic_carbon_add(0.1, "surface")
 
-<<<<<<< HEAD
         # Biological Productivity (Soft Tissue + Carbonate)
-        d_dt_export, ExportP, del_13_c_org, del_14_c_org = self.productivity(state_a[:,:self.num_box])
-        d_dt_remin = self.remin(ExportP, del_13_c_org, del_14_c_org)
-        # multiplying tracers by fluxes
-        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]  # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
-        d_dt += d_dt_export
-        d_dt += d_dt_remin
-=======
-        # Biological Productivity
-        productP, productCa, del_13_c_org, del_14_c_org = self.ComputeExportP(
+        d_dt_export, exportP, del_13_c_org, del_14_c_org = self.productivity(
             state_a[:, : self.num_box]
         )
-
+        d_dt_remin = self.remin(exportP, del_13_c_org, del_14_c_org)
         # multiplying tracers by fluxes
         d_dt = (self.transport_matrix @ state_a.T).T[
             :, : self.num_box
-        ]  # [5 x 5] x [5 x 6] = [5 x 6]
-        # [6 x 3][all tracers, all boxes (excluding boundary conditions)]
-        d_dt[0] += productP * 106  # Redfield ratio
-        d_dt[1] += productP * -16
-        d_dt[2] += productP
-        d_dt[3] += productP * 106 * del_13_c_org
-        d_dt[4] += productP * 106 * del_14_c_org
-
-        d_dt[0] += productCa
-        d_dt[1] += productCa * 2
-        d_dt[3] += productCa * del_13_c_org
-        d_dt[4] += productCa * del_14_c_org
->>>>>>> de31366221d2ad9886734974c39d433d87ad4f01
+        ]  # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
+        d_dt += d_dt_export
+        d_dt += d_dt_remin
 
         return d_dt.flatten()
 
