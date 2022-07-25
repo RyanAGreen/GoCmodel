@@ -287,8 +287,8 @@ class GoCModel:
             
         #air-sea flux 14C
         del_14_c_atm_ppmil = 1
-        sradio_kinetic_frac = SWD * self.K0 * self.surf_gas_fluc * self.FKR *1e6 # umol / (atm s)
-        del_14_c_ppmil = self.del_14_c[2,0] / self.carbon #ppmil
+        radio_kinetic_frac = SWD * self.K0 * self.surf_gas_flux * self.FKR *1e6 # umol / (atm s)
+        del_14_c_ppmil = state_a[4,2] / self.carbon[2] #ppmil
 
         RCPCO2 = radio_kinetic_frac*(((FASR*(del_14_c_atm_ppmil / self.CO2_data_int)) * self.CO2_data_int) - (FSAR*(del_14_c_ppmil / self.pco2) * self.pco2)) # umol / m^2 s
         Rcflux = RCPCO2 / self.surf_volume
