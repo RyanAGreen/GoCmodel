@@ -277,9 +277,11 @@ class GoCModel:
         #air-sea flux 13C
         del_13_c_atm_ppmil = 1
         kinetic_frac = SWD * self.K0 * self.surf_gas_flux * self.FK * 1e6 # umol / (atm s)
-        del_13_c_ppmil = state_a[3,2] / self.carbon #ppmil
+        del_13_c_ppmil = state_a[3,2] / self.carbon[2] #ppmil
+
+        #print(del_13_c_ppmil)
             
-        SCPCO2 = kinetic_frac*(((FAS*(del_13_c_atm_ppmil / self.CO2_data_int)) * self.CO2_data) - (FSA*(del_13_c_ppmil / carbon_chemistry[5])*carbon_chemistry[5])) # umol / m^2 s
+        SCPCO2 = kinetic_frac*(((FAS*(del_13_c_atm_ppmil / self.CO2_data_int)) * self.CO2_data_int) - (FSA*(del_13_c_ppmil / self.pco2)*self.pco2)) # umol / m^2 s
         Scflux = SCPCO2 / self.surf_volume # Ocean boxes ...umol/ (s m^3) ??
             #AtSCflux=-sum(SCPCO2)/Varrat # Atmosphere
             
@@ -288,15 +290,13 @@ class GoCModel:
         sradio_kinetic_frac = SWD * self.K0 * self.surf_gas_fluc * self.FKR *1e6 # umol / (atm s)
         del_14_c_ppmil = self.del_14_c[2,0] / self.carbon #ppmil
 
-        RCPCO2 = radio_kinetic_frac*(((FASR*(del_14_c_atm_ppmil / self.CO2_data_int)) * self.CO2_data) - (FSAR*(del_14_c_ppmil / carbon_chemistry[5]) * carbon_chemistry[5])) # umol / m^2 s
+        RCPCO2 = radio_kinetic_frac*(((FASR*(del_14_c_atm_ppmil / self.CO2_data_int)) * self.CO2_data_int) - (FSAR*(del_14_c_ppmil / self.pco2) * self.pco2)) # umol / m^2 s
         Rcflux = RCPCO2 / self.surf_volume
             #AtRCflux=-sum(RCPCO2)/Varrat # Atmosphere
         
         return (cflux1, SCPCO2, RCPCO2)
 
         
-
-
 
 
 
