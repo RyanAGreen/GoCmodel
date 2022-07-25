@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import src.conversions as conversions
 
 
+
 def make_text(state, tracers_arr):
     state_reshaped = state.reshape(state.shape[0], state.shape[1], 1)
     tracers_arr = np.concatenate((tracers_arr, state_reshaped), axis=2)
@@ -312,3 +313,18 @@ def read_bc(file, row):
         ]
     )
     return bc
+
+def read_co2_data(file):
+
+    df = pd.read_table(str(file), sep = '\t', header=None)
+    df = df.rename(
+        columns={
+            0: 'year',
+            1: 'atm_co2'
+       }
+    )
+    
+    co2_data = df.to_numpy()
+
+    return co2_data
+
