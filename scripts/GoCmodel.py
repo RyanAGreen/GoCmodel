@@ -77,7 +77,7 @@ class GoCModel:
         self.FKR = 0.9990 # no units...0.9990 Radiocarbon as per Toggweiler and Sarmiento (1985) SCPM_paramters.py
 
         self.CO2_data = io.read_co2_data('data/observations/CO2data.txt')
-        self.CO2_data = np.array(self.CO2_data)
+        self.CO2_data_int = self.CO2_data[0,1]
 
         # Setting up inital values
         self.carbon = np.array([2400, 2400, 2300])  # umol/kg
@@ -174,7 +174,7 @@ class GoCModel:
 
         if time_rounded % 100 == 0:
             idx = int(time_rounded/100)
-            #self.CO2_data = self.CO2_data[-idx, 1] #doesnt work
+            self.CO2_data_int = self.CO2_data[-idx, 1] #maybe works?
 
             
         # reshape flat array to rows as tracers and columns as boxes
@@ -260,7 +260,7 @@ class GoCModel:
         
 
         #carbon flux
-        cflux1 = ((SWD*self.K0*1e6*self.surf_gas_flux*(self.CO2_data - self.pco2))) #umol/(s m^2)
+        cflux1 = ((SWD*self.K0*1e6*self.surf_gas_flux*(self.CO2_data_int - self.pco2))) #umol/(s m^2)
         self.cflux = cflux1 / self.surf_volume  
         self.Carbon_flux = -sum(cflux1) 
         
@@ -279,7 +279,7 @@ class GoCModel:
         kinetic_frac = SWD * self.K0 * self.surf_gas_flux * self.FK * 1e6 # umol / (atm s)
         del_13_c_ppmil = state_a[3,2] / self.carbon #ppmil
             
-        SCPCO2 = kinetic_frac*(((FAS*(del_13_c_atm_ppmil / self.CO2_data)) * self.CO2_data) - (FSA*(del_13_c_ppmil / carbon_chemistry[5])*carbon_chemistry[5])) # umol / m^2 s
+        SCPCO2 = kinetic_frac*(((FAS*(del_13_c_atm_ppmil / self.CO2_data_int)) * self.CO2_data) - (FSA*(del_13_c_ppmil / carbon_chemistry[5])*carbon_chemistry[5])) # umol / m^2 s
         Scflux = SCPCO2 / self.surf_volume # Ocean boxes ...umol/ (s m^3) ??
             #AtSCflux=-sum(SCPCO2)/Varrat # Atmosphere
             
@@ -288,7 +288,7 @@ class GoCModel:
         sradio_kinetic_frac = SWD * self.K0 * self.surf_gas_fluc * self.FKR *1e6 # umol / (atm s)
         del_14_c_ppmil = self.del_14_c[2,0] / self.carbon #ppmil
 
-        RCPCO2 = radio_kinetic_frac*(((FASR*(del_14_c_atm_ppmil / self.CO2_data)) * self.CO2_data) - (FSAR*(del_14_c_ppmil / carbon_chemistry[5]) * carbon_chemistry[5])) # umol / m^2 s
+        RCPCO2 = radio_kinetic_frac*(((FASR*(del_14_c_atm_ppmil / self.CO2_data_int)) * self.CO2_data) - (FSAR*(del_14_c_ppmil / carbon_chemistry[5]) * carbon_chemistry[5])) # umol / m^2 s
         Rcflux = RCPCO2 / self.surf_volume
             #AtRCflux=-sum(RCPCO2)/Varrat # Atmosphere
         
