@@ -328,3 +328,14 @@ def read_co2_data(file):
 
     return co2_data
 
+def read_14C_atm_data(file):
+
+    df = pd.read_table(str(file), sep = '\t', header=None)
+    df = df.rename(
+        columns={
+            0: 'year',
+            1: '14C_atm'
+        }
+    )
+
+    c14_atm_data = df.to_numpy()
