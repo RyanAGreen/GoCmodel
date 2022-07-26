@@ -80,8 +80,7 @@ class GoCModel:
         self.CO2_data_int = self.CO2_data[0,1]
 
         self.c14_atm_data = io.read_14C_atm_data('data/observations/D14Cdata.txt')
-        #self.c14_atm_data = np.array(self.c14_atm_data)
-        #self.c14_atm_data_int = self.c14_atm_data[0,1]
+        self.c14_atm_data_int = self.c14_atm_data[0,1]
 
         # Setting up inital values
         self.carbon = np.array([2400, 2400, 2300])  # umol/kg
@@ -178,11 +177,11 @@ class GoCModel:
 
         if time_rounded % 100 == 0:
             idx = int(time_rounded/100)
-            self.CO2_data_int = self.CO2_data[-idx, 1] #maybe works?
+            self.CO2_data_int = self.CO2_data[idx, 1] #maybe works?
 
-        # if time_rounded % 100 == 0:
-        #     idx = int(time_rounded / 100)
-        #     self.c14_atm_data_int = self.c14_atm_data[-idx, 1]
+        if time_rounded % 100 == 0:
+            idx = int(time_rounded / 100)
+            self.c14_atm_data_int = self.c14_atm_data[idx, 1]
 
             
         # reshape flat array to rows as tracers and columns as boxes
@@ -299,15 +298,15 @@ class GoCModel:
             #AtSCflux=-sum(SCPCO2)/Varrat # Atmosphere
             
         #air-sea flux 14C
-        del_14_c_atm_ppmil = 1
         radio_kinetic_frac = SWD * self.K0 * self.surf_gas_flux * self.FKR *1e6 # umol / (atm s)
         del_14_c_ppmil = current_state[4,2] / current_state[0,2] #ppmil
 
-        RCPCO2 = radio_kinetic_frac*(((FASR*(del_14_c_atm_ppmil / self.CO2_data_int)) * self.CO2_data_int) - (FSAR*(del_14_c_ppmil / self.pco2) * self.pco2)) # umol / m^2 s
+        RCPCO2 = radio_kinetic_frac*(((FASR*(self.c14_atm_data_int / self.CO2_data_int)) * self.CO2_data_int) - (FSAR*(del_14_c_ppmil / self.pco2) * self.pco2)) # umol / m^2 s
         Rcflux = RCPCO2 / self.surf_volume
             #AtRCflux=-sum(RCPCO2)/Varrat # Atmosphere
 
-        #print("co2 data is ", self.CO2_data_int)
+        print("SCPCO2", SCPCO2)
+        #print('c14 data', self.c14_atm_data_int)
         
         return (cflux1, SCPCO2, RCPCO2)
 

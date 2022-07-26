@@ -339,3 +339,5 @@ def read_14C_atm_data(file):
     )
 
     c14_atm_data = df.to_numpy()
+
+    return c14_atm_data
