@@ -82,6 +82,9 @@ class GoCModel:
         self.c14_atm_data = io.read_14C_atm_data('data/observations/D14Cdata.txt')
         self.c14_atm_data_int = self.c14_atm_data[0,1]
 
+        self.d13C_atm_data = io.read_d13C_atm_data('data/observations/dC13atmData.txt')
+        self.d13C_atm_data_int = self.d13C_atm_data[0,1]
+
         # Setting up inital values
         self.carbon = np.array([2400, 2400, 2300])  # umol/kg
         self.alkalinity = np.array([2450, 2450, 2450])  # umol/kg
@@ -183,6 +186,10 @@ class GoCModel:
             idx = int(time_rounded / 100)
             self.c14_atm_data_int = self.c14_atm_data[idx, 1]
 
+        if time_rounded % 100 == 0:
+            idx = int(time_rounded / 100)
+            self.d13C_atm_data_int = self.d13C_atm_data[idx, 1]
+
             
         # reshape flat array to rows as tracers and columns as boxes
         # (18,) -> (6,3)
@@ -261,10 +268,10 @@ class GoCModel:
         self.K0 = np.exp((self.A1_C + self.A2_C * (100.0/(Temp)) + self.A3_C*np.log(Temp/100.0) + (Sal) * (self.B1_C + self.B2_C *((Temp)/100.0) + self.B3_C * (((Temp)/100.0)**2)))) # mol/ kg atm
             
             #air-sea surface gas transfer
-        def makeFXarr(PV0, secsday = 86400):
-            makeFXarr = np.zeros([3,1]) # [3x1] so it can multiply
-            makeFXarr[2,0] = (self.PV0/secsday) # but only doing surface box
-            return makeFXarr  # m/s
+        # def makeFXarr(PV0, secsday = 86400):
+        #     makeFXarr = np.zeros([3,1]) # [3x1] so it can multiply
+        #     makeFXarr[2,0] = (self.PV0/secsday) # but only doing surface box
+        #     return makeFXarr  # m/s
 
         self.surf_gas_flux = 0.00003472 #makeFXarr(self.PV0, secsday=86400) # units = m/s* self.surface_area  # m^3 / s
 
@@ -287,13 +294,12 @@ class GoCModel:
         FASR = 0.99786
 
         #air-sea flux 13C
-        del_13_c_atm_ppmil = 1
         kinetic_frac = SWD * self.K0 * self.surf_gas_flux * self.FK * 1e6 # umol / (atm s)
         del_13_c_ppmil = current_state[3,2] / current_state[0,2] #ppmil
 
         #print(del_13_c_ppmil)
             
-        SCPCO2 = kinetic_frac*(((FAS*(del_13_c_atm_ppmil / self.CO2_data_int)) * self.CO2_data_int) - (FSA*(del_13_c_ppmil / self.pco2)*self.pco2)) # umol / m^2 s
+        SCPCO2 = kinetic_frac*(((FAS*(self.d13C_atm_data_int / self.CO2_data_int)) * self.CO2_data_int) - (FSA*(del_13_c_ppmil / self.pco2)*self.pco2)) # umol / m^2 s
         Scflux = SCPCO2 / self.surf_volume # Ocean boxes ...umol/ (s m^3) ??
             #AtSCflux=-sum(SCPCO2)/Varrat # Atmosphere
             
@@ -305,7 +311,7 @@ class GoCModel:
         Rcflux = RCPCO2 / self.surf_volume
             #AtRCflux=-sum(RCPCO2)/Varrat # Atmosphere
 
-        print("SCPCO2", SCPCO2)
+        #print("SCPCO2", SCPCO2)
         #print('c14 data', self.c14_atm_data_int)
         
         return (cflux1, SCPCO2, RCPCO2)
@@ -425,7 +431,7 @@ class GoCModel:
 
         # d_dt[0,2] += cflux1
         # d_dt[3,2] += SCPCO2
-        # d_dt[4,2] += RCPCP2
+        # d_dt[4,2] += RCPCO2
 
         # # Biological Productivity
         # productP, productCa, del_13_c_org, del_14_c_org = self.ComputeExportP(statev)

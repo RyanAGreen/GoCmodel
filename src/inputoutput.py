@@ -341,3 +341,20 @@ def read_14C_atm_data(file):
     c14_atm_data = df.to_numpy()
 
     return c14_atm_data
+
+
+def read_d13C_atm_data(file):
+
+    df = pd.read_table(str(file), sep = '\t', header=None)
+    df.rename(
+        columns={
+            0: 'year',
+            1: 'd13C_atm',
+            2: 'stnd_dev'
+        }
+    )
+    
+    d13C_atm_data = df.to_numpy()
+
+    return d13C_atm_data
+
