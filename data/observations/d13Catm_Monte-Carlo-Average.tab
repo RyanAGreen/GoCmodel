@@ -1,16 +1,3 @@
-/* DATA DESCRIPTION:
-Citation:	Schmitt, Jochen; Schneider, Robert; Elsig, Joachim; Leuenberger, Daiana; Lourantou, Anna; Chappellaz, Jérôme A; Köhler, Peter; Joos, Fortunat; Stocker, Thomas F; Leuenberger, Markus Christian; Fischer, Hubertus (2012): Monte Carlo average of stable carbon isotope ratio of atmospheric CO2 from three Antarctic ice cores. PANGAEA, https://doi.org/10.1594/PANGAEA.772711, 
-	In supplement to: Schmitt, J et al. (2012): Carbon isotope constraints on the deglacial CO2 rise from ice cores. Science, 336(6082), 711-714, https://doi.org/10.1126/science.1217161
-Project(s):	European Project for Ice Coring in Antarctica (EPICA) (URI: https://en.wikipedia.org/wiki/European_Project_for_Ice_Coring_in_Antarctica)
-Funding:	Fifth Framework Programme (FP5), grant/award no. EVK2-CT-2000-00077: European Project for Ice Coring in Antarctica (URI: https://cordis.europa.eu/project/rcn/57236/factsheet/en)
-	Fourth Framework Programme (FP4), grant/award no. ENV4980702: European Project for Ice Coring in Antarctica (URI: https://cordis.europa.eu/project/rcn/45039/factsheet/en)
-Comment:	This d13Catm data set covers the temporal range (24.4 kyr to 0.4 kyr BP) of the individual data sets and is obtained from a Monte Carlo bootstrap approach providing d13Catm values in yearly evolution. This approach allowed for detection of analytical outliers, which are incompatible with the low-pass filtering inherent to the bubble enclosure process in polar ice. With this method, we were able to derive a robust d13Catm record. For details on the method see the Supplementary Information of the paper.
-Parameter(s):	Gas age [ka BP] (Gas age) * PI: Schmitt, Jochen (https://orcid.org/0000-0003-4695-3029, schmitt@climate.unibe.ch)
-	δ13C, carbon dioxide, atmospheric [‰ PDB] (δ13C CO2) * PI: Schmitt, Jochen (https://orcid.org/0000-0003-4695-3029, schmitt@climate.unibe.ch) * METHOD/DEVICE: Calculated
-	δ13C, carbon dioxide, standard deviation [±] (δ13C CO2 std dev) * PI: Schmitt, Jochen (https://orcid.org/0000-0003-4695-3029, schmitt@climate.unibe.ch) * METHOD/DEVICE: Calculated * COMMENT: 1-sigma
-License:	Creative Commons Attribution 3.0 Unported (CC-BY-3.0)
-Size:	71814 data points
-*/
 Gas age [ka BP]	δ13C CO2 [‰ PDB]	δ13C CO2 std dev [±]
 0.445	-6.349	0.061
 0.446	-6.349	0.061
