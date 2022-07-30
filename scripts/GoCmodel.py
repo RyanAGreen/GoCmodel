@@ -11,6 +11,7 @@ import PyCO2SYS as pyco2
 from scipy.integrate import solve_ivp
 import src.inputoutput as io
 import src.circulation as circulation
+import src.product as product
 import time
 
 # import src.conversions as conversions
@@ -308,73 +309,6 @@ class GoCModel:
         Rcflux = RCPCO2 / self.surf_volume
         # AtRCflux=-sum(RCPCO2)/Varrat # Atmosphere
 
-    # Biological Productivity
-    def productivity(self, current_state):
-        idxP = 2  # index of phosphorus in the tracers array
-        boxesP = [2, 4]  # GoC Surface and NP Surface
-
-        state = np.hstack((current_state, self.boundary_condition))  # [6 x 5]
-        P = state[idxP, :]  # [1 x 5]
-        offset_value = 20
-        del_13_c_cc = state[3] / state[0]
-        del_13_c_org = del_13_c_cc + offset_value
-        del_14_c_cc = state[4] / state[0]
-        del_14_c_org = del_14_c_cc + 2 * offset_value
-
-        exportP = np.zeros(self.num_box + self.num_bc)
-        setP = np.array([0, 0, 0.001, 0, 0.001])
-        timescale = 5  # year
-        for box in boxesP:
-            if P[box] - setP[box] > 0:
-                exportP[box] = (P[box] - setP[box]) / timescale  # umol surface N/year
-            else:
-                pass  # not enough nutrients to sustain productivity
-
-        exportCa = exportP * 106 * self.CaRatio
-
-        productP = self.export_matrix @ exportP  # [5 x 5] x [5,] = [5,]
-        # Let X be the amount from GoC surface to GoC subsurface
-        # Let Y be the amount from NP surface to Marchitto
-        # Then, ExportN will equal a column vector [0,0,X,0,Y]
-        # Finally, EM @ ExportN will equal a column vector [Y,X,-X,0,Y],
-        # which is correct and can be added to d_dt
-        productP = productP[: self.num_box]
-        productCa = self.export_matrix @ exportCa
-        productCa = productCa[: self.num_box]
-
-        d_dt = np.zeros((self.num_tracer, self.num_box))
-        d_dt[0] += productP * 106  # Redfield ratio
-        d_dt[1] += productP * -16
-        d_dt[2] += productP
-        d_dt[3] += productP * 106 * del_13_c_org[: self.num_box]
-        d_dt[4] += productP * 106 * del_14_c_org[: self.num_box]
-
-        d_dt[0] += productCa
-        d_dt[1] += productCa * 2
-        d_dt[3] += productCa * del_13_c_org[: self.num_box]
-        d_dt[4] += productCa * del_14_c_org[: self.num_box]
-
-        return d_dt, exportP, del_13_c_org, del_14_c_org
-
-    # Remineralization
-    def remin(self, exportP, del_13_c_org, del_14_c_org):
-        addOrg = self.remin_matrix @ exportP
-        addOrg_del_13_c = self.remin_matrix @ (exportP * del_13_c_org)
-        addOrg_del_14_c = self.remin_matrix @ (exportP * del_14_c_org)
-
-        addOrg = addOrg[: self.num_box]
-        addOrg_del_13_c = addOrg_del_13_c[: self.num_box]
-        addOrg_del_14_c = addOrg_del_14_c[: self.num_box]
-
-        d_dt = np.zeros((self.num_tracer, self.num_box))
-        d_dt[0] += addOrg * 106
-        d_dt[1] += addOrg * -16
-        d_dt[2] += addOrg
-        d_dt[3] += addOrg_del_13_c * 106
-        d_dt[4] += addOrg_del_14_c * 106
-
-        return d_dt
-
     def box_model(self, time, statev):
         # pylint: disable=unused-argument
         """
@@ -423,10 +357,14 @@ class GoCModel:
             d_dt_geologic += self.geologic_carbon_add(0.1, "surface")
 
         # Biological Productivity (Soft Tissue + Carbonate)
-        d_dt_export, exportP, del_13_c_org, del_14_c_org = self.productivity(
-            state_a[:, : self.num_box]
+        d_dt_export, exportP, del_13_c_org, del_14_c_org = product.productivity(
+            state_a[:, : self.num_box], self.boundary_condition,
+            self.num_tracer, self.num_box, self.num_bc, self.CaRatio,
+            self.export_matrix, self.remin_matrix
         )
-        d_dt_remin = self.remin(exportP, del_13_c_org, del_14_c_org)
+        d_dt_remin = product.remin(
+            exportP, del_13_c_org, del_14_c_org,
+            self.num_tracer, self.num_box, self.remin_matrix)
         # multiplying tracers by fluxes
         d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]  # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
 
@@ -499,7 +437,7 @@ class GoCModel:
 
         print("this solver took ", end - start, " seconds.")
 
-        io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
+        # io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
         # io.save_file(self.time, self.result.y, self.carbonate_chemistry)
 
     def plot_rate(self):
