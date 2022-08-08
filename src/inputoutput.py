@@ -21,17 +21,17 @@ def save_file(time, tracers, carbonate_chemistry):
             "time": time / 1000,
             "mar_DIC": tracers[0, :],
             "mar_ALK": tracers[3, :],
-            "mar_pH": carbonate_chemistry[3, 0, :],
+            # "mar_pH": carbonate_chemistry[3, 0, :],
             "mar_d13c": tracers[9, :] / tracers[0, :],
             "mar_D14c": tracers[12, :] / tracers[0, :],
             "goc_sub_DIC": tracers[1, :],
             "goc_sub_ALK": tracers[4, :],
-            "goc_sub_pH": carbonate_chemistry[3, 1, :],
+            # "goc_sub_pH": carbonate_chemistry[3, 1, :],
             "goc_sub_d13c": tracers[10, :] / tracers[1, :],
             "goc_sub_D14c": tracers[13, :] / tracers[1, :],
             "goc_surf_DIC": tracers[2, :],
             "goc_surf_ALK": tracers[5, :],
-            "goc_surf_pH": carbonate_chemistry[3, 2, :],
+            # "goc_surf_pH": carbonate_chemistry[3, 2, :],
             "goc_surf_d13c": tracers[11, :] / tracers[2, :],
             "goc_surf_D14c": tracers[14, :] / tracers[2, :],
         }
@@ -71,7 +71,7 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
     Mar = pd.read_csv(obspath + "Marchitto.txt", sep="\s+")
     Mar["Cal.Age"] = 1000 * Mar["Cal.Age"]
 
-    ax[0].plot(time, carbonate_chemistry[3, 0, :], label="Baja California pH")
+    # ax[0].plot(time, carbonate_chemistry[3, 0, :], label="Baja California pH")
     ax[1].plot(
         time, tracers[0, :], color="#706513", label="Baja California C",
     )
@@ -98,13 +98,13 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         label="Marchitto box ∆$^{14}$C",
     )
 
-    ax[0].plot(
-        time,
-        carbonate_chemistry[3, 1, :],
-        linestyle="dotted",
-        color="#B57114",
-        label="GoC deep pH",
-    )
+    # ax[0].plot(
+    #     time,
+    #     carbonate_chemistry[3, 1, :],
+    #     linestyle="dotted",
+    #     color="#B57114",
+    #     label="GoC deep pH",
+    # )
     ax[1].plot(
         time, tracers[1, :], linestyle="dotted", color="#B57114", label="GoC deep C",
     )
@@ -126,9 +126,9 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         label="GoC subsurface ∆$^{14}$C",
     )
 
-    ax[0].plot(
-        time, carbonate_chemistry[3, 2, :], linestyle="dashed", label="GoC surface pH",
-    )
+    # ax[0].plot(
+    #     time, carbonate_chemistry[3, 2, :], linestyle="dashed", label="GoC surface pH",
+    # )
     ax[1].plot(
         time, tracers[2, :], linestyle="dashed", color="#520120", label="GoC surface C",
     )
