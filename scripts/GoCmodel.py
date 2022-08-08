@@ -279,105 +279,108 @@ class GoCModel:
     
     def air_sea_gas_exchange(self, current_state):
     
+        #--------------------------------------------------------------------------------------------------- constants & variables
         
-        
-        surface_dic = current_state[0,2]   #*1e-6
-        surface_alk = current_state[1,2]   #*1e-6
-        # carbonate_chemistry = self.carb_chem(surface_alk,surface_dic) #
-        # self.pco2 = carbonate_chemistry[5]
-        
-        
-        
+
         Temp = 298.15 #Kelvin
         Sal = 35 #partperthousand
         SWD = 1029 #kg/m^3
+        surf_gas_flux = 0.00003472 #m/s
+        self.K0 = (np.exp((self.A1_C + self.A2_C * (100.0/(Temp))
+                + self.A3_C*np.log(Temp/100.0) + (Sal) * (self.B1_C + self.B2_C 
+                *((Temp)/100.0) + self.B3_C * (((Temp)/100.0)**2)))))*1e6 # umol/ kg atm
+        surface_dic = current_state[0,2]
+        surface_alk = current_state[1,2]
+
+        #--------------------------------------------------------------------------------------------------- pco2 solver method controls
+
+
+        pco2_method = 'Mathis'
         
-        
-        
-        #---------------------------------------------------------------------------------------------------
-        
-        
-        
-        # self.K0 = (np.exp((self.A1_C + self.A2_C * (100.0/(Temp))
-        #     + self.A3_C*np.log(Temp/100.0) + (Sal) * (self.B1_C + self.B2_C 
-        #     *((Temp)/100.0) + self.B3_C * (((Temp)/100.0)**2))))) # mol/ kg atm
+        if pco2_method == "Mathis":
+            self.pco2 = ((2*surface_dic - surface_alk)**2) / surface_alk - surface_dic
+            print('1')
+        if pco2_method == "sys":
+            carbonate_chemistry = self.carb_chem(surface_alk,surface_dic) 
+            self.pco2 = carbonate_chemistry[5]
+            print('2')
+        if pco2_method == "carbcalc":
+            surface_dic = current_state[0,2]  *1e-6
+            surface_alk = current_state[1,2]  *1e-6
+
+            self.K_0 = np.exp(-60.2409 + 9345.17/Temp + 23.3585*np.log(Temp/100) 
+            + Sal * (0.023517 - 0.00023656*Temp +0.0047036*(Temp/100)**2) )
+
+            self.K1 = np.exp(2.18867 - 2275.036/Temp - 1.468591 * np.log(Temp) 
+            + (-0.138681 - 9.33291/Temp) * np.sqrt(Sal) + 0.0726483*Sal    
+            - 0.00574938 * Sal **1.5)
+
+            self.K2 = np.exp(-0.84226 - 3741.1288/Temp -1.437139 * np.log(Temp)
+            + (-0.128417 - 24.41239/Temp)*np.sqrt(Sal) + 0.1195308 * Sal   
+            - 0.0091284 * Sal **1.5 )
+
+            self.Kb = np.exp( (-8966.90 - 2890.51*np.sqrt(Sal) - 77.942*Sal 
+                + 1.726 * Sal **1.5 - 0.0993*Sal**2) / Temp                
+                + (148.0248 + 137.194 * np.sqrt(Sal) + 1.62247 * Sal)       
+                + (-24.4344 - 25.085 * np.sqrt(Sal) - 0.2474 * Sal) * np.log(Temp)
+                + 0.053105 * np.sqrt(Sal) * Temp) 
+
+            self.a = surface_alk
+            self.b = self.K1*(self.a - surface_dic)
+            self.c = self.K1 * self.K2 * ((self.a - 2) * surface_dic)
+
+            self.H = (-(self.b) + np.sqrt((self.b)**2 - 4*self.a*self.c)) / 2*self.a
+
+            self.aq_CO2 = self.a / ((self.K1 / self.H) + 2*self.K1*(self.K2 / (self.H**2)))     
             
-        self.K0 = (np.exp(-60.2409 + 9345.17/Temp + 23.3585*np.log(Temp/100) 
-          + Sal * (0.023517 - 0.00023656*Temp +0.0047036*(Temp/100)**2) ))*1e6 #umol/kg atm
-        
-        # self.K1 = np.exp(2.18867 - 2275.036/Temp - 1.468591 * np.log(Temp) 
-        #   + (-0.138681 - 9.33291/Temp) * np.sqrt(Sal) + 0.0726483*Sal    
-        #   - 0.00574938 * Sal **1.5)
+            self.pco2 = (self.aq_CO2 / self.K_0) * 1e6
+            print('3')
 
-        # self.K2 = np.exp(-0.84226 - 3741.1288/Temp -1.437139 * np.log(Temp)
-        #   + (-0.128417 - 24.41239/Temp)*np.sqrt(Sal) + 0.1195308 * Sal   
-        #   - 0.0091284 * Sal **1.5 )
+        #--------------------------------------------------------------------------------------------------- carbon flux
+    
 
-        # self.Kb = np.exp( (-8966.90 - 2890.51*np.sqrt(Sal) - 77.942*Sal 
-        #     + 1.726 * Sal **1.5 - 0.0993*Sal**2) / Temp                
-        #     + (148.0248 + 137.194 * np.sqrt(Sal) + 1.62247 * Sal)       
-        #     + (-24.4344 - 25.085 * np.sqrt(Sal) - 0.2474 * Sal) * np.log(Temp)
-        #     + 0.053105 * np.sqrt(Sal) * Temp) 
-
-        # self.a = surface_alk
-        # self.b = self.K1*(self.a - surface_dic)
-        # self.c = self.K1 * self.K2 * ((self.a - 2) * surface_dic)
-
-        # self.H = (-(self.b) + np.sqrt((self.b)**2 - 4*self.a*self.c)) / 2*self.a
-
-        # self.aq_CO2 = self.a / ((self.K1 / self.H) + 2*self.K1*(self.K2 / (self.H**2)))     
-        
-        # self.pco2 = (self.aq_CO2 / self.K0) * 1e6
-
-        self.pco2 = ((2*surface_dic - surface_alk)**2) / surface_alk - surface_dic #Mathis's Approximation
-        
-        self.surf_gas_flux = 0.00003472 #m/s
-       
-        
-        #---------------------------------------------------------------------------------------------------
-
-
-        #carbon flux
-        cflux1 = ((SWD*self.K0*self.surf_gas_flux*(self.CO2_data_int - self.pco2))) #umol/(s m^2)
+        cflux1 = ((SWD*self.K0*surf_gas_flux*(self.CO2_data_int - self.pco2))) #umol/(s m^2)
         cflux = cflux1 / self.surf_volume  
         #self.Carbon_flux = -sum(cflux1) 
+
+        self.cflux_out = -(SWD*self.K0*surf_gas_flux*self.pco2)
+        self.cflux_in = SWD*self.K0*surf_gas_flux*self.CO2_data_int
         
-         # d13C air-sea fractionation factors
-        FSA = np.zeros([3,1])
+
+        #--------------------------------------------------------------------------------------------------- d13C flux
+
+
+        #air-sea fractionation factors
         FSA=(-9.866/(Temp) +1.02412) # Mook (1974)  unitless           
-        FAS = np.zeros([3,1])
         FAS=(-0.373/(Temp) +1.00019) # Mook (1974)  unitless
 
-        # radiocarbon air-sea fractination factors
-        FSAR = 0.92182 
-        FASR = 0.99786
-
         #air-sea flux 13C
-        kinetic_frac = SWD * self.K0 * self.surf_gas_flux * self.FK # umol / (atm s)
+        kinetic_frac = SWD * self.K0 * surf_gas_flux * self.FK # umol / (atm s)
         del_13_c_ppmil = current_state[3,2] / current_state[0,2] #ppmil
 
-        #print(del_13_c_ppmil)
-            
         SCPCO2 = kinetic_frac*(((FAS*(self.d13C_atm_data_int / self.CO2_data_int)) * self.CO2_data_int) - (FSA*(del_13_c_ppmil / self.pco2)*self.pco2)) # umol / m^2 s
         Scflux = SCPCO2 / self.surf_volume # Ocean boxes ...umol/ (s m^3) ??
-            #AtSCflux=-sum(SCPCO2)/Varrat # Atmosphere
-            
+        #AtSCflux=-sum(SCPCO2)/Varrat # Atmosphere
+       
+
+        #--------------------------------------------------------------------------------------------------- d14C flux
+
+
+        #air-sea fractination factors
+        FSAR = 0.92182 
+        FASR = 0.99786
+        
         #air-sea flux 14C
-        radio_kinetic_frac = SWD * self.K0 * self.surf_gas_flux * self.FKR # umol / (atm s)
+        radio_kinetic_frac = SWD * self.K0 * surf_gas_flux * self.FKR # umol / (atm s)
         del_14_c_ppmil = current_state[4,2] / current_state[0,2] #ppmil
 
         RCPCO2 = radio_kinetic_frac*(((FASR*(self.c14_atm_data_int / self.CO2_data_int)) * self.CO2_data_int) - (FSAR*(del_14_c_ppmil / self.pco2) * self.pco2)) # umol / m^2 s
         Rcflux = RCPCO2 / self.surf_volume
-            #AtRCflux=-sum(RCPCO2)/Varrat # Atmosphere
+        #AtRCflux=-sum(RCPCO2)/Varrat # Atmosphere
 
-        print("K0 is", self.K0)
-        #print('aqCO2', self.aq_CO2)
-        print('cflux1 is', cflux1)
-        print('pco2 is', self.pco2)
-        print('atm_co2 is', self.CO2_data_int)
-        print('CO2 gradient', (self.CO2_data_int - self.pco2))
-        #print('stateV0 is', self.state_v0)
         
+        
+
         return (cflux1, SCPCO2, RCPCO2)
 
         
@@ -496,13 +499,32 @@ class GoCModel:
         #if time_rounded % 100 == 0:
         current_state = state_a[:,: self.num_box] + d_dt
         cflux1, SCPCO2, RCPCO2 = self.air_sea_gas_exchange(current_state)
-        print("DIC surf is ", current_state[0,2],'DIC deep is', current_state[0,1],"DIC Marc is", current_state[0,0]," and ALK is ", current_state[1,2])
-        print("Current year is", time_bp)
             
         d_dt[0,2] += cflux1*3.1536e7*self.surf_area / self.mass[2] #converting cflux1from mol/m^2s to umol/kg
         d_dt[3,2] += SCPCO2*3.1536e7*self.surf_area / self.mass[2]
         d_dt[4,2] += RCPCO2*3.1536e7*self.surf_area / self.mass[2]
+
+        verbose = "True"
+
+        if verbose == "True":
             
+            print("K0 is", self.K0)
+            #print('aqCO2', self.aq_CO2)
+            print('cflux1 is', cflux1)
+            #print('cflux_out is', self.cflux_out)
+            #print('clfux_in', self.cflux_in)
+            print('pco2 is', self.pco2)
+            print('atm_co2 is', self.CO2_data_int)
+            print('CO2 gradient', (self.CO2_data_int - self.pco2))
+            #print('d13C flux is', SCPCO2)
+            #print('d13C is', current_state[3,2] )
+            #print('stateV0 is', self.state_v0)
+            print("DIC surf is ", current_state[0,2]),#'DIC deep is', current_state[0,1],"DIC Marc is", current_state[0,0]," and ALK is ", current_state[1,2])
+            print("Current year is", time_bp)
+        
+        if verbose == "Flase":
+            pass
+        
 
 
         # print('current state', current_state[0,2])
