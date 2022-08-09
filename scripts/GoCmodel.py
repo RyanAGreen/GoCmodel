@@ -507,7 +507,6 @@ class GoCModel:
             print("Current year is", time_bp)
         current_state = state_a[:, : self.num_box] + d_dt
         cflux1, SCPCO2, RCPCO2 = self.air_sea_gas_exchange(current_state)
-<<<<<<< HEAD
             
         d_dt[0,2] += cflux1*3.1536e7*self.surf_area / self.mass[2] #converting cflux1from mol/m^2s to umol/kg
         d_dt[3,2] += SCPCO2*3.1536e7*self.surf_area / self.mass[2]
@@ -534,9 +533,6 @@ class GoCModel:
         if verbose == "Flase":
             pass
         
-=======
-        # print("DIC surf is ", current_state[0,2],'DIC deep is', current_state[0,1],"DIC Marc is", current_state[0,0]," and ALK is ", current_state[1,2])
->>>>>>> d22fb1451cdbd44ec32f35fdae01535aad5c0599
 
         d_dt[0, 2] += (
             cflux1 * 3.1536e7 * self.surf_area / self.mass[2]
