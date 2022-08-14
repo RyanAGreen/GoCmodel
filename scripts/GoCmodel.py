@@ -296,7 +296,7 @@ class GoCModel:
         #--------------------------------------------------------------------------------------------------- pco2 solver method controls
 
 
-        pco2_method = 'Mathis'
+        pco2_method = 'carbcalc'
         
         if pco2_method == "Mathis":
             self.pco2 = ((2*surface_dic - surface_alk)**2) / surface_alk - surface_dic
@@ -308,6 +308,7 @@ class GoCModel:
         if pco2_method == "carbcalc":
             surface_dic = current_state[0,2]  *1e-6
             surface_alk = current_state[1,2]  *1e-6
+            Boron = 1.179e-5 * Sal
 
             self.K_0 = np.exp(-60.2409 + 9345.17/Temp + 23.3585*np.log(Temp/100) 
             + Sal * (0.023517 - 0.00023656*Temp +0.0047036*(Temp/100)**2) )
@@ -324,19 +325,38 @@ class GoCModel:
                 + 1.726 * Sal **1.5 - 0.0993*Sal**2) / Temp                
                 + (148.0248 + 137.194 * np.sqrt(Sal) + 1.62247 * Sal)       
                 + (-24.4344 - 25.085 * np.sqrt(Sal) - 0.2474 * Sal) * np.log(Temp)
-                + 0.053105 * np.sqrt(Sal) * Temp) 
+                + 0.053105 * np.sqrt(Sal) * Temp)
 
-            self.a = surface_alk
-            self.b = self.K1*(self.a - surface_dic)
-            self.c = self.K1 * self.K2 * ((self.a - 2) * surface_dic)
 
-            self.H = (-(self.b) + np.sqrt((self.b)**2 - 4*self.a*self.c)) / 2*self.a
+            self.H = 10**(-8.3)                     
+            diff_H = self.H     
+            tiny_diff_H = 1.e-15 
 
-            self.aq_CO2 = self.a / ((self.K1 / self.H) + 2*self.K1*(self.K2 / (self.H**2)))     
-            
-            self.pco2 = (self.aq_CO2 / self.K_0) * 1e6
-            print('3')
+            iter = 0
 
+            while diff_H > tiny_diff_H:
+
+                H_old = self.H
+
+                CA = surface_alk - (self.Kb/(self.Kb+self.H)) * Boron
+
+                self.a = CA
+                self.b = self.K1*(self.a - surface_dic)
+                self.c = self.K1 * self.K2 * ((self.a - 2) * surface_dic)
+
+                self.H = (-(self.b) + np.sqrt((self.b)**2 - 4*self.a*self.c)) / 2*self.a
+
+                diff_H = abs(self.H - H_old)
+                iter = iter + 1
+
+            #self.aq_CO2 = self.a / ((self.K1 / self.H) + 2*self.K1*(self.K2 / (self.H**2)))  
+            self.aq_CO2 = surface_dic / (1 + (self.K1 / self.H) + ((self.K1*self.K2) / (self.H)**2))
+   
+            self.pco2 = (self.aq_CO2 / self.K_0) * 1e6 #why is pco2 not equilibrating?!?!?
+
+            self.pH = -np.log(self.H)
+           
+       
         #--------------------------------------------------------------------------------------------------- carbon flux
     
 
@@ -385,16 +405,6 @@ class GoCModel:
         return (cflux1, SCPCO2, RCPCO2)
 
         
-
-        # print("K0 is", self.K0)
-        # print('aqCO2', self.aq_CO2)
-        # print('cflux1 is', cflux1)
-        # print('pco2 is', self.pco2)
-        # print('atm_co2 is', self.CO2_data_int)
-        # print('CO2 gradient', (self.CO2_data_int - self.pco2))
-        # print('stateV0 is', self.state_v0)
-
-        return (cflux1, SCPCO2, RCPCO2)
 
     # # Biological Productivity
     # def ComputeExportP(self, state):
@@ -517,6 +527,8 @@ class GoCModel:
         if verbose == "True":
             
             print("K0 is", self.K0)
+            print('pH is', self.pH)
+            #print('surface_dic is', self.surface_dic)
             #print('aqCO2', self.aq_CO2)
             print('cflux1 is', cflux1)
             #print('cflux_out is', self.cflux_out)
