@@ -299,12 +299,10 @@ class GoCModel:
         pco2_method = 'carbcalc'
         
         if pco2_method == "Mathis":
-            self.pco2 = ((2*surface_dic - surface_alk)**2) / surface_alk - surface_dic
-            print('1')
+            self.pco2 = (((2*surface_dic - surface_alk)**2) / surface_alk - surface_dic)
         if pco2_method == "sys":
             carbonate_chemistry = self.carb_chem(surface_alk,surface_dic) 
             self.pco2 = carbonate_chemistry[5]
-            print('2')
         if pco2_method == "carbcalc":
             surface_dic = current_state[0,2]  *1e-6
             surface_alk = current_state[1,2]  *1e-6
@@ -328,9 +326,10 @@ class GoCModel:
                 + 0.053105 * np.sqrt(Sal) * Temp)
 
 
-            self.H = 10**(-8.3)                     
+            self.H = 10**(-8)
+                                 
             diff_H = self.H     
-            tiny_diff_H = 1.e-15 
+            tiny_diff_H = 1e-15 
 
             iter = 0
 
@@ -344,17 +343,23 @@ class GoCModel:
                 self.b = self.K1*(self.a - surface_dic)
                 self.c = self.K1 * self.K2 * ((self.a - 2) * surface_dic)
 
-                self.H = (-(self.b) + np.sqrt((self.b)**2 - 4*self.a*self.c)) / 2*self.a
+                self.H = ((-1*self.b) + np.sqrt((self.b)**2 - 4*self.a*self.c)) / (2*self.a)
+                #self.h = ((-1*self.b) + (((self.b)**2) - 4*self.a*self.c)**0.5) / (2*self.a)
 
                 diff_H = abs(self.H - H_old)
                 iter = iter + 1
 
-            #self.aq_CO2 = self.a / ((self.K1 / self.H) + 2*self.K1*(self.K2 / (self.H**2)))  
-            self.aq_CO2 = surface_dic / (1 + (self.K1 / self.H) + ((self.K1*self.K2) / (self.H)**2))
+            self.aq_CO2 = self.a / ((self.K1 / self.H) + 2*self.K1*(self.K2 / (self.H**2)))  
+            #self.aq_CO2 = surface_dic / (1 + (self.K1 / self.H) + ((self.K1*self.K2) / (self.H)**2))
    
-            self.pco2 = (self.aq_CO2 / self.K_0) * 1e6 #why is pco2 not equilibrating?!?!?
+            
+            self.pco2 =((self.aq_CO2 / self.K_0) * 1e6)#*1000000 #why is pco2 not equilibrating?!?!?
+            
+            self.pH = -np.log10(self.H)
+            #print('H is', self.H)
+            #print('h is', self.h)
 
-            self.pH = -np.log(self.H)
+            self.min_ph = self.pH.min()
            
        
         #--------------------------------------------------------------------------------------------------- carbon flux
@@ -513,12 +518,12 @@ class GoCModel:
 
         # Air-Sea Gas Exchange
 
-        if time_rounded % 100 == 0:
-            print("Current year is", time_bp)
+        #if time_rounded % 100 == 0:
+        print("Current year is", time_bp)
         current_state = state_a[:, : self.num_box] + d_dt
         cflux1, SCPCO2, RCPCO2 = self.air_sea_gas_exchange(current_state)
             
-        d_dt[0,2] += cflux1*3.1536e7*self.surf_area / self.mass[2] #converting cflux1from mol/m^2s to umol/kg
+        d_dt[0,2] += cflux1*3.1536e7*self.surf_area / self.mass[2] #converting from umol/m^2s to umol/kg
         d_dt[3,2] += SCPCO2*3.1536e7*self.surf_area / self.mass[2]
         d_dt[4,2] += RCPCO2*3.1536e7*self.surf_area / self.mass[2]
 
@@ -526,8 +531,9 @@ class GoCModel:
 
         if verbose == "True":
             
-            print("K0 is", self.K0)
+            #print("K0 is", self.K0)
             print('pH is', self.pH)
+            #print('min pH is', self.min_ph)
             #print('surface_dic is', self.surface_dic)
             #print('aqCO2', self.aq_CO2)
             print('cflux1 is', cflux1)
@@ -542,15 +548,13 @@ class GoCModel:
             print("DIC surf is ", current_state[0,2]),#'DIC deep is', current_state[0,1],"DIC Marc is", current_state[0,0]," and ALK is ", current_state[1,2])
             print("Current year is", time_bp)
         
-        if verbose == "Flase":
+        if verbose == "False":
             pass
         
 
-        d_dt[0, 2] += (
-            cflux1 * 3.1536e7 * self.surf_area / self.mass[2]
-        )  # converting cflux1from mol/m^2s to umol/kg
-        d_dt[3, 2] += SCPCO2 * 3.1536e7 * self.surf_area / self.mass[2]
-        d_dt[4, 2] += RCPCO2 * 3.1536e7 * self.surf_area / self.mass[2]
+        # d_dt[0, 2] += cflux1 * 3.1536e7 * self.surf_area / self.mass[2]  # converting cflux1 from umol/m^2s to umol/kg
+        # d_dt[3, 2] += SCPCO2 * 3.1536e7 * self.surf_area / self.mass[2]
+        # d_dt[4, 2] += RCPCO2 * 3.1536e7 * self.surf_area / self.mass[2]
 
         # print('current state', current_state[0,2])
         # print('new cflux', cflux1*3.1536e7*self.surf_area / self.mass[2])
