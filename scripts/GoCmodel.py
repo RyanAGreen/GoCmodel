@@ -3,7 +3,6 @@ Regional Model
 Going to move things to modules after they work in OOP first
 """
 
-
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -58,26 +57,11 @@ class GoCModel:
 
         self.atm_volume = (self.mass_of_atm * 1e3) / self.mol_of_atm
 
-        # CO2 Solubility parameters from Weiss (1974), in mol/ (kg atm)
-        self.A1_C = -60.3409
-        self.A2_C = 93.4517
-        self.A3_C = 23.3585
-        self.B1_C = 0.023517
-        self.B2_C = -0.023656
-        self.B3_C = 0.0047036
-
         # surface area of GoC and surface volume
 
         self.surf_volume = 1.65e13  # m^3
-        self.surf_area = self.surf_volume / 200  # m^2
+        self.surf_area = self.surf_volume / 200  # m^2       
 
-        # piston velocity for air-sea gas exchange (from SCPM_paramters.py)
-
-        self.PV0 = 3.0  # m/day
-
-        # The "thermodynamic fractionation factor" for carbon isotopes in air-sea exchange
-        self.FK = 0.9995  # no units...0.99915 Stabe carbon as per Schmittner et al(2013) and SCPM_parameters.py
-        self.FKR = 0.9990  # no units...0.9990 Radiocarbon as per Toggweiler and Sarmiento (1985) SCPM_paramters.py
 
         self.CO2_data = io.read_co2_data("data/observations/CO2data.txt")
         self.CO2_data_int = self.CO2_data[0, 1]
@@ -153,7 +137,7 @@ class GoCModel:
         self.time = None
         self.output = None
         self.pH = None
-        self.pco2 = None
+        self.pco2 = None 
 
     def make_state_a(self, state_v, time, bc):
         """Gets called every year and makes new state in matrix format. Boxes are in columns and tracers are in
@@ -170,6 +154,7 @@ class GoCModel:
                 self.boundary_condition = io.read_bc(
                     "data/NoISchange/ForwardRun/control.txt", (time_rounded / 100)
                 )
+               
 
         if bc == "2dinversion":
             if time_rounded % 100 == 0:
@@ -287,22 +272,41 @@ class GoCModel:
         Sal = 35 #partperthousand
         SWD = 1029 #kg/m^3
         surf_gas_flux = 0.00003472 #m/s
-        self.K0 = (np.exp((self.A1_C + self.A2_C * (100.0/(Temp))
-                + self.A3_C*np.log(Temp/100.0) + (Sal) * (self.B1_C + self.B2_C 
-                *((Temp)/100.0) + self.B3_C * (((Temp)/100.0)**2)))))*1e6 # umol/ kg atm
-        surface_dic = current_state[0,2]
-        surface_alk = current_state[1,2]
+        
+        A1_C = -60.3409 # CO2 Solubility parameters from Weiss (1974), in mol/ (kg atm)
+        A2_C = 93.4517
+        A3_C = 23.3585
+        B1_C = 0.023517
+        B2_C = -0.023656
+        B3_C = 0.0047036
 
+        FK = 0.9995  # The thermodynamic fractionation factor for carbon isotopes in air-sea exchange (no units)
+        FKR = 0.9990  
+
+        #air-sea fractionation factors dC13
+        FSA=(-9.866/(Temp) +1.02412)          
+        FAS=(-0.373/(Temp) +1.00019)
+
+        #air-sea fractionation factors dC14
+        FSAR = 0.92182 
+        FASR = 0.99786
+
+        K0 = (np.exp((A1_C + A2_C * (100.0/(Temp)) # umol/ kg atm
+                + A3_C*np.log(Temp/100.0) + (Sal) * (B1_C + B2_C 
+                *((Temp)/100.0) + B3_C * (((Temp)/100.0)**2)))))
+        
+    
         #--------------------------------------------------------------------------------------------------- pco2 solver method controls
 
-
-        pco2_method = 'carbcalc'
+        pco2_method = 'Mathis'
         
         if pco2_method == "Mathis":
+            surface_dic = current_state[0,2]
+            surface_alk = current_state[1,2]
+
             self.pco2 = (((2*surface_dic - surface_alk)**2) / surface_alk - surface_dic)
-        if pco2_method == "sys":
-            carbonate_chemistry = self.carb_chem(surface_alk,surface_dic) 
-            self.pco2 = carbonate_chemistry[5]
+        
+        
         if pco2_method == "carbcalc":
             surface_dic = current_state[0,2]  *1e-6
             surface_alk = current_state[1,2]  *1e-6
@@ -326,7 +330,7 @@ class GoCModel:
                 + 0.053105 * np.sqrt(Sal) * Temp)
 
 
-            self.H = 10**(-8)
+            self.H = 10**(-8.3)
                                  
             diff_H = self.H     
             tiny_diff_H = 1e-15 
@@ -337,14 +341,13 @@ class GoCModel:
 
                 H_old = self.H
 
-                CA = surface_alk - (self.Kb/(self.Kb+self.H)) * Boron
+                CA = surface_alk
 
                 self.a = CA
                 self.b = self.K1*(self.a - surface_dic)
                 self.c = self.K1 * self.K2 * ((self.a - 2) * surface_dic)
 
                 self.H = ((-1*self.b) + np.sqrt((self.b)**2 - 4*self.a*self.c)) / (2*self.a)
-                #self.h = ((-1*self.b) + (((self.b)**2) - 4*self.a*self.c)**0.5) / (2*self.a)
 
                 diff_H = abs(self.H - H_old)
                 iter = iter + 1
@@ -353,60 +356,36 @@ class GoCModel:
             #self.aq_CO2 = surface_dic / (1 + (self.K1 / self.H) + ((self.K1*self.K2) / (self.H)**2))
    
             
-            self.pco2 =((self.aq_CO2 / self.K_0) * 1e6)#*1000000 #why is pco2 not equilibrating?!?!?
+            self.pco2 = ((self.aq_CO2 / self.K_0) * 1e6)
             
             self.pH = -np.log10(self.H)
-            #print('H is', self.H)
-            #print('h is', self.h)
-
-            self.min_ph = self.pH.min()
            
        
         #--------------------------------------------------------------------------------------------------- carbon flux
     
 
-        cflux1 = ((SWD*self.K0*surf_gas_flux*(self.CO2_data_int - self.pco2))) #umol/(s m^2)
-        cflux = cflux1 / self.surf_volume  
-        #self.Carbon_flux = -sum(cflux1) 
-
-        self.cflux_out = -(SWD*self.K0*surf_gas_flux*self.pco2)
-        self.cflux_in = SWD*self.K0*surf_gas_flux*self.CO2_data_int
+        cflux1 = (SWD * K0 * surf_gas_flux * (self.CO2_data_int - self.pco2)) #umol/(s m^2)
         
 
         #--------------------------------------------------------------------------------------------------- d13C flux
 
 
-        #air-sea fractionation factors
-        FSA=(-9.866/(Temp) +1.02412) # Mook (1974)  unitless           
-        FAS=(-0.373/(Temp) +1.00019) # Mook (1974)  unitless
-
-        #air-sea flux 13C
-        kinetic_frac = SWD * self.K0 * surf_gas_flux * self.FK # umol / (atm s)
+        kinetic_frac = SWD * K0 * surf_gas_flux * FK # umol / (atm s)
         del_13_c_ppmil = current_state[3,2] / current_state[0,2] #ppmil
 
         SCPCO2 = kinetic_frac*(((FAS*(self.d13C_atm_data_int / self.CO2_data_int)) * self.CO2_data_int) - (FSA*(del_13_c_ppmil / self.pco2)*self.pco2)) # umol / m^2 s
-        Scflux = SCPCO2 / self.surf_volume # Ocean boxes ...umol/ (s m^3) ??
-        #AtSCflux=-sum(SCPCO2)/Varrat # Atmosphere
        
 
         #--------------------------------------------------------------------------------------------------- d14C flux
 
 
-        #air-sea fractination factors
-        FSAR = 0.92182 
-        FASR = 0.99786
-        
-        #air-sea flux 14C
-        radio_kinetic_frac = SWD * self.K0 * surf_gas_flux * self.FKR # umol / (atm s)
+        radio_kinetic_frac = SWD * K0 * surf_gas_flux * FKR # umol / (atm s)
         del_14_c_ppmil = current_state[4,2] / current_state[0,2] #ppmil
 
         RCPCO2 = radio_kinetic_frac*(((FASR*(self.c14_atm_data_int / self.CO2_data_int)) * self.CO2_data_int) - (FSAR*(del_14_c_ppmil / self.pco2) * self.pco2)) # umol / m^2 s
-        Rcflux = RCPCO2 / self.surf_volume
-        #AtRCflux=-sum(RCPCO2)/Varrat # Atmosphere
-
         
         
-
+        
         return (cflux1, SCPCO2, RCPCO2)
 
         
@@ -481,12 +460,12 @@ class GoCModel:
             :, : self.num_box
         ]  # [5 x 5] x [5 x 6] = [5 x 6]
         # [6 x 3][all tracers, all boxes (excluding boundary conditions)]
-
+        # d_dt = np.zeros((6,3))
         time_bp = 20000 - time
 
         time_rounded = int(time_bp)
 
-        current_state = state_a[:, : self.num_box] + d_dt
+        #current_state = state_a[:, : self.num_box] + d_dt
 
         # Marchitto box additions #
         # if (time_bp < 16500) and (time_bp > 14500):
@@ -520,17 +499,21 @@ class GoCModel:
 
         #if time_rounded % 100 == 0:
         print("Current year is", time_bp)
+        
         current_state = state_a[:, : self.num_box] + d_dt
         cflux1, SCPCO2, RCPCO2 = self.air_sea_gas_exchange(current_state)
-            
+    
         d_dt[0,2] += cflux1*3.1536e7*self.surf_area / self.mass[2] #converting from umol/m^2s to umol/kg
         d_dt[3,2] += SCPCO2*3.1536e7*self.surf_area / self.mass[2]
         d_dt[4,2] += RCPCO2*3.1536e7*self.surf_area / self.mass[2]
+
+        new_state = state_a[:, : self.num_box] + d_dt
 
         verbose = "True"
 
         if verbose == "True":
             
+            print('d_dt 0,2 is', d_dt[0,2])
             #print("K0 is", self.K0)
             print('pH is', self.pH)
             #print('min pH is', self.min_ph)
@@ -545,7 +528,7 @@ class GoCModel:
             #print('d13C flux is', SCPCO2)
             #print('d13C is', current_state[3,2] )
             #print('stateV0 is', self.state_v0)
-            print("DIC surf is ", current_state[0,2]),#'DIC deep is', current_state[0,1],"DIC Marc is", current_state[0,0]," and ALK is ", current_state[1,2])
+            print("DIC surf is ", new_state[0,2]),#'DIC deep is', current_state[0,1],"DIC Marc is", current_state[0,0]," and ALK is ", current_state[1,2])
             print("Current year is", time_bp)
         
         if verbose == "False":
