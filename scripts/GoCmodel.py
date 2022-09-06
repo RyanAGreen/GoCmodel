@@ -170,7 +170,7 @@ class GoCModel:
 
         if time_rounded % 100 == 0:
             idx = int(time_rounded / 100)
-            self.CO2_data_int = self.CO2_data[idx, 1]
+            self.CO2_data_int = self.CO2_data[idx, 1] #ppm
 
         if time_rounded % 100 == 0:
             idx = int(time_rounded / 100)
@@ -301,7 +301,7 @@ class GoCModel:
         pco2_method = 'Mathis'
         
         if pco2_method == "Mathis":
-            surface_dic = current_state[0,2]
+            surface_dic = current_state[0,2] 
             surface_alk = current_state[1,2]
 
             self.pco2 = (((2*surface_dic - surface_alk)**2) / surface_alk - surface_dic)
@@ -312,53 +312,53 @@ class GoCModel:
             surface_alk = current_state[1,2]  *1e-6
             Boron = 1.179e-5 * Sal
 
-            self.K_0 = np.exp(-60.2409 + 9345.17/Temp + 23.3585*np.log(Temp/100) 
+            K_0 = np.exp(-60.2409 + 9345.17/Temp + 23.3585*np.log(Temp/100) 
             + Sal * (0.023517 - 0.00023656*Temp +0.0047036*(Temp/100)**2) )
 
-            self.K1 = np.exp(2.18867 - 2275.036/Temp - 1.468591 * np.log(Temp) 
+            K1 = np.exp(2.18867 - 2275.036/Temp - 1.468591 * np.log(Temp) 
             + (-0.138681 - 9.33291/Temp) * np.sqrt(Sal) + 0.0726483*Sal    
             - 0.00574938 * Sal **1.5)
 
-            self.K2 = np.exp(-0.84226 - 3741.1288/Temp -1.437139 * np.log(Temp)
+            K2 = np.exp(-0.84226 - 3741.1288/Temp -1.437139 * np.log(Temp)
             + (-0.128417 - 24.41239/Temp)*np.sqrt(Sal) + 0.1195308 * Sal   
             - 0.0091284 * Sal **1.5 )
 
-            self.Kb = np.exp( (-8966.90 - 2890.51*np.sqrt(Sal) - 77.942*Sal 
+            Kb = np.exp( (-8966.90 - 2890.51*np.sqrt(Sal) - 77.942*Sal 
                 + 1.726 * Sal **1.5 - 0.0993*Sal**2) / Temp                
                 + (148.0248 + 137.194 * np.sqrt(Sal) + 1.62247 * Sal)       
                 + (-24.4344 - 25.085 * np.sqrt(Sal) - 0.2474 * Sal) * np.log(Temp)
                 + 0.053105 * np.sqrt(Sal) * Temp)
 
 
-            self.H = 10**(-8.3)
+            H = 10**(-8)
                                  
-            diff_H = self.H     
+            diff_H = H     
             tiny_diff_H = 1e-15 
 
-            iter = 0
+            #iter = 0
 
             while diff_H > tiny_diff_H:
 
-                H_old = self.H
+                H_old = H
 
-                CA = surface_alk
+                CA = surface_alk #umol/kg
 
-                self.a = CA
-                self.b = self.K1*(self.a - surface_dic)
-                self.c = self.K1 * self.K2 * ((self.a - 2) * surface_dic)
+                a = CA
+                b = K1*(a - surface_dic)
+                c = K1 * K2 * ((a - 2) * surface_dic)
 
-                self.H = ((-1*self.b) + np.sqrt((self.b)**2 - 4*self.a*self.c)) / (2*self.a)
+                H = ((-1*b) + np.sqrt((b)**2 - 4*a*c)) / (2*a)
 
-                diff_H = abs(self.H - H_old)
-                iter = iter + 1
+                diff_H = abs(H - H_old)
+                #iter = iter + 1
 
-            self.aq_CO2 = self.a / ((self.K1 / self.H) + 2*self.K1*(self.K2 / (self.H**2)))  
+            aq_CO2 = a / ((K1 / H) + 2*K1*(K2 / (H**2)))  
             #self.aq_CO2 = surface_dic / (1 + (self.K1 / self.H) + ((self.K1*self.K2) / (self.H)**2))
    
             
-            self.pco2 = ((self.aq_CO2 / self.K_0) * 1e6)
+            self.pco2 = ((aq_CO2 / K0) * 1e6) #ppm
             
-            self.pH = -np.log10(self.H)
+            self.pH = -np.log10(H)
            
        
         #--------------------------------------------------------------------------------------------------- carbon flux
@@ -383,8 +383,7 @@ class GoCModel:
         del_14_c_ppmil = current_state[4,2] / current_state[0,2] #ppmil
 
         RCPCO2 = radio_kinetic_frac*(((FASR*(self.c14_atm_data_int / self.CO2_data_int)) * self.CO2_data_int) - (FSAR*(del_14_c_ppmil / self.pco2) * self.pco2)) # umol / m^2 s
-        
-        
+      
         
         return (cflux1, SCPCO2, RCPCO2)
 
@@ -407,7 +406,8 @@ class GoCModel:
 
     #     ExportP = np.zeros(self.num_box + self.num_bc)
     #     SetP = np.array([0, 0, 0.001, 0, 0.001])
-    #     timescale = 1  # year
+    #     timescCome@mebr0==
+    # ale = 1  # year
     #     for box in boxesP:
     #         if P[box] - SetP[box] > 0:
     #             ExportP[box] = (
@@ -495,10 +495,8 @@ class GoCModel:
         # if (time_bp < 13500) and (time_bp > 12000):
         #     d_dt += self.geologic_carbon_add(0.1, "surface")
 
+        
         # Air-Sea Gas Exchange
-
-        #if time_rounded % 100 == 0:
-        print("Current year is", time_bp)
         
         current_state = state_a[:, : self.num_box] + d_dt
         cflux1, SCPCO2, RCPCO2 = self.air_sea_gas_exchange(current_state)
@@ -514,7 +512,8 @@ class GoCModel:
         if verbose == "True":
             
             print('d_dt 0,2 is', d_dt[0,2])
-            #print("K0 is", self.K0)
+            #print("K0 is", K0)
+            #print('K_0 is', self.K_0)
             print('pH is', self.pH)
             #print('min pH is', self.min_ph)
             #print('surface_dic is', self.surface_dic)
@@ -534,6 +533,7 @@ class GoCModel:
         if verbose == "False":
             pass
         
+
 
         # d_dt[0, 2] += cflux1 * 3.1536e7 * self.surf_area / self.mass[2]  # converting cflux1 from umol/m^2s to umol/kg
         # d_dt[3, 2] += SCPCO2 * 3.1536e7 * self.surf_area / self.mass[2]
