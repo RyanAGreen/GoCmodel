@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import src.conversions as conversions
 
 
+
 def make_text(state, tracers_arr):
     state_reshaped = state.reshape(state.shape[0], state.shape[1], 1)
     tracers_arr = np.concatenate((tracers_arr, state_reshaped), axis=2)
@@ -20,17 +21,17 @@ def save_file(time, tracers, carbonate_chemistry):
             "time": time / 1000,
             "mar_DIC": tracers[0, :],
             "mar_ALK": tracers[3, :],
-            "mar_pH": carbonate_chemistry[3, 0, :],
+            # "mar_pH": carbonate_chemistry[3, 0, :],
             "mar_d13c": tracers[9, :] / tracers[0, :],
             "mar_D14c": tracers[12, :] / tracers[0, :],
             "goc_sub_DIC": tracers[1, :],
             "goc_sub_ALK": tracers[4, :],
-            "goc_sub_pH": carbonate_chemistry[3, 1, :],
+            # "goc_sub_pH": carbonate_chemistry[3, 1, :],
             "goc_sub_d13c": tracers[10, :] / tracers[1, :],
             "goc_sub_D14c": tracers[13, :] / tracers[1, :],
             "goc_surf_DIC": tracers[2, :],
             "goc_surf_ALK": tracers[5, :],
-            "goc_surf_pH": carbonate_chemistry[3, 2, :],
+            # "goc_surf_pH": carbonate_chemistry[3, 2, :],
             "goc_surf_d13c": tracers[11, :] / tracers[2, :],
             "goc_surf_D14c": tracers[14, :] / tracers[2, :],
         }
@@ -312,3 +313,48 @@ def read_bc(file, row):
         ]
     )
     return bc
+
+def read_co2_data(file):
+
+    df = pd.read_table(str(file), sep = '\t', header=None)
+    df = df.rename(
+        columns={
+            0: 'year',
+            1: 'atm_co2'
+       }
+    )
+    
+    co2_data = df.to_numpy()
+
+    return co2_data
+
+def read_14C_atm_data(file):
+
+    df = pd.read_table(str(file), sep = '\t', header=None)
+    df = df.rename(
+        columns={
+            0: 'year',
+            1: '14C_atm'
+        }
+    )
+
+    c14_atm_data = df.to_numpy()
+
+    return c14_atm_data
+
+
+def read_d13C_atm_data(file):
+
+    df = pd.read_table(str(file), sep = '\t', header=None)
+    df.rename(
+        columns={
+            0: 'year',
+            1: 'd13C_atm',
+            2: 'stnd_dev'
+        }
+    )
+    
+    d13C_atm_data = df.to_numpy()
+
+    return d13C_atm_data
+
