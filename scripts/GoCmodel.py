@@ -10,6 +10,7 @@ import PyCO2SYS as pyco2
 from scipy.integrate import solve_ivp
 import src.inputoutput as io
 import src.circulation as circulation
+import src.product as product
 import time
 
 # import fluxengine as flx
@@ -132,6 +133,16 @@ class GoCModel:
             ]
         )
 
+        self.remin_matrix = np.array(
+            [
+                [0, 0, 0, 0, 0.75],  # 0.75 for Marchitto
+                [0, 0, 0.25, 0, 0],  # 0.25 for GoC Subsurface
+                [0, 0, -0.25, 0, 0],
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0, -0.75],
+            ]
+        )
+
         self.result = None
         self.carbonate_chemistry = None
         self.time = None
@@ -242,26 +253,6 @@ class GoCModel:
         for term in values:
             carbonate_results.append(carbon_chemistry[term])
         return np.array(carbonate_results)
-
-    # def carb_chem1(self):
-    #     """
-    #     Converts DIC and ALK to microles/kg then
-    #     uses pyCO2sys to solve carbonate chemistry
-    #     returns DIC speciation, pH, omega and pCO2
-    #     """
-    #     dic = []
-    #     alk = []
-    #     for i in range(3):
-    #         dic.append(self.result.y[i, :])
-    #         alk.append(self.result.y[i + 3, :])
-    #     # print("The shape of dic is ", np.shape(dic))
-
-    #     carbon_chemistry = pyco2.sys(par1=alk, par2=dic, par1_type=1, par2_type=2)
-    #     values = ["HCO3", "CO3", "CO2", "pH", "saturation_calcite", "pCO2", "k_CO2"]
-    #     carbonate_results = []
-    #     for term in values:
-    #         carbonate_results.append(carbon_chemistry[term])
-    #     return np.array(carbonate_results,dtype=object)
 
     def air_sea_gas_exchange(self, current_state):
     
@@ -387,62 +378,6 @@ class GoCModel:
         
         return (cflux1, SCPCO2, RCPCO2)
 
-        
-
-    # # Biological Productivity
-    # def ComputeExportP(self, state):
-    #     idxP = 2  # index of phosphorus in the tracers array
-    #     boxesP = [2, 4]  # GoC Surface and NP Surface
-
-    #     state = state.reshape(self.num_tracer, self.num_box)  # [6 x 3]
-    #     state = np.hstack((state, self.boundary_condition))  # [6 x 5]
-    #     P = state[idxP, :] # [1 x 5]
-
-    #     offset_value = 20
-    #     del_13_c_cc = state[3] / state[0]
-    #     del_13_c_org = del_13_c_cc + offset_value
-    #     del_14_c_cc = state[4] / state[0]
-    #     del_14_c_org = del_13_c_cc + 2 * offset_value
-
-    #     ExportP = np.zeros(self.num_box + self.num_bc)
-    #     SetP = np.array([0, 0, 0.001, 0, 0.001])
-    #     timescCome@mebr0==
-    # ale = 1  # year
-    #     for box in boxesP:
-    #         if P[box] - SetP[box] > 0:
-    #             ExportP[box] = (
-    #                 (P[box] - SetP[box]) / timescale * self.mass[box]
-    #             )  # umol surface N/year
-    #         else:
-    #             pass  # not enough nutrients to sustain productivity
-
-    #     ExportCa = ExportP * 106 * self.CaRatio
-
-    #     self.boundary_condition[idxP, 1] -= ExportP[4]
-    #     self.boundary_condition[0, 1] -= ExportP[4] * 106 # Redfield ratio
-    #     self.boundary_condition[1, 1] -= ExportCa[4] * -16
-    #     self.boundary_condition[3, 1] -= ExportP[4] * 106 * del_13_c_org[4]
-    #     self.boundary_condition[4, 1] -= ExportP[4] * 106 * del_14_c_org[4]
-
-    #     self.boundary_condition[0, 1] -= ExportCa[4]
-    #     self.boundary_condition[1, 1] -= ExportCa[4] * 2
-    #     self.boundary_condition[3, 1] -= ExportCa[4] * del_13_c_org[4]
-    #     self.boundary_condition[4, 1] -= ExportCa[4] * del_14_c_org[4]
-
-    #     productP = self.export_matrix @ ExportP  # [5 x 5] x [5,] = [5,]
-    #     # Let X be the amount from GoC surface to GoC subsurface
-    #     # Let Y be the amount from NP surface to Marchitto
-    #     # Then, ExportN will equal a column vector [0,0,X,0,Y]
-    #     # Finally, EM @ ExportN will equal a column vector [Y,X,-X,0,Y],
-    #     # which is correct and can be added to d_dt
-    #     productP = productP[:self.num_box]  # d_dt.shape[1] is the number of boxes
-    #     productCa = self.export_matrix @ ExportCa
-    #     productCa = productCa[:self.num_box]
-    #     del_13_c_org = del_13_c_org[:self.num_box]
-    #     del_14_c_org = del_14_c_org[:self.num_box]
-
-    #     return productP, productCa, del_13_c_org, del_14_c_org
-
     def box_model(self, time, statev):
         # pylint: disable=unused-argument
         """
@@ -454,48 +389,54 @@ class GoCModel:
         """
 
         state_a = self.make_state_a(statev, time, "control")
-
-        # multiplying tracers by fluxes
-        d_dt = (self.transport_matrix @ state_a.T).T[
-            :, : self.num_box
-        ]  # [5 x 5] x [5 x 6] = [5 x 6]
-        # [6 x 3][all tracers, all boxes (excluding boundary conditions)]
-        # d_dt = np.zeros((6,3))
         time_bp = 20000 - time
 
         time_rounded = int(time_bp)
 
+        d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
+
         #current_state = state_a[:, : self.num_box] + d_dt
 
         # Marchitto box additions #
-        # if (time_bp < 16500) and (time_bp > 14500):
-        #     d_dt += self.geologic_carbon_add(0.06, "marchitto")
-        # if (time_bp < 12750) and (time_bp > 12000):
-        #     d_dt += self.geologic_carbon_add(0.06, "marchitto")
+        if (time_bp < 16500) and (time_bp > 14500):
+            d_dt_geologic += self.geologic_carbon_add(0.06, "marchitto")
+        if (time_bp < 12750) and (time_bp > 12000):
+            d_dt_geologic += self.geologic_carbon_add(0.06, "marchitto")
 
-        # # subsurface addition #
-        # if (time_bp < 18000) and (time_bp >= 16500):
-        #     d_dt += self.geologic_carbon_add(0.05, "subsurface")
-        #     d_dt += self.geologic_carbon_add(0.06, "marchitto")
+        # subsurface addition #
+        if (time_bp < 18000) and (time_bp >= 16500):
+            d_dt_geologic += self.geologic_carbon_add(0.05, "subsurface")
+            d_dt_geologic += self.geologic_carbon_add(0.06, "marchitto")
 
-        # if (time_bp < 15500) and (time_bp >= 14500):
-        #     d_dt += self.geologic_carbon_add(0.07, "subsurface")
+        if (time_bp < 15500) and (time_bp >= 14500):
+            d_dt_geologic += self.geologic_carbon_add(0.07, "subsurface")
 
-        # if (time_bp <= 14500) and (time_bp >= 13500):
-        #     d_dt += self.geologic_carbon_add(0.08, "subsurface")
+        if (time_bp <= 14500) and (time_bp >= 13500):
+            d_dt_geologic += self.geologic_carbon_add(0.08, "subsurface")
 
-        # if (time_bp < 13500) and (time_bp >= 12000):
-        #     d_dt += self.geologic_carbon_add(0.08, "subsurface")
-        #     d_dt += self.geologic_carbon_add(0.1, "surface")
+        if (time_bp < 13500) and (time_bp >= 12000):
+            d_dt_geologic += self.geologic_carbon_add(0.08, "subsurface")
+            d_dt_geologic += self.geologic_carbon_add(0.1, "surface")
 
-        # # surface addition #
-        # if (time_bp < 15500) and (time_bp > 14500):
-        #     d_dt += self.geologic_carbon_add(0.075, "surface")
+        # surface addition #
+        if (time_bp < 15500) and (time_bp > 14500):
+            d_dt_geologic += self.geologic_carbon_add(0.075, "surface")
 
-        # if (time_bp < 13500) and (time_bp > 12000):
-        #     d_dt += self.geologic_carbon_add(0.1, "surface")
+        if (time_bp < 13500) and (time_bp > 12000):
+            d_dt_geologic += self.geologic_carbon_add(0.1, "surface")
 
-        
+        # Biological Productivity (Soft Tissue + Carbonate)
+        d_dt_export, exportP, del_13_c_org, del_14_c_org = product.productivity(
+            state_a[:, : self.num_box], self.boundary_condition,
+            self.num_tracer, self.num_box, self.num_bc, self.CaRatio,
+            self.export_matrix, self.remin_matrix
+        )
+        d_dt_remin = product.remin(
+            exportP, del_13_c_org, del_14_c_org,
+            self.num_tracer, self.num_box, self.remin_matrix)
+        # multiplying tracers by fluxes
+        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]  # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
+           
         # Air-Sea Gas Exchange
         
         current_state = state_a[:, : self.num_box] + d_dt
@@ -533,28 +474,11 @@ class GoCModel:
         if verbose == "False":
             pass
         
-
-
-        # d_dt[0, 2] += cflux1 * 3.1536e7 * self.surf_area / self.mass[2]  # converting cflux1 from umol/m^2s to umol/kg
-        # d_dt[3, 2] += SCPCO2 * 3.1536e7 * self.surf_area / self.mass[2]
-        # d_dt[4, 2] += RCPCO2 * 3.1536e7 * self.surf_area / self.mass[2]
-
-        # print('current state', current_state[0,2])
-        # print('new cflux', cflux1*3.1536e7*self.surf_area / self.mass[2])
-        # print('cflux1', cflux1 )
-
-        # # Biological Productivity
-        # productP, productCa, del_13_c_org, del_14_c_org = self.ComputeExportP(statev)
-        # d_dt[0] += productP * 106 # Redfield ratio
-        # d_dt[1] += productP * -16
-        # d_dt[2] += productP
-        # d_dt[3] += productP * 106 * del_13_c_org
-        # d_dt[4] += productP * 106 * del_14_c_org
-
-        # d_dt[0] += productP
-        # d_dt[1] += productCa * 2
-        # d_dt[3] += productP * del_13_c_org
-        # d_dt[4] += productP * del_14_c_org
+        
+        
+        d_dt += d_dt_geologic
+        d_dt += d_dt_export
+        d_dt += d_dt_remin
 
         return d_dt.flatten()
 
@@ -622,6 +546,7 @@ class GoCModel:
         #     self.output[17, -1],
         #     "[PgC]",
         # )
+
 
         print("this solver took ", end - start, " seconds.")
 
