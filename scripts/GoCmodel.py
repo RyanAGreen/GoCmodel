@@ -540,30 +540,6 @@ class GoCModel:
         io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
         io.save_file(self.time, self.result.y, self.carbonate_chemistry)
 
-    def plot_rate(self):
-        rate_geologic_carbon_to_marchitto = np.zeros((20000))
-        rate_geologic_carbon_to_goc_sub = np.zeros((20000))
-        rate_geologic_carbon_to_goc_surf = np.zeros((20000))
-
-        rate_geologic_carbon_to_goc_sub[12000:13500] = 0.08
-        rate_geologic_carbon_to_goc_sub[13500:14500] = 0.08
-        rate_geologic_carbon_to_goc_sub[14500:15500] = 0.07
-        rate_geologic_carbon_to_goc_sub[16500:18000] = 0.05
-
-        rate_geologic_carbon_to_goc_surf[12000:13500] = 0.01
-        rate_geologic_carbon_to_goc_surf[14500:15500] = 0.075
-        rate_geologic_carbon_to_goc_surf[14500:15500] = 0.075
-
-        rate_geologic_carbon_to_marchitto[12000:12750] = 0.06
-        rate_geologic_carbon_to_marchitto[14500:16500] = 0.06
-        rate_geologic_carbon_to_marchitto[16500:18000] = 0.08
-
-        plt.plot(rate_geologic_carbon_to_goc_sub, label="GoC sub")
-        plt.plot(rate_geologic_carbon_to_goc_surf, label="GoC surf")
-        plt.plot(rate_geologic_carbon_to_marchitto, label="Marchitto")
-        plt.legend()
-        plt.show()
-
 
 if __name__ == "__main__":
     ModelInstance = GoCModel()
