@@ -343,48 +343,7 @@ class GoCModel:
         self.time = np.flipud(self.result.t)  # plot from past to present
         self.output = self.result.y
 
-        # calculate manual cumulative carbon values based on lines 254-288
-        self.cum_geologic_carbon_to_marchitto = 0.06 * 749 + 0.06 * 2000 + 0.06 * 1500
-        self.cum_geologic_carbon_to_goc_sub = (
-            0.05 * 1500 + 0.07 * 1000 + 0.08 * 1001 + 0.08 * 1500
-        )
-        self.cum_geologic_carbon_to_goc_surf = 0.1 * 1500 + 0.075 * 999 + 0.1 * 1499
-
-        # print(
-        #     "Manual cumulative carbon to the Marchitto box is ",
-        #     self.cum_geologic_carbon_to_marchitto,
-        #     "[PgC]",
-        # )
-        # print(
-        #     "Manual cumulative carbon to the GoC subsurface is ",
-        #     self.cum_geologic_carbon_to_goc_sub,
-        #     "[PgC]",
-        # )
-        # print(
-        #     "Manual cumulative carbon to the GoC surface is ",
-        #     self.cum_geologic_carbon_to_goc_surf,
-        #     "[PgC]",
-        # )
-
-        # print(
-        #     "ODE solved tracer cumulative carbon to the Marchitto box is ",
-        #     self.output[15, -1],
-        #     "[PgC]",
-        # )
-        # print(
-        #     "ODE solved tracer cumulative carbon to the GoC subsurface is ",
-        #     self.output[16, -1],
-        #     "[PgC]",
-        # )
-        # print(
-        #     "ODE solved tracer cumulative carbon to the GoC surface is ",
-        #     self.output[17, -1],
-        #     "[PgC]",
-        # )
-
         print("this solver took ", end - start, " seconds.")
-
-        # print("Max for flattened DIC is ",self.result.y[0,-1].max()," ",self.result.y[1,-2].max()," ",self.result.y[2,-1])
 
         io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
         io.save_file(self.time, self.result.y, self.carbonate_chemistry)
