@@ -3,7 +3,6 @@ Regional Model
 Going to move things to modules after they work in OOP first
 """
 
-
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -13,6 +12,9 @@ import src.inputoutput as io
 import src.circulation as circulation
 import src.product as product
 import time
+
+# import fluxengine as flx
+
 
 # import src.conversions as conversions
 
@@ -56,31 +58,27 @@ class GoCModel:
 
         self.atm_volume = (self.mass_of_atm * 1e3) / self.mol_of_atm
 
-        # CO2 Solubility parameters from Weiss (1974), in mol/ (kg atm)
-        self.A1_C = -60.3409
-        self.A2_C = 93.4517
-        self.A3_C = 23.3585
-        self.B1_C = 0.023517
-        self.B2_C = -0.023656
-        self.B3_C = 0.0047036
-
         # surface area of GoC and surface volume
 
         self.surf_volume = 1.65e13  # m^3
-        self.surf_area = self.surf_volume / 200  # m^2
+        self.surf_area = self.surf_volume / 200  # m^2       
 
-        # piston velocity for air-sea gas exchange (from SCPM_paramters.py)
 
-        self.PV0 = 3.0  # m/day
+        self.CO2_data = io.read_co2_data("data/observations/CO2data.txt")
+        self.CO2_data_int = self.CO2_data[0, 1]
 
-        # The "thermodynamic fractionation factor" for carbon isotopes in air-sea exchange
-        self.FK = 0.9995  # no units...0.99915 Stabe carbon as per Schmittner et al(2013) and SCPM_parameters.py
-        self.FKR = 0.9990  # no units...0.9990 Radiocarbon as per Toggweiler and Sarmiento (1985) SCPM_paramters.py
+        self.c14_atm_data = io.read_14C_atm_data("data/observations/D14Cdata.txt")
+        self.c14_atm_data_int = self.c14_atm_data[0, 1]
+
+        self.d13C_atm_data = io.read_d13C_atm_data(
+            "data/observations/d13Cdata_500yearsnotadded.txt"
+        )
+        self.d13C_atm_data_int = self.d13C_atm_data[0, 1]
 
         # Setting up inital values
         self.carbon = np.array([2400, 2400, 2300])  # umol/kg
-        self.alkalinity = np.array([2450, 2450, 2450])  # umol/kg
-        self.phosphorus = np.array([0.001, 0.001, 0.001])  # umol/kg
+        self.alkalinity = np.array([2450, 2450, 2400])  # umol/kg
+        self.phosphorus = np.array([30, 30, 30])  # umol/kg
         self.del_13_c = (
             np.array([0.1, 0.1, 0.1]) * self.carbon
         )  # delta [permil] * concentration
@@ -149,6 +147,8 @@ class GoCModel:
         self.carbonate_chemistry = None
         self.time = None
         self.output = None
+        self.pH = None
+        self.pco2 = None 
 
     def make_state_a(self, state_v, time, bc):
         """Gets called every year and makes new state in matrix format. Boxes are in columns and tracers are in
@@ -165,6 +165,7 @@ class GoCModel:
                 self.boundary_condition = io.read_bc(
                     "data/NoISchange/ForwardRun/control.txt", (time_rounded / 100)
                 )
+               
 
         if bc == "2dinversion":
             if time_rounded % 100 == 0:
@@ -178,9 +179,22 @@ class GoCModel:
             self.carbon_add = self.carbon_add_scenario[idx, 0]
             self.alk_dic_ratio = self.carbon_add_scenario[idx, 1]
 
+        if time_rounded % 100 == 0:
+            idx = int(time_rounded / 100)
+            self.CO2_data_int = self.CO2_data[idx, 1] #ppm
+
+        if time_rounded % 100 == 0:
+            idx = int(time_rounded / 100)
+            self.c14_atm_data_int = self.c14_atm_data[idx, 1]
+
+        if time_rounded % 100 == 0:
+            idx = int(time_rounded / 100)
+            self.d13C_atm_data_int = self.d13C_atm_data[idx, 1]
+
         # reshape flat array to rows as tracers and columns as boxes
         # (18,) -> (6,3)
         state_a = state_v.T.reshape(self.num_tracer, self.num_box)
+        # print('state_v is', state_v)
 
         # adds the boundary condition (column index of [:,4] and [:,5])
         # -> (6,5)
@@ -219,95 +233,150 @@ class GoCModel:
 
         return d_dt
 
-    def carb_chem(self):
+    def carb_chem(self, surface_alk, surface_dic):
         """
         Converts DIC and ALK to microles/kg then
         uses pyCO2sys to solve carbonate chemistry
         returns DIC speciation, pH, omega and pCO2
         """
-        dic = []
-        alk = []
-        for i in range(3):
-            dic.append(self.result.y[i, :])
-            alk.append(self.result.y[i + 3, :])
+        # dic = []
+        # alk = []
+        # for i in range(3):
+        #     dic.append(self.result.y[i, :])
+        #     alk.append(self.result.y[i + 3, :])
 
-        carbon_chemistry = pyco2.sys(par1=alk, par2=dic, par1_type=1, par2_type=2)
+        carbon_chemistry = pyco2.sys(
+            par1=surface_alk, par2=surface_dic, par1_type=1, par2_type=2
+        )
         values = ["HCO3", "CO3", "CO2", "pH", "saturation_calcite", "pCO2", "k_CO2"]
         carbonate_results = []
         for term in values:
             carbonate_results.append(carbon_chemistry[term])
         return np.array(carbonate_results)
 
-    def air_sea_gas_exchange(
-        self, temp=25, Kelv=273.15, SWD=1029
-    ):  # every string is a variable we do not have data for yet
+    def air_sea_gas_exchange(self, current_state):
+    
+        #--------------------------------------------------------------------------------------------------- constants & variables
+        
 
-        # K0 from GLODAP_processing.py and Wiess 1974...need to know the salinity (Sal) and its units
-        self.K0 = np.exp(
-            (
-                self.A1_C
-                + self.A2_C * (100.0 / ((temp + Kelv)))
-                + self.A3_C * np.log((temp + Kelv) / 100.0)
-                + ("Sal")
-                * (
-                    self.B1_C
-                    + self.B2_C * ((temp + Kelv) / 100.0)
-                    + self.B3_C * (((temp + Kelv) / 100.0) ** 2)
-                )
-            )
-        )  # mol/ kg atm
+        Temp = 298.15 #Kelvin
+        Sal = 35 #partperthousand
+        SWD = 1029 #kg/m^3
+        surf_gas_flux = 0.00003472 #m/s
+        
+        A1_C = -60.3409 # CO2 Solubility parameters from Weiss (1974), in mol/ (kg atm)
+        A2_C = 93.4517
+        A3_C = 23.3585
+        B1_C = 0.023517
+        B2_C = -0.023656
+        B3_C = 0.0047036
 
-        # air-sea surface gas transfer
-        def makeFXarr(PV0, secsday=86400):
-            makeFXarr = np.zeros([3, 1])  # [3x1] so it can multiply
-            makeFXarr[2, 0] = self.PV0 / secsday  # but only doing surface box
-            return makeFXarr  # m/s
+        FK = 0.9995  # The thermodynamic fractionation factor for carbon isotopes in air-sea exchange (no units)
+        FKR = 0.9990  
 
-        self.surf_gas_flux = makeFXarr(
-            self.PV0, secsday=86400
-        )  # * self.surface_area  # m^3 / s
+        #air-sea fractionation factors dC13
+        FSA=(-9.866/(Temp) +1.02412)          
+        FAS=(-0.373/(Temp) +1.00019)
 
-        cflux1 = (
-            SWD * self.K0 * 1e6 * self.surf_gas_flux * ("AtCO2" - "pCO2")
-        )  # umol/(s m^2)
-        cflux = cflux1 / self.surf_volume  # WHY DIVIDING BY VOLUME??
-        Carbon_flux = -sum(cflux1)
-
-        # d13C air-sea fractionation factors
-        FSA = np.zeros([3, 1])
-        FSA = -9.866 / (temp + Kelv) + 1.02412  # Mook (1974)  unitless
-        FAS = np.zeros([3, 1])
-        FAS = -0.373 / (temp + Kelv) + 1.00019  # Mook (1974)  unitless
-
-        # radiocarbon air-sea fractination factors
-        FSAR = 0.92182
+        #air-sea fractionation factors dC14
+        FSAR = 0.92182 
         FASR = 0.99786
 
-        # air-sea flux 13C
-        kinetic_frac = (
-            SWD * self.K0 * self.surf_gas_flux * self.FK * 1e6
-        )  # umol / (atm s)
-        del_13_c_ppmil = self.del_13_c[2, 0] / self.carbon  # ppmil
+        K0 = (np.exp((A1_C + A2_C * (100.0/(Temp)) # umol/ kg atm
+                + A3_C*np.log(Temp/100.0) + (Sal) * (B1_C + B2_C 
+                *((Temp)/100.0) + B3_C * (((Temp)/100.0)**2)))))
+        
+    
+        #--------------------------------------------------------------------------------------------------- pco2 solver method controls
 
-        SCPCO2 = kinetic_frac * (
-            ((FAS * ("del_13_c_atm_ppmil" / "AtCO2")) * "AtCO2")
-            - (FSA * (del_13_c_ppmil / "pCO2") * "pCO2")
-        )  # umol / m^2 s
-        Scflux = SCPCO2 / self.surf_volume  # Ocean boxes ...umol/ (s m^3) ??
-        # AtSCflux=-sum(SCPCO2)/Varrat # Atmosphere
+        pco2_method = 'Mathis'
+        
+        if pco2_method == "Mathis":
+            surface_dic = current_state[0,2] 
+            surface_alk = current_state[1,2]
 
-        # air-sea flux 14C
-        radio_kinetic_frac = (
-            SWD * self.K0 * self.surf_gas_fluc * self.FKR * 1e6
-        )  # umol / (atm s)
-        del_14_c_ppmil = self.del_14_c[2, 0] / self.carbon  # ppmil
+            self.pco2 = (((2*surface_dic - surface_alk)**2) / surface_alk - surface_dic)
+        
+        
+        if pco2_method == "carbcalc":
+            surface_dic = current_state[0,2]  *1e-6
+            surface_alk = current_state[1,2]  *1e-6
+            Boron = 1.179e-5 * Sal
 
-        RCPCO2 = radio_kinetic_frac * (
-            ((FASR * ("del_14_c_atm_ppmil" / "AtCO2")) * "AtCO2")
-            - (FSAR * (del_14_c_ppmil / "pCO2") * "pCO2")
-        )  # umol / m^2 s
-        Rcflux = RCPCO2 / self.surf_volume
-        # AtRCflux=-sum(RCPCO2)/Varrat # Atmosphere
+            K_0 = np.exp(-60.2409 + 9345.17/Temp + 23.3585*np.log(Temp/100) 
+            + Sal * (0.023517 - 0.00023656*Temp +0.0047036*(Temp/100)**2) )
+
+            K1 = np.exp(2.18867 - 2275.036/Temp - 1.468591 * np.log(Temp) 
+            + (-0.138681 - 9.33291/Temp) * np.sqrt(Sal) + 0.0726483*Sal    
+            - 0.00574938 * Sal **1.5)
+
+            K2 = np.exp(-0.84226 - 3741.1288/Temp -1.437139 * np.log(Temp)
+            + (-0.128417 - 24.41239/Temp)*np.sqrt(Sal) + 0.1195308 * Sal   
+            - 0.0091284 * Sal **1.5 )
+
+            Kb = np.exp( (-8966.90 - 2890.51*np.sqrt(Sal) - 77.942*Sal 
+                + 1.726 * Sal **1.5 - 0.0993*Sal**2) / Temp                
+                + (148.0248 + 137.194 * np.sqrt(Sal) + 1.62247 * Sal)       
+                + (-24.4344 - 25.085 * np.sqrt(Sal) - 0.2474 * Sal) * np.log(Temp)
+                + 0.053105 * np.sqrt(Sal) * Temp)
+
+
+            H = 10**(-8)
+                                 
+            diff_H = H     
+            tiny_diff_H = 1e-15 
+
+            #iter = 0
+
+            while diff_H > tiny_diff_H:
+
+                H_old = H
+
+                CA = surface_alk #umol/kg
+
+                a = CA
+                b = K1*(a - surface_dic)
+                c = K1 * K2 * ((a - 2) * surface_dic)
+
+                H = ((-1*b) + np.sqrt((b)**2 - 4*a*c)) / (2*a)
+
+                diff_H = abs(H - H_old)
+                #iter = iter + 1
+
+            aq_CO2 = a / ((K1 / H) + 2*K1*(K2 / (H**2)))  
+            #self.aq_CO2 = surface_dic / (1 + (self.K1 / self.H) + ((self.K1*self.K2) / (self.H)**2))
+   
+            
+            self.pco2 = ((aq_CO2 / K0) * 1e6) #ppm
+            
+            self.pH = -np.log10(H)
+           
+       
+        #--------------------------------------------------------------------------------------------------- carbon flux
+    
+
+        cflux1 = (SWD * K0 * surf_gas_flux * (self.CO2_data_int - self.pco2)) #umol/(s m^2)
+        
+
+        #--------------------------------------------------------------------------------------------------- d13C flux
+
+
+        kinetic_frac = SWD * K0 * surf_gas_flux * FK # umol / (atm s)
+        del_13_c_ppmil = current_state[3,2] / current_state[0,2] #ppmil
+
+        SCPCO2 = kinetic_frac*(((FAS*(self.d13C_atm_data_int / self.CO2_data_int)) * self.CO2_data_int) - (FSA*(del_13_c_ppmil / self.pco2)*self.pco2)) # umol / m^2 s
+       
+
+        #--------------------------------------------------------------------------------------------------- d14C flux
+
+
+        radio_kinetic_frac = SWD * K0 * surf_gas_flux * FKR # umol / (atm s)
+        del_14_c_ppmil = current_state[4,2] / current_state[0,2] #ppmil
+
+        RCPCO2 = radio_kinetic_frac*(((FASR*(self.c14_atm_data_int / self.CO2_data_int)) * self.CO2_data_int) - (FSAR*(del_14_c_ppmil / self.pco2) * self.pco2)) # umol / m^2 s
+      
+        
+        return (cflux1, SCPCO2, RCPCO2)
 
     def box_model(self, time, statev):
         # pylint: disable=unused-argument
@@ -320,13 +389,13 @@ class GoCModel:
         """
 
         state_a = self.make_state_a(statev, time, "control")
-
         time_bp = 20000 - time
 
         time_rounded = int(time_bp)
-        print(time_rounded)
 
         d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
+
+        #current_state = state_a[:, : self.num_box] + d_dt
 
         # Marchitto box additions #
         if (time_bp < 16500) and (time_bp > 14500):
@@ -367,7 +436,46 @@ class GoCModel:
             self.num_tracer, self.num_box, self.remin_matrix)
         # multiplying tracers by fluxes
         d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]  # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
+           
+        # Air-Sea Gas Exchange
+        
+        current_state = state_a[:, : self.num_box] + d_dt
+        cflux1, SCPCO2, RCPCO2 = self.air_sea_gas_exchange(current_state)
+    
+        d_dt[0,2] += cflux1*3.1536e7*self.surf_area / self.mass[2] #converting from umol/m^2s to umol/kg
+        d_dt[3,2] += SCPCO2*3.1536e7*self.surf_area / self.mass[2]
+        d_dt[4,2] += RCPCO2*3.1536e7*self.surf_area / self.mass[2]
 
+        new_state = state_a[:, : self.num_box] + d_dt
+
+        verbose = "True"
+
+        if verbose == "True":
+            
+            print('d_dt 0,2 is', d_dt[0,2])
+            #print("K0 is", K0)
+            #print('K_0 is', self.K_0)
+            print('pH is', self.pH)
+            #print('min pH is', self.min_ph)
+            #print('surface_dic is', self.surface_dic)
+            #print('aqCO2', self.aq_CO2)
+            print('cflux1 is', cflux1)
+            #print('cflux_out is', self.cflux_out)
+            #print('clfux_in', self.cflux_in)
+            print('pco2 is', self.pco2)
+            print('atm_co2 is', self.CO2_data_int)
+            print('CO2 gradient', (self.CO2_data_int - self.pco2))
+            #print('d13C flux is', SCPCO2)
+            #print('d13C is', current_state[3,2] )
+            #print('stateV0 is', self.state_v0)
+            print("DIC surf is ", new_state[0,2]),#'DIC deep is', current_state[0,1],"DIC Marc is", current_state[0,0]," and ALK is ", current_state[1,2])
+            print("Current year is", time_bp)
+        
+        if verbose == "False":
+            pass
+        
+        
+        
         d_dt += d_dt_geologic
         d_dt += d_dt_export
         d_dt += d_dt_remin
@@ -388,10 +496,13 @@ class GoCModel:
             method="RK45",
             t_eval=self.time,
             vectorized=True,
-            rtol=1e-10,
-            atol=1e-7,
+            rtol=1e-6,
+            atol=1e-6,
+            # jac = None,
+            # min_step = 0.00000001,
         )
-        self.carbonate_chemistry = self.carb_chem()  # shape = [tracer,box,year]
+        # self.carbonate_chemistry = self.carb_chem1()  # shape = [tracer,box,year]
+        # print("The shape of carbonate_chemistry is ", np.shape(self.carbonate_chemistry))
         end = time.time()
 
         self.time = np.flipud(self.result.t)  # plot from past to present
@@ -404,41 +515,45 @@ class GoCModel:
         )
         self.cum_geologic_carbon_to_goc_surf = 0.1 * 1500 + 0.075 * 999 + 0.1 * 1499
 
-        print(
-            "Manual cumulative carbon to the Marchitto box is ",
-            self.cum_geologic_carbon_to_marchitto,
-            "[PgC]",
-        )
-        print(
-            "Manual cumulative carbon to the GoC subsurface is ",
-            self.cum_geologic_carbon_to_goc_sub,
-            "[PgC]",
-        )
-        print(
-            "Manual cumulative carbon to the GoC surface is ",
-            self.cum_geologic_carbon_to_goc_surf,
-            "[PgC]",
-        )
-        print(
-            "ODE solved tracer cumulative carbon to the Marchitto box is ",
-            self.output[15, -1],
-            "[PgC]",
-        )
-        print(
-            "ODE solved tracer cumulative carbon to the GoC subsurface is ",
-            self.output[16, -1],
-            "[PgC]",
-        )
-        print(
-            "ODE solved tracer cumulative carbon to the GoC surface is ",
-            self.output[17, -1],
-            "[PgC]",
-        )
+        # print(
+        #     "Manual cumulative carbon to the Marchitto box is ",
+        #     self.cum_geologic_carbon_to_marchitto,
+        #     "[PgC]",
+        # )
+        # print(
+        #     "Manual cumulative carbon to the GoC subsurface is ",
+        #     self.cum_geologic_carbon_to_goc_sub,
+        #     "[PgC]",
+        # )
+        # print(
+        #     "Manual cumulative carbon to the GoC surface is ",
+        #     self.cum_geologic_carbon_to_goc_surf,
+        #     "[PgC]",
+        # )
+
+        # print(
+        #     "ODE solved tracer cumulative carbon to the Marchitto box is ",
+        #     self.output[15, -1],
+        #     "[PgC]",
+        # )
+        # print(
+        #     "ODE solved tracer cumulative carbon to the GoC subsurface is ",
+        #     self.output[16, -1],
+        #     "[PgC]",
+        # )
+        # print(
+        #     "ODE solved tracer cumulative carbon to the GoC surface is ",
+        #     self.output[17, -1],
+        #     "[PgC]",
+        # )
+
 
         print("this solver took ", end - start, " seconds.")
 
-        # io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
-        # io.save_file(self.time, self.result.y, self.carbonate_chemistry)
+        # print("Max for flattened DIC is ",self.result.y[0,-1].max()," ",self.result.y[1,-2].max()," ",self.result.y[2,-1])
+
+        io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
+        io.save_file(self.time, self.result.y, self.carbonate_chemistry)
 
     def plot_rate(self):
         rate_geologic_carbon_to_marchitto = np.zeros((20000))
@@ -468,4 +583,4 @@ class GoCModel:
 if __name__ == "__main__":
     ModelInstance = GoCModel()
     ModelInstance.run_box_model(20000, 2001)
-    ModelInstance.plot_rate()
+    # ModelInstance.plot_rate()
