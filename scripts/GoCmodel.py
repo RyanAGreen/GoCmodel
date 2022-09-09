@@ -393,4 +393,3 @@ class GoCModel:
 if __name__ == "__main__":
     ModelInstance = GoCModel()
     ModelInstance.run_box_model(20000, 2001)
-    # ModelInstance.plot_rate()
