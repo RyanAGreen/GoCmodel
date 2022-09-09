@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import PyCO2SYS as pyco2
 from scipy.integrate import solve_ivp
+import src.geologic as geologic
 import src.airseagas as airsea
 import src.inputoutput as io
 import src.circulation as circulation
@@ -393,31 +394,51 @@ class GoCModel:
 
         # Marchitto box additions #
         if (time_bp < 16500) and (time_bp > 14500):
-            d_dt_geologic += self.geologic_carbon_add(0.06, "marchitto")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.06, "marchitto", self.mass
+            )
         if (time_bp < 12750) and (time_bp > 12000):
-            d_dt_geologic += self.geologic_carbon_add(0.06, "marchitto")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.06, "marchitto", self.mass
+            )
 
         # subsurface addition #
         if (time_bp < 18000) and (time_bp >= 16500):
-            d_dt_geologic += self.geologic_carbon_add(0.05, "subsurface")
-            d_dt_geologic += self.geologic_carbon_add(0.06, "marchitto")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.05, "subsurface", self.mass
+            )
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.06, "marchitto", self.mass
+            )
 
         if (time_bp < 15500) and (time_bp >= 14500):
-            d_dt_geologic += self.geologic_carbon_add(0.07, "subsurface")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.07, "subsurface", self.mass
+            )
 
         if (time_bp <= 14500) and (time_bp >= 13500):
-            d_dt_geologic += self.geologic_carbon_add(0.08, "subsurface")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.08, "subsurface", self.mass
+            )
 
         if (time_bp < 13500) and (time_bp >= 12000):
-            d_dt_geologic += self.geologic_carbon_add(0.08, "subsurface")
-            d_dt_geologic += self.geologic_carbon_add(0.1, "surface")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.08, "subsurface", self.mass
+            )
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.1, "surface", self.mass
+            )
 
         # surface addition #
         if (time_bp < 15500) and (time_bp > 14500):
-            d_dt_geologic += self.geologic_carbon_add(0.075, "surface")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.075, "surface", self.mass
+            )
 
         if (time_bp < 13500) and (time_bp > 12000):
-            d_dt_geologic += self.geologic_carbon_add(0.1, "surface")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.1, "surface", self.mass
+            )
 
         ### Biological Productivity (Soft Tissue + Carbonate) ###
         d_dt_export, exportP, del_13_c_org, del_14_c_org = product.productivity(
