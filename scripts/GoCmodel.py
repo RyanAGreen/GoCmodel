@@ -8,17 +8,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import PyCO2SYS as pyco2
 from scipy.integrate import solve_ivp
+import src.airseagas as airsea
 import src.inputoutput as io
 import src.circulation as circulation
 import src.product as product
-
-# import src.airseagas as airsea
 import time
-
-# import fluxengine as flx
-
-
-# import src.conversions as conversions
 
 
 class GoCModel:
@@ -51,30 +45,18 @@ class GoCModel:
             ]
         )
 
-        # mass of the atmopsere from NASA and from SCPM_parameters.py
-
-        self.mass_of_atm = 5.1e18  # kg
-        self.mol_of_atm = 28.97  # mean molecular weight ??units??
-
-        # volume of atm (mols)
-
-        self.atm_volume = (self.mass_of_atm * 1e3) / self.mol_of_atm
-
         # surface area of GoC and surface volume
 
         self.surf_volume = 1.65e13  # m^3
         self.surf_area = self.surf_volume / 200  # m^2
 
-        self.CO2_data = io.read_co2_data("data/observations/CO2data.txt")
-        self.CO2_data_int = self.CO2_data[0, 1]
+        self.CO2_atm = io.read_co2_data("data/observations/CO2data.txt")
 
-        self.c14_atm_data = io.read_14C_atm_data("data/observations/D14Cdata.txt")
-        self.c14_atm_data_int = self.c14_atm_data[0, 1]
+        self.D14C_atm = io.read_14C_atm_data("data/observations/D14Cdata.txt")
 
-        self.d13C_atm_data = io.read_d13C_atm_data(
+        self.d13C_atm = io.read_d13C_atm_data(
             "data/observations/d13Cdata_500yearsnotadded.txt"
         )
-        self.d13C_atm_data_int = self.d13C_atm_data[0, 1]
 
         # Setting up inital values
         self.carbon = np.array([2400, 2400, 2300])  # umol/kg
@@ -148,8 +130,6 @@ class GoCModel:
         self.carbonate_chemistry = None
         self.time = None
         self.output = None
-        self.pH = None
-        self.pco2 = None
 
     def make_state_a(self, state_v, time, bc):
         """Gets called every year and makes new state in matrix format. Boxes are in columns and tracers are in
@@ -178,27 +158,18 @@ class GoCModel:
             idx = int(time_rounded / 100)
             self.carbon_add = self.carbon_add_scenario[idx, 0]
             self.alk_dic_ratio = self.carbon_add_scenario[idx, 1]
-
-        if time_rounded % 100 == 0:
-            idx = int(time_rounded / 100)
-            self.CO2_data_int = self.CO2_data[idx, 1]  # ppm
-
-        if time_rounded % 100 == 0:
-            idx = int(time_rounded / 100)
-            self.c14_atm_data_int = self.c14_atm_data[idx, 1]
-
-        if time_rounded % 100 == 0:
-            idx = int(time_rounded / 100)
-            self.d13C_atm_data_int = self.d13C_atm_data[idx, 1]
+            self.CO2_atm_currentyr = self.CO2_atm[idx, 1]  # ppm
+            self.D14C_atm_currentyr = self.D14C_atm[idx, 1]
+            self.d13C_atm_currentyr = self.d13C_atm[idx, 1]
 
         # reshape flat array to rows as tracers and columns as boxes
         # (18,) -> (6,3)
-        state_a = state_v.T.reshape(self.num_tracer, self.num_box)
+        state_v_reshaped = state_v.T.reshape(self.num_tracer, self.num_box)
         # print('state_v is', state_v)
 
         # adds the boundary condition (column index of [:,4] and [:,5])
         # -> (6,5)
-        state_a = np.hstack((state_a, self.boundary_condition,))
+        state_a = np.hstack((state_v_reshaped, self.boundary_condition,))
         # clearing cumulative carbon tracer so that it is not affected
         # by circulation matrix mutiplication
         state_a[5, 0] = 0
@@ -415,6 +386,8 @@ class GoCModel:
         state_a = self.make_state_a(statev, time, "control")
         time_bp = 20000 - time
 
+        current_state = state_a[:, : self.num_box]
+
         ### Geologic Carbon Addition ###
         d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
 
@@ -469,54 +442,29 @@ class GoCModel:
         )
 
         ### Circulation ###
-        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
+        d_dt_circ = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
         # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
 
         ### Air-Sea Gas Exchange ###
-        current_state = state_a[:, : self.num_box] + d_dt
-        cflux1, SCPCO2, RCPCO2 = self.air_sea_gas_exchange(current_state)
+        d_dt_gasexchange = airsea.gas_exchange(
+            current_state,
+            self.num_tracer,
+            self.num_box,
+            self.CO2_atm_currentyr,
+            self.d13C_atm_currentyr,
+            self.D14C_atm_currentyr,
+            self.surf_area,
+            self.mass[2],
+        )
 
-        d_dt[0, 2] += (
-            cflux1 * 3.1536e7 * self.surf_area / self.mass[2]
-        )  # converting from umol/m^2s to umol/kg
-        d_dt[3, 2] += SCPCO2 * 3.1536e7 * self.surf_area / self.mass[2]
-        d_dt[4, 2] += RCPCO2 * 3.1536e7 * self.surf_area / self.mass[2]
+        d_dt = np.zeros((self.num_tracer, self.num_box))
 
-        new_state = state_a[:, : self.num_box] + d_dt
-
-        verbose = "True"
-
-        if verbose == "True":
-
-            print("d_dt 0,2 is", d_dt[0, 2])
-            # print("K0 is", K0)
-            # print('K_0 is', self.K_0)
-            print("pH is", self.pH)
-            # print('min pH is', self.min_ph)
-            # print('surface_dic is', self.surface_dic)
-            # print('aqCO2', self.aq_CO2)
-            print("cflux1 is", cflux1)
-            # print('cflux_out is', self.cflux_out)
-            # print('clfux_in', self.cflux_in)
-            print("pco2 is", self.pco2)
-            print("atm_co2 is", self.CO2_data_int)
-            print("CO2 gradient", (self.CO2_data_int - self.pco2))
-            # print('d13C flux is', SCPCO2)
-            # print('d13C is', current_state[3,2] )
-            # print('stateV0 is', self.state_v0)
-            print(
-                "DIC surf is ", new_state[0, 2]
-            ),  #'DIC deep is', current_state[0,1],"DIC Marc is", current_state[0,0]," and ALK is ", current_state[1,2])
-            print("Current year is", time_bp)
-
-        if verbose == "False":
-            pass
-
-        # d_dt = np.zeros((self.num_tracer, self.num_box))
-
+        # where you can turn on or off any processes
+        d_dt += d_dt_circ
         d_dt += d_dt_geologic
         d_dt += d_dt_export
         d_dt += d_dt_remin
+        d_dt += d_dt_gasexchange
 
         return d_dt.flatten()
 
