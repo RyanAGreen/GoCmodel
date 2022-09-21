@@ -3,18 +3,17 @@ Regional Model
 Going to move things to modules after they work in OOP first
 """
 
-
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import PyCO2SYS as pyco2
 from scipy.integrate import solve_ivp
+import src.geologic as geologic
+import src.airseagas as airsea
 import src.inputoutput as io
 import src.circulation as circulation
 import src.product as product
 import time
-
-# import src.conversions as conversions
 
 
 class GoCModel:
@@ -47,40 +46,23 @@ class GoCModel:
             ]
         )
 
-        # mass of the atmopsere from NASA and from SCPM_parameters.py
-
-        self.mass_of_atm = 5.1e18  # kg
-        self.mol_of_atm = 28.97  # mean molecular weight ??units??
-
-        # volume of atm (mols)
-
-        self.atm_volume = (self.mass_of_atm * 1e3) / self.mol_of_atm
-
-        # CO2 Solubility parameters from Weiss (1974), in mol/ (kg atm)
-        self.A1_C = -60.3409
-        self.A2_C = 93.4517
-        self.A3_C = 23.3585
-        self.B1_C = 0.023517
-        self.B2_C = -0.023656
-        self.B3_C = 0.0047036
-
         # surface area of GoC and surface volume
 
         self.surf_volume = 1.65e13  # m^3
         self.surf_area = self.surf_volume / 200  # m^2
 
-        # piston velocity for air-sea gas exchange (from SCPM_paramters.py)
+        self.CO2_atm = io.read_co2_data("data/observations/CO2data.txt")
 
-        self.PV0 = 3.0  # m/day
+        self.D14C_atm = io.read_14C_atm_data("data/observations/D14Cdata.txt")
 
-        # The "thermodynamic fractionation factor" for carbon isotopes in air-sea exchange
-        self.FK = 0.9995  # no units...0.99915 Stabe carbon as per Schmittner et al(2013) and SCPM_parameters.py
-        self.FKR = 0.9990  # no units...0.9990 Radiocarbon as per Toggweiler and Sarmiento (1985) SCPM_paramters.py
+        self.d13C_atm = io.read_d13C_atm_data(
+            "data/observations/d13Cdata_500yearsnotadded.txt"
+        )
 
         # Setting up inital values
         self.carbon = np.array([2400, 2400, 2300])  # umol/kg
-        self.alkalinity = np.array([2450, 2450, 2450])  # umol/kg
-        self.phosphorus = np.array([0.001, 0.001, 0.001])  # umol/kg
+        self.alkalinity = np.array([2450, 2450, 2400])  # umol/kg
+        self.phosphorus = np.array([30, 30, 30])  # umol/kg
         self.del_13_c = (
             np.array([0.1, 0.1, 0.1]) * self.carbon
         )  # delta [permil] * concentration
@@ -150,6 +132,8 @@ class GoCModel:
         self.time = None
         self.output = None
 
+        self.surf, self.sub, self.mar = self.read_files()
+
     def make_state_a(self, state_v, time, bc):
         """Gets called every year and makes new state in matrix format. Boxes are in columns and tracers are in
         rows.
@@ -177,14 +161,18 @@ class GoCModel:
             idx = int(time_rounded / 100)
             self.carbon_add = self.carbon_add_scenario[idx, 0]
             self.alk_dic_ratio = self.carbon_add_scenario[idx, 1]
+            self.CO2_atm_currentyr = self.CO2_atm[idx, 1]  # ppm
+            self.D14C_atm_currentyr = self.D14C_atm[idx, 1]
+            self.d13C_atm_currentyr = self.d13C_atm[idx, 1]
 
         # reshape flat array to rows as tracers and columns as boxes
         # (18,) -> (6,3)
-        state_a = state_v.T.reshape(self.num_tracer, self.num_box)
+        state_v_reshaped = state_v.T.reshape(self.num_tracer, self.num_box)
+        # print('state_v is', state_v)
 
         # adds the boundary condition (column index of [:,4] and [:,5])
         # -> (6,5)
-        state_a = np.hstack((state_a, self.boundary_condition,))
+        state_a = np.hstack((state_v_reshaped, self.boundary_condition,))
         # clearing cumulative carbon tracer so that it is not affected
         # by circulation matrix mutiplication
         state_a[5, 0] = 0
@@ -193,184 +181,172 @@ class GoCModel:
 
         return state_a
 
-    def geologic_carbon_add(self, rate, box):
-        """geologic carbon addition"""
+    def read_files(self):
+        obspath = "data/observations/"
 
-        if box == "marchitto":
-            i = 0
-        elif box == "subsurface":
-            i = 1
-        elif box == "surface":
-            i = 2
+        Rafter_surface = pd.read_csv(obspath + "Rafter_2019.tab", sep="\t", header=24)
+        Rafter_surface = Rafter_surface.loc[(Rafter_surface["Habitat"] == "planktic")]
+        Rafter_surface["Cal age [ka BP]"] = 1000 * Rafter_surface["Cal age [ka BP]"]
+        Rafter_surface = Rafter_surface.sort_values(by=["Cal age [ka BP]"])
 
-        carbon_flux = rate * 1e15 / 12 * 1e6 / self.mass[i]
+        Rafter_subsurface = pd.read_excel(obspath + "prafter-2019-Gulf-CA-Data-for-Ryan.xls")
+        Rafter_subsurface = Rafter_subsurface.loc[
+            (Rafter_subsurface["species"] == "U. peregrina")
+            | (Rafter_subsurface["species"] == "Planulina ariminensis")
+            | (Rafter_subsurface["species"] == "U. peregrina ")
+        ]
+        Rafter_subsurface = Rafter_subsurface.sort_values(by=["calendar age [kyr BP]"])
+        Rafter_subsurface = Rafter_subsurface[["calendar age [kyr BP]", "D14C"]]
+        Rafter_subsurface = Rafter_subsurface.dropna(subset=["D14C"])
+        Rafter_subsurface = (
+            Rafter_subsurface.groupby("calendar age [kyr BP]").mean().reset_index()
+        )
+        Rafter_subsurface["calendar age [kyr BP]"] *= 1000
 
-        d_dt = np.zeros((self.num_tracer, self.num_box))
-        # DIC
-        d_dt[0, i] = carbon_flux
-        # ALK
-        d_dt[1, i] = 1 * carbon_flux
-        # d13C
-        d_dt[3, i] = -9 * carbon_flux
-        # D14C
-        d_dt[4, i] = -1000 * carbon_flux
-        # Cum Carbon
-        d_dt[5, i] = rate
+        Mar = pd.read_csv(obspath + "Marchitto.txt", sep="\s+")
+        Mar["Cal.Age"] = 1000 * Mar["Cal.Age"]
 
-        return d_dt
+        return Rafter_surface, Rafter_subsurface, Mar
 
-    def carb_chem(self):
-        """
-        Converts DIC and ALK to microles/kg then
-        uses pyCO2sys to solve carbonate chemistry
-        returns DIC speciation, pH, omega and pCO2
-        """
-        dic = []
-        alk = []
-        for i in range(3):
-            dic.append(self.result.y[i, :])
-            alk.append(self.result.y[i + 3, :])
+    def get_del_14_c_values(self, time, surf, sub, mar):
+        arr_surf = surf["Cal age [ka BP]"] - time
+        arr_sub = sub["calendar age [kyr BP]"] - time
+        arr_mar = mar["Cal.Age"] - time
+        idx_surf = np.where(arr_surf < 0, arr_surf, -np.inf).argmax()
+        idx_sub = np.where(arr_sub < 0, arr_sub, -np.inf).argmax()
+        idx_mar = np.where(arr_mar < 0, arr_mar, -np.inf).argmax()
+        del_14_c_values = np.array([mar["D14C"][idx_mar],
+                                    sub["D14C"][idx_sub],
+                                    surf["Δ14C [‰]"][idx_surf]])
+        return del_14_c_values
 
-        carbon_chemistry = pyco2.sys(par1=alk, par2=dic, par1_type=1, par2_type=2)
-        values = ["HCO3", "CO3", "CO2", "pH", "saturation_calcite", "pCO2", "k_CO2"]
-        carbonate_results = []
-        for term in values:
-            carbonate_results.append(carbon_chemistry[term])
-        return np.array(carbonate_results)
-
-    def air_sea_gas_exchange(
-        self, temp=25, Kelv=273.15, SWD=1029
-    ):  # every string is a variable we do not have data for yet
-
-        # K0 from GLODAP_processing.py and Wiess 1974...need to know the salinity (Sal) and its units
-        self.K0 = np.exp(
-            (
-                self.A1_C
-                + self.A2_C * (100.0 / ((temp + Kelv)))
-                + self.A3_C * np.log((temp + Kelv) / 100.0)
-                + ("Sal")
-                * (
-                    self.B1_C
-                    + self.B2_C * ((temp + Kelv) / 100.0)
-                    + self.B3_C * (((temp + Kelv) / 100.0) ** 2)
-                )
-            )
-        )  # mol/ kg atm
-
-        # air-sea surface gas transfer
-        def makeFXarr(PV0, secsday=86400):
-            makeFXarr = np.zeros([3, 1])  # [3x1] so it can multiply
-            makeFXarr[2, 0] = self.PV0 / secsday  # but only doing surface box
-            return makeFXarr  # m/s
-
-        self.surf_gas_flux = makeFXarr(
-            self.PV0, secsday=86400
-        )  # * self.surface_area  # m^3 / s
-
-        cflux1 = (
-            SWD * self.K0 * 1e6 * self.surf_gas_flux * ("AtCO2" - "pCO2")
-        )  # umol/(s m^2)
-        cflux = cflux1 / self.surf_volume  # WHY DIVIDING BY VOLUME??
-        Carbon_flux = -sum(cflux1)
-
-        # d13C air-sea fractionation factors
-        FSA = np.zeros([3, 1])
-        FSA = -9.866 / (temp + Kelv) + 1.02412  # Mook (1974)  unitless
-        FAS = np.zeros([3, 1])
-        FAS = -0.373 / (temp + Kelv) + 1.00019  # Mook (1974)  unitless
-
-        # radiocarbon air-sea fractination factors
-        FSAR = 0.92182
-        FASR = 0.99786
-
-        # air-sea flux 13C
-        kinetic_frac = (
-            SWD * self.K0 * self.surf_gas_flux * self.FK * 1e6
-        )  # umol / (atm s)
-        del_13_c_ppmil = self.del_13_c[2, 0] / self.carbon  # ppmil
-
-        SCPCO2 = kinetic_frac * (
-            ((FAS * ("del_13_c_atm_ppmil" / "AtCO2")) * "AtCO2")
-            - (FSA * (del_13_c_ppmil / "pCO2") * "pCO2")
-        )  # umol / m^2 s
-        Scflux = SCPCO2 / self.surf_volume  # Ocean boxes ...umol/ (s m^3) ??
-        # AtSCflux=-sum(SCPCO2)/Varrat # Atmosphere
-
-        # air-sea flux 14C
-        radio_kinetic_frac = (
-            SWD * self.K0 * self.surf_gas_fluc * self.FKR * 1e6
-        )  # umol / (atm s)
-        del_14_c_ppmil = self.del_14_c[2, 0] / self.carbon  # ppmil
-
-        RCPCO2 = radio_kinetic_frac * (
-            ((FASR * ("del_14_c_atm_ppmil" / "AtCO2")) * "AtCO2")
-            - (FSAR * (del_14_c_ppmil / "pCO2") * "pCO2")
-        )  # umol / m^2 s
-        Rcflux = RCPCO2 / self.surf_volume
-        # AtRCflux=-sum(RCPCO2)/Varrat # Atmosphere
+    def obj_func(self, state, time):
+        del_14_c_values = self.get_del_14_c_values(time, self.surf, self.sub, self.mar) # [1 x 3]
+        del_14_c_change = del_14_c_values * state[0] - state[4]
+        return del_14_c_change
 
     def box_model(self, time, statev):
         # pylint: disable=unused-argument
         """
-        makes matrix with tracers in rows and boxes in columns from initial conditions.
-        Then multiplies matrix by transport matrix to find the change in each.
-        This is the derivative of dy/dt
-        [:,: self.num_box] grabs all rows (tracers) and all columns up to the number of boxes
-        from the box model (excluding boundary condition boxes)
+        box_model takes in current model state and organizes the data into the
+        correct matrix notation. Then box_model finds the change in each tracer
+        for a given time step (d_dt). d_dt is returned to the ODE solver.
         """
 
         state_a = self.make_state_a(statev, time, "control")
-
         time_bp = 20000 - time
 
-        time_rounded = int(time_bp)
-        print(time_rounded)
+        current_state = state_a[:, : self.num_box]
 
+        """
+        # Forgot to mention this during the meeting: for some reason I have to
+        # multiply by -1 in addition to dividing by that huge number (below).
+        # Maybe the method is flawed
+        """
+        geologic_add = -1 * self.obj_func(state_a[:,:self.num_box], time_bp) / 0.5e7
+
+        ### Geologic Carbon Addition ###
         d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
+        d_dt_geologic += self.geologic_carbon_add(geologic_add[0], "marchitto")
+        d_dt_geologic += self.geologic_carbon_add(geologic_add[1], "subsurface")
+        d_dt_geologic += self.geologic_carbon_add(geologic_add[2], "surface")
 
+        """ Commenting out manual geologic carbon additions
         # Marchitto box additions #
         if (time_bp < 16500) and (time_bp > 14500):
-            d_dt_geologic += self.geologic_carbon_add(0.06, "marchitto")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.06, "marchitto", self.mass
+            )
         if (time_bp < 12750) and (time_bp > 12000):
-            d_dt_geologic += self.geologic_carbon_add(0.06, "marchitto")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.06, "marchitto", self.mass
+            )
 
         # subsurface addition #
         if (time_bp < 18000) and (time_bp >= 16500):
-            d_dt_geologic += self.geologic_carbon_add(0.05, "subsurface")
-            d_dt_geologic += self.geologic_carbon_add(0.06, "marchitto")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.05, "subsurface", self.mass
+            )
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.06, "marchitto", self.mass
+            )
 
         if (time_bp < 15500) and (time_bp >= 14500):
-            d_dt_geologic += self.geologic_carbon_add(0.07, "subsurface")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.07, "subsurface", self.mass
+            )
 
         if (time_bp <= 14500) and (time_bp >= 13500):
-            d_dt_geologic += self.geologic_carbon_add(0.08, "subsurface")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.08, "subsurface", self.mass
+            )
 
         if (time_bp < 13500) and (time_bp >= 12000):
-            d_dt_geologic += self.geologic_carbon_add(0.08, "subsurface")
-            d_dt_geologic += self.geologic_carbon_add(0.1, "surface")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.08, "subsurface", self.mass
+            )
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.1, "surface", self.mass
+            )
 
         # surface addition #
         if (time_bp < 15500) and (time_bp > 14500):
-            d_dt_geologic += self.geologic_carbon_add(0.075, "surface")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.075, "surface", self.mass
+            )
 
         if (time_bp < 13500) and (time_bp > 12000):
-            d_dt_geologic += self.geologic_carbon_add(0.1, "surface")
+            d_dt_geologic += geologic.manual_carbon_add(
+                self.num_tracer, self.num_box, 0.1, "surface", self.mass
+            )
+        """
 
-        # Biological Productivity (Soft Tissue + Carbonate)
+        ### Biological Productivity (Soft Tissue + Carbonate) ###
         d_dt_export, exportP, del_13_c_org, del_14_c_org = product.productivity(
-            state_a[:, : self.num_box], self.boundary_condition,
-            self.num_tracer, self.num_box, self.num_bc, self.CaRatio,
-            self.export_matrix, self.remin_matrix
+            state_a[:, : self.num_box],
+            self.boundary_condition,
+            self.num_tracer,
+            self.num_box,
+            self.num_bc,
+            self.CaRatio,
+            self.export_matrix,
+            self.remin_matrix,
         )
-        d_dt_remin = product.remin(
-            exportP, del_13_c_org, del_14_c_org,
-            self.num_tracer, self.num_box, self.remin_matrix)
-        # multiplying tracers by fluxes
-        d_dt = (self.transport_matrix @ state_a.T).T[:, : self.num_box]  # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
 
+        ### Remineralization ###
+        d_dt_remin = product.remin(
+            exportP,
+            del_13_c_org,
+            del_14_c_org,
+            self.num_tracer,
+            self.num_box,
+            self.remin_matrix,
+        )
+
+        ### Circulation ###
+        d_dt_circ = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
+        # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
+
+        ### Air-Sea Gas Exchange ###
+        d_dt_gasexchange = airsea.gas_exchange(
+            current_state,
+            self.num_tracer,
+            self.num_box,
+            self.CO2_atm_currentyr,
+            self.d13C_atm_currentyr,
+            self.D14C_atm_currentyr,
+            self.surf_area,
+            self.mass[2],
+        )
+
+        d_dt = np.zeros((self.num_tracer, self.num_box))
+
+        # where you can turn on or off any processes
+        d_dt += d_dt_circ
         d_dt += d_dt_geologic
         d_dt += d_dt_export
         d_dt += d_dt_remin
+        d_dt += d_dt_gasexchange
 
         return d_dt.flatten()
 
@@ -388,84 +364,24 @@ class GoCModel:
             method="RK45",
             t_eval=self.time,
             vectorized=True,
-            rtol=1e-10,
-            atol=1e-7,
+            rtol=1e-6,
+            atol=1e-6,
+            # jac = None,
+            # min_step = 0.00000001,
         )
-        self.carbonate_chemistry = self.carb_chem()  # shape = [tracer,box,year]
+        # self.carbonate_chemistry = self.carb_chem1()  # shape = [tracer,box,year]
+        # print("The shape of carbonate_chemistry is ", np.shape(self.carbonate_chemistry))
         end = time.time()
 
         self.time = np.flipud(self.result.t)  # plot from past to present
         self.output = self.result.y
 
-        # calculate manual cumulative carbon values based on lines 254-288
-        self.cum_geologic_carbon_to_marchitto = 0.06 * 749 + 0.06 * 2000 + 0.06 * 1500
-        self.cum_geologic_carbon_to_goc_sub = (
-            0.05 * 1500 + 0.07 * 1000 + 0.08 * 1001 + 0.08 * 1500
-        )
-        self.cum_geologic_carbon_to_goc_surf = 0.1 * 1500 + 0.075 * 999 + 0.1 * 1499
-
-        print(
-            "Manual cumulative carbon to the Marchitto box is ",
-            self.cum_geologic_carbon_to_marchitto,
-            "[PgC]",
-        )
-        print(
-            "Manual cumulative carbon to the GoC subsurface is ",
-            self.cum_geologic_carbon_to_goc_sub,
-            "[PgC]",
-        )
-        print(
-            "Manual cumulative carbon to the GoC surface is ",
-            self.cum_geologic_carbon_to_goc_surf,
-            "[PgC]",
-        )
-        print(
-            "ODE solved tracer cumulative carbon to the Marchitto box is ",
-            self.output[15, -1],
-            "[PgC]",
-        )
-        print(
-            "ODE solved tracer cumulative carbon to the GoC subsurface is ",
-            self.output[16, -1],
-            "[PgC]",
-        )
-        print(
-            "ODE solved tracer cumulative carbon to the GoC surface is ",
-            self.output[17, -1],
-            "[PgC]",
-        )
-
         print("this solver took ", end - start, " seconds.")
 
-        # io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
-        # io.save_file(self.time, self.result.y, self.carbonate_chemistry)
-
-    def plot_rate(self):
-        rate_geologic_carbon_to_marchitto = np.zeros((20000))
-        rate_geologic_carbon_to_goc_sub = np.zeros((20000))
-        rate_geologic_carbon_to_goc_surf = np.zeros((20000))
-
-        rate_geologic_carbon_to_goc_sub[12000:13500] = 0.08
-        rate_geologic_carbon_to_goc_sub[13500:14500] = 0.08
-        rate_geologic_carbon_to_goc_sub[14500:15500] = 0.07
-        rate_geologic_carbon_to_goc_sub[16500:18000] = 0.05
-
-        rate_geologic_carbon_to_goc_surf[12000:13500] = 0.01
-        rate_geologic_carbon_to_goc_surf[14500:15500] = 0.075
-        rate_geologic_carbon_to_goc_surf[14500:15500] = 0.075
-
-        rate_geologic_carbon_to_marchitto[12000:12750] = 0.06
-        rate_geologic_carbon_to_marchitto[14500:16500] = 0.06
-        rate_geologic_carbon_to_marchitto[16500:18000] = 0.08
-
-        plt.plot(rate_geologic_carbon_to_goc_sub, label="GoC sub")
-        plt.plot(rate_geologic_carbon_to_goc_surf, label="GoC surf")
-        plt.plot(rate_geologic_carbon_to_marchitto, label="Marchitto")
-        plt.legend()
-        plt.show()
+        io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
+        io.save_file(self.time, self.result.y, self.carbonate_chemistry)
 
 
 if __name__ == "__main__":
     ModelInstance = GoCModel()
     ModelInstance.run_box_model(20000, 2001)
-    ModelInstance.plot_rate()
