@@ -152,6 +152,7 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         lw=4,
         color="#520120",
         label="GoC surface ∆$^{14}$C",
+        zorder=4,
     )
 
     ax[4].plot(
@@ -210,7 +211,7 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
     ax[4].set_xlabel("Years BP")
     ax[4].set_ylabel("∆$^{14}$C (permil)")
     ax[4].set_title("∆$^{14}$C")
-    ax[4].set_ylim(-450, 350)
+    # ax[4].set_ylim(-450, 350)
     ax[4].grid()
     for i in range(5):
         ax[i].set_xlim(0, 20000)
