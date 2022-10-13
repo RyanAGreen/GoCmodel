@@ -102,19 +102,14 @@ def gas_exchange(
     ######### Calculate fluxes ##########
 
     pco2_ocean = pco2_calc(current_state)
-    print("pco2 is ", pco2_ocean)
+    # print("pco2 is ", pco2_ocean)
 
     d13C_ocean = current_state[3, 2] / current_state[0, 2]  # ppmil
     D14C_ocean = current_state[4, 2] / current_state[0, 2]
     pco2_atm = CO2_atm
-    # print("pco2 misfit is ", pco2_ocean - pco2_atm)
-    # pco2_atm = 180
+
     d13C_atm = d13C_atm
-    # d13C_atm = -6.5
-    # print("d13C of the atmosphere is ", d13C_atm)
     D14C_atm = D14C_atm
-    # D14C_atm = 100
-    # print("D14C of the atmosphere is ", D14C_atm)
 
     # Kinetic Fractionation factor for CO2 gas transfer aross the air-sea interface
     kinetic_frac_c13 = 0.9995
