@@ -61,8 +61,8 @@ class GoCModel:
         )
 
         # Setting up inital values
-        self.carbon = np.array([2400, 2400, 2300])  # umol/kg
-        self.alkalinity = np.array([2450, 2450, 2400])  # umol/kg
+        self.carbon = np.array([2350, 2300, 2100])  # umol/kg
+        self.alkalinity = np.array([2420, 2420, 2410])  # umol/kg
         self.phosphorus = np.array([30, 30, 30])  # umol/kg
         self.del_13_c = (
             np.array([0.1, 0.1, 0.1]) * self.carbon
@@ -381,9 +381,9 @@ class GoCModel:
 
         # where you can turn on or off any processes
         d_dt += d_dt_circ
-        d_dt += d_dt_geologic
+        # d_dt += d_dt_geologic
         d_dt += d_dt_export
-        d_dt += d_dt_remin
+        # d_dt += d_dt_remin
         d_dt += d_dt_gasexchange
 
         return d_dt.flatten()
