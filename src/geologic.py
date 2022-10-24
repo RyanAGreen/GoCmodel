@@ -26,4 +26,3 @@ def manual_carbon_add(num_tracer, num_box, rate, box_name, mass_array):
     d_dt[5, i] = rate
 
     return d_dt
-

@@ -1,7 +1,7 @@
 import numpy as np
 
 # Biological Productivity
-def productivity(current_state, bc, num_tracer, num_box, num_bc, CaRatio, export_matrix, remin_matrix):
+def productivity(current_state, bc, num_tracer, num_box, num_bc, CaRatio, export_matrix):
     idxP = 2  # index of phosphorus in the tracers array
     boxesP = [2, 4]  # GoC Surface and NP Surface
 
@@ -27,8 +27,8 @@ def productivity(current_state, bc, num_tracer, num_box, num_bc, CaRatio, export
     productP = export_matrix @ exportP  # [5 x 5] x [5,] = [5,]
     # Let X be the amount from GoC surface to GoC subsurface
     # Let Y be the amount from NP surface to Marchitto
-    # Then, ExportN will equal a column vector [0,0,X,0,Y]
-    # Finally, EM @ ExportN will equal a column vector [Y,X,-X,0,Y],
+    # Then, exportP will equal a column vector [0,0,X,0,Y]
+    # Finally, export_matrix @ exportP will equal a column vector [0,0,-X,0,-Y],
     # which is correct and can be added to d_dt
     productP = productP[: num_box]
     productCa = export_matrix @ exportCa
