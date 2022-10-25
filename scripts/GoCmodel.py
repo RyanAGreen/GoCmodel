@@ -97,11 +97,6 @@ class GoCModel:
             "data/NoISchange/ForwardRun/control.txt", 0
         )
 
-        self.carbon_add_scenario = io.read_cadd_scenario(
-            "data/ISchange/2Dinversion/Powell2Dinversion.txt"
-        )
-        self.carbon_add = self.carbon_add_scenario[0, 0]
-        self.alk_dic_ratio = self.carbon_add_scenario[0, 1]
         svedrup_matrix = circulation.circ(
             self.num_box, self.num_bc, 0.45, 0.03, 0.03, 0.03, 0.03,
         )
@@ -139,7 +134,7 @@ class GoCModel:
         self.time_copy = 0
         self.optimized_timesteps = np.zeros((20000))
         self.reminBoolean = reminBoolean
-        self.geologic_add = np.array([0,0,0])
+        self.geologic_add = np.array([0, 0, 0])
 
     def make_state_a(self, state_v, time, bc):
         """Gets called every year and makes new state in matrix format. Boxes are in columns and tracers are in
@@ -166,8 +161,6 @@ class GoCModel:
 
         if time_rounded % 100 == 0:
             idx = int(time_rounded / 100)
-            self.carbon_add = self.carbon_add_scenario[idx, 0]
-            self.alk_dic_ratio = self.carbon_add_scenario[idx, 1]
             self.CO2_atm_currentyr = self.CO2_atm[idx, 1]  # ppm
             self.D14C_atm_currentyr = self.D14C_atm[idx, 1]
             self.d13C_atm_currentyr = self.d13C_atm[idx, 1]
@@ -196,7 +189,9 @@ class GoCModel:
         Rafter_surface["Cal age [ka BP]"] = 1000 * Rafter_surface["Cal age [ka BP]"]
         Rafter_surface = Rafter_surface.sort_values(by=["Cal age [ka BP]"])
 
-        Rafter_subsurface = pd.read_excel(obspath + "prafter-2019-Gulf-CA-Data-for-Ryan.xls")
+        Rafter_subsurface = pd.read_excel(
+            obspath + "prafter-2019-Gulf-CA-Data-for-Ryan.xls"
+        )
         Rafter_subsurface = Rafter_subsurface.loc[
             (Rafter_subsurface["species"] == "U. peregrina")
             | (Rafter_subsurface["species"] == "Planulina ariminensis")
@@ -222,9 +217,9 @@ class GoCModel:
         idx_surf = np.where(arr_surf < 0, arr_surf, -np.inf).argmax()
         idx_sub = np.where(arr_sub < 0, arr_sub, -np.inf).argmax()
         idx_mar = np.where(arr_mar < 0, arr_mar, -np.inf).argmax()
-        del_14_c_values = np.array([mar["D14C"][idx_mar],
-                                    sub["D14C"][idx_sub],
-                                    surf["Δ14C [‰]"][idx_surf]])
+        del_14_c_values = np.array(
+            [mar["D14C"][idx_mar], sub["D14C"][idx_sub], surf["Δ14C [‰]"][idx_surf]]
+        )
         return del_14_c_values
 
     # def obj_func(self, state, time):
@@ -232,29 +227,31 @@ class GoCModel:
     #     del_14_c_change = del_14_c_values * state[0] - state[4]
     #     return del_14_c_change
 
-    def obj_func(self, geologic_carbon_rate): # units of PgC​
-        '''
+    def obj_func(self, geologic_carbon_rate):  # units of PgC​
+        """
         Rules:
         1. Algorithm to stop running when misfit < tolerance (0.1)
         2. No removal of carbon (geologic_carbon_rate =! 0)
-        '''
+        """
 
         # convert PgC to model concentration units (umol/kg)
-        carbon_flux = geologic_carbon_rate * 1e15 / 12 * 1e6 / self.mass[:self.num_box]
+        carbon_flux = geologic_carbon_rate * 1e15 / 12 * 1e6 / self.mass[: self.num_box]
 
         # grab delta 14C value for the specific year
-        del_14_c_obs_permil = self.get_del_14_c_values(self.time_copy, self.surf, self.sub, self.mar) # [1 x 3]
+        del_14_c_obs_permil = self.get_del_14_c_values(
+            self.time_copy, self.surf, self.sub, self.mar
+        )  # [1 x 3]
         # calculate D14C state with geologic carbon
         # all geologic carbon has a per mil value of -1000
         # carbon_flux is the additional change in concentration after carbon addition
-        del_14_c_model = self.state_copy[4] + (-1000*carbon_flux)
+        del_14_c_model = self.state_copy[4] + (-1000 * carbon_flux)
 
         # convert model state to per mil units
         del_14_c_model_permil = del_14_c_model / (self.state_copy[0] + carbon_flux)
 
         misfit = np.sum((del_14_c_obs_permil - del_14_c_model_permil) ** 2)
 
-        return misfit # per mil
+        return misfit  # per mil
 
     def box_model(self, time, statev):
         # pylint: disable=unused-argument
@@ -277,7 +274,7 @@ class GoCModel:
         # the same geologic carbon addition for all increments within an
         # integer year
 
-        '''
+        """
         if self.optimized_timesteps[self.time_copy-1] == 0:
             self.optimized_timesteps[self.time_copy-1] = 1;
             geologic_add_initial_guess = np.array([0,0,0])
@@ -289,7 +286,7 @@ class GoCModel:
         d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[0], "marchitto", self.mass)
         d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[1], "subsurface", self.mass)
         d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[2], "surface", self.mass)
-        '''
+        """
 
         """ Commenting out manual geologic carbon additions
         # Marchitto box additions #
