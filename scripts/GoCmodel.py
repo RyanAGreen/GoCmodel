@@ -271,28 +271,25 @@ class GoCModel:
         self.state_copy = current_state
         self.time_copy = int(time_bp)
 
-        """
-        # Forgot to mention this during the meeting: for some reason I have to
-        # multiply by -1 in addition to dividing by that huge number (below).
-        # Maybe the method is flawed
-        """
-        # geologic_add = -1 * self.obj_func(state_a[:,:self.num_box], time_bp) / 0.5e7
         d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
 
-        # For every integer timestep, recalculate the geologic add, and use
+        # (Below) For every integer timestep, recalculate the geologic add, and use
         # the same geologic carbon addition for all increments within an
         # integer year
-        # if self.optimized_timesteps[self.time_copy-1] == 0:
-        #     self.optimized_timesteps[self.time_copy-1] = 1;
-        #     geologic_add_initial_guess = np.array([0,0,0])
-        #     self.geologic_add = optimize.minimize(self.obj_func, geologic_add_initial_guess, tol=0.1).x
-        # print("Geologic Add at Time = " + str(self.time_copy) + ":", end=" ")
-        # print(self.geologic_add)
-        #
-        # ### Geologic Carbon Addition ###
-        # d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[0], "marchitto", self.mass)
-        # d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[1], "subsurface", self.mass)
-        # d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[2], "surface", self.mass)
+
+        '''
+        if self.optimized_timesteps[self.time_copy-1] == 0:
+            self.optimized_timesteps[self.time_copy-1] = 1;
+            geologic_add_initial_guess = np.array([0,0,0])
+            self.geologic_add = optimize.minimize(self.obj_func, geologic_add_initial_guess, tol=0.1, method="Powell").x
+        print("Geologic Add at Time = " + str(self.time_copy) + ":", end=" ")
+        print(self.geologic_add)
+
+        ### Geologic Carbon Addition ###
+        d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[0], "marchitto", self.mass)
+        d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[1], "subsurface", self.mass)
+        d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[2], "surface", self.mass)
+        '''
 
         """ Commenting out manual geologic carbon additions
         # Marchitto box additions #
@@ -421,5 +418,5 @@ class GoCModel:
 
 
 if __name__ == "__main__":
-    ModelInstance = GoCModel(reminBoolean=False)
+    ModelInstance = GoCModel(reminBoolean=True)
     ModelInstance.run_box_model(20000, 2001)
