@@ -115,7 +115,7 @@ class GoCModel:
 
         self.remin_matrix = np.array(
             [
-                [0, 0, 0, 0, 0.75],  # 0.75 for Marchitto
+                [0, 0, 0, 0, 0.8],  # 0.75 for Marchitto
                 [0, 0, 0.25, 0, 0],  # 0.25 for GoC Subsurface
                 [0, 0, 0, 0, 0],
                 [0, 0, 0, 0, 0],
@@ -146,21 +146,37 @@ class GoCModel:
         """
         time_rounded = int(time)
 
+        spinuptime = 1000
+
         if bc == "control":
-            if time_rounded % 100 == 0:
+            if (time_rounded % 100 == 0) and (time_rounded >= spinuptime):
                 self.boundary_condition = io.read_bc(
-                    "data/NoISchange/ForwardRun/control.txt", (time_rounded / 100)
+                    "data/NoISchange/ForwardRun/control.txt",
+                    ((time_rounded - spinuptime) / 100),
+                )
+            elif time_rounded < spinuptime:
+                self.boundary_condition = io.read_bc(
+                    "data/NoISchange/ForwardRun/control.txt", 0
                 )
 
         if bc == "2dinversion":
-            if time_rounded % 100 == 0:
+            if (time_rounded % 100 == 0) and (time_rounded >= spinuptime):
                 self.boundary_condition = io.read_bc(
                     "data/ISchange/2Dinversion/Powell2Dinversion.txt",
-                    (time_rounded / 100),
+                    ((time_rounded - spinuptime) / 100),
+                )
+            elif time_rounded < spinuptime:
+                self.boundary_condition = io.read_bc(
+                    "data/ISchange/2Dinversion/Powell2Dinversion.txt", 0
                 )
 
-        if time_rounded % 100 == 0:
-            idx = int(time_rounded / 100)
+        if (time_rounded % 100 == 0) and (time_rounded >= spinuptime):
+            idx = int((time_rounded - spinuptime) / 100)
+            self.CO2_atm_currentyr = self.CO2_atm[idx, 1]  # ppm
+            self.D14C_atm_currentyr = self.D14C_atm[idx, 1]
+            self.d13C_atm_currentyr = self.d13C_atm[idx, 1]
+        elif time_rounded < spinuptime:
+            idx = 0
             self.CO2_atm_currentyr = self.CO2_atm[idx, 1]  # ppm
             self.D14C_atm_currentyr = self.D14C_atm[idx, 1]
             self.d13C_atm_currentyr = self.d13C_atm[idx, 1]
@@ -262,7 +278,7 @@ class GoCModel:
         """
 
         state_a = self.make_state_a(statev, time, "control")
-        time_bp = 20000 - time
+        time_bp = 25000 - time
 
         current_state = state_a[:, : self.num_box]
         self.state_copy = current_state
@@ -377,7 +393,7 @@ class GoCModel:
         d_dt += d_dt_circ
         # d_dt += d_dt_geologic
         d_dt += d_dt_export
-        # d_dt += d_dt_remin
+        d_dt += d_dt_remin
         d_dt += d_dt_gasexchange
 
         return d_dt.flatten()
@@ -416,4 +432,4 @@ class GoCModel:
 
 if __name__ == "__main__":
     ModelInstance = GoCModel(reminBoolean=True)
-    ModelInstance.run_box_model(20000, 2001)
+    ModelInstance.run_box_model(21000, 211)
