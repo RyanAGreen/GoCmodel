@@ -20,17 +20,17 @@ def save_file(time, tracers, carbonate_chemistry):
             "time": time / 1000,
             "mar_DIC": tracers[0, :],
             "mar_ALK": tracers[3, :],
-            "mar_pH": carbonate_chemistry[3, 0, :],
+            # "mar_pH": carbonate_chemistry[3, 0, :],
             "mar_d13c": tracers[9, :] / tracers[0, :],
             "mar_D14c": tracers[12, :] / tracers[0, :],
             "goc_sub_DIC": tracers[1, :],
             "goc_sub_ALK": tracers[4, :],
-            "goc_sub_pH": carbonate_chemistry[3, 1, :],
+            # "goc_sub_pH": carbonate_chemistry[3, 1, :],
             "goc_sub_d13c": tracers[10, :] / tracers[1, :],
             "goc_sub_D14c": tracers[13, :] / tracers[1, :],
             "goc_surf_DIC": tracers[2, :],
             "goc_surf_ALK": tracers[5, :],
-            "goc_surf_pH": carbonate_chemistry[3, 2, :],
+            # "goc_surf_pH": carbonate_chemistry[3, 2, :],
             "goc_surf_d13c": tracers[11, :] / tracers[2, :],
             "goc_surf_D14c": tracers[14, :] / tracers[2, :],
         }
@@ -152,6 +152,7 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         lw=4,
         color="#520120",
         label="GoC surface ∆$^{14}$C",
+        zorder=4,
     )
 
     ax[4].plot(
@@ -210,7 +211,7 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
     ax[4].set_xlabel("Years BP")
     ax[4].set_ylabel("∆$^{14}$C (permil)")
     ax[4].set_title("∆$^{14}$C")
-    ax[4].set_ylim(-450, 350)
+    # ax[4].set_ylim(-450, 350)
     ax[4].grid()
     for i in range(5):
         ax[i].set_xlim(0, 20000)
@@ -312,3 +313,59 @@ def read_bc(file, row):
         ]
     )
     return bc
+
+
+def read_co2_data(file):
+
+    df = pd.read_table(str(file), sep="\t", header=None)
+    df = df.rename(columns={0: "year", 1: "atm_co2"})
+
+    co2_data = df.to_numpy()
+
+    return co2_data
+
+
+def read_14C_atm_data(file):
+
+    df = pd.read_table(str(file), sep="\t", header=None)
+    df = df.rename(columns={0: "year", 1: "14C_atm"})
+
+    c14_atm_data = df.to_numpy()
+
+    return c14_atm_data
+
+
+def read_d13C_atm_data(file):
+
+    df = pd.read_table(str(file), sep="\t", header=None)
+    df.rename(columns={0: "year", 1: "d13C_atm", 2: "stnd_dev"})
+
+    d13C_atm_data = df.to_numpy()
+
+    return d13C_atm_data
+
+
+def plot_rate():
+    rate_geologic_carbon_to_marchitto = np.zeros((20000))
+    rate_geologic_carbon_to_goc_sub = np.zeros((20000))
+    rate_geologic_carbon_to_goc_surf = np.zeros((20000))
+
+    rate_geologic_carbon_to_goc_sub[12000:13500] = 0.08
+    rate_geologic_carbon_to_goc_sub[13500:14500] = 0.08
+    rate_geologic_carbon_to_goc_sub[14500:15500] = 0.07
+    rate_geologic_carbon_to_goc_sub[16500:18000] = 0.05
+
+    rate_geologic_carbon_to_goc_surf[12000:13500] = 0.01
+    rate_geologic_carbon_to_goc_surf[14500:15500] = 0.075
+    rate_geologic_carbon_to_goc_surf[14500:15500] = 0.075
+
+    rate_geologic_carbon_to_marchitto[12000:12750] = 0.06
+    rate_geologic_carbon_to_marchitto[14500:16500] = 0.06
+    rate_geologic_carbon_to_marchitto[16500:18000] = 0.08
+
+    plt.plot(rate_geologic_carbon_to_goc_sub, label="GoC sub")
+    plt.plot(rate_geologic_carbon_to_goc_surf, label="GoC surf")
+    plt.plot(rate_geologic_carbon_to_marchitto, label="Marchitto")
+    plt.legend()
+    plt.show()
+
