@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import PyCO2SYS as pyco2
 from scipy.integrate import solve_ivp
+from scipy import optimize
 import src.geologic as geologic
 import src.airseagas as airsea
 import src.inputoutput as io
@@ -22,7 +23,7 @@ class GoCModel:
     Gulf of California-Deep, Gulf of California-Surface, North Pacific-
     Intermediate depth and North Pacific Surface"""
 
-    def __init__(self):
+    def __init__(self, reminBoolean):
 
         self.num_box = 3
         self.num_bc = 2
@@ -60,8 +61,8 @@ class GoCModel:
         )
 
         # Setting up inital values
-        self.carbon = np.array([2400, 2400, 2300])  # umol/kg
-        self.alkalinity = np.array([2450, 2450, 2400])  # umol/kg
+        self.carbon = np.array([2350, 2300, 2100])  # umol/kg
+        self.alkalinity = np.array([2420, 2420, 2410])  # umol/kg
         self.phosphorus = np.array([30, 30, 30])  # umol/kg
         self.del_13_c = (
             np.array([0.1, 0.1, 0.1]) * self.carbon
@@ -104,8 +105,8 @@ class GoCModel:
         )
         self.export_matrix = np.array(
             [
-                [0, 0, 0, 0, 1],  # GoC surface --> GoC subsurface
-                [0, 0, 1, 0, 0],  # NP surface --> Marchitto
+                [0, 0, 0, 0, 0],  # GoC surface --> GoC subsurface
+                [0, 0, 0, 0, 0],  # NP surface --> Marchitto
                 [0, 0, -1, 0, 0],
                 [0, 0, 0, 0, 0],
                 [0, 0, 0, 0, -1],
@@ -116,9 +117,9 @@ class GoCModel:
             [
                 [0, 0, 0, 0, 0.8],  # 0.75 for Marchitto
                 [0, 0, 0.25, 0, 0],  # 0.25 for GoC Subsurface
-                [0, 0, -0.25, 0, 0],
                 [0, 0, 0, 0, 0],
-                [0, 0, 0, 0, -0.75],
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0],
             ]
         )
 
@@ -129,15 +130,12 @@ class GoCModel:
 
         self.surf, self.sub, self.mar = self.read_files()
 
-<<<<<<< HEAD
-=======
         self.state_copy = np.zeros((self.num_tracer, self.num_box))
         self.time_copy = 0
         self.optimized_timesteps = np.zeros((20000))
         self.reminBoolean = reminBoolean
         self.geologic_add = np.array([0, 0, 0])
 
->>>>>>> Dev
     def make_state_a(self, state_v, time, bc):
         """Gets called every year and makes new state in matrix format. Boxes are in columns and tracers are in
         rows.
@@ -240,12 +238,6 @@ class GoCModel:
         )
         return del_14_c_values
 
-<<<<<<< HEAD
-    def obj_func(self, state, time):
-        del_14_c_values = self.get_del_14_c_values(time, self.surf, self.sub, self.mar) # [1 x 3]
-        del_14_c_change = del_14_c_values * state[0] - state[4]
-        return del_14_c_change
-=======
     # def obj_func(self, state, time):
     #     del_14_c_values = self.get_del_14_c_values(time, self.surf, self.sub, self.mar) # [1 x 3]
     #     del_14_c_change = del_14_c_values * state[0] - state[4]
@@ -276,7 +268,6 @@ class GoCModel:
         misfit = np.sum((del_14_c_obs_permil - del_14_c_model_permil) ** 2)
 
         return misfit  # per mil
->>>>>>> Dev
 
     def box_model(self, time, statev):
         # pylint: disable=unused-argument
@@ -290,21 +281,16 @@ class GoCModel:
         time_bp = 25000 - time
 
         current_state = state_a[:, : self.num_box]
+        self.state_copy = current_state
+        self.time_copy = int(time_bp)
 
-        """
-<<<<<<< HEAD
-        # Forgot to mention this during the meeting: for some reason I have to
-        # multiply by -1 in addition to dividing by that huge number (below).
-        # Maybe the method is flawed
-        """
-        geologic_add = -1 * self.obj_func(state_a[:,:self.num_box], time_bp) / 0.5e7
-
-        ### Geologic Carbon Addition ###
         d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
-        d_dt_geologic += self.geologic_carbon_add(geologic_add[0], "marchitto")
-        d_dt_geologic += self.geologic_carbon_add(geologic_add[1], "subsurface")
-        d_dt_geologic += self.geologic_carbon_add(geologic_add[2], "surface")
-=======
+
+        # (Below) For every integer timestep, recalculate the geologic add, and use
+        # the same geologic carbon addition for all increments within an
+        # integer year
+
+        """
         if self.optimized_timesteps[self.time_copy-1] == 0:
             self.optimized_timesteps[self.time_copy-1] = 1;
             geologic_add_initial_guess = np.array([0,0,0])
@@ -317,7 +303,6 @@ class GoCModel:
         d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[1], "subsurface", self.mass)
         d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[2], "surface", self.mass)
         """
->>>>>>> Dev
 
         """ Commenting out manual geologic carbon additions
         # Marchitto box additions #
@@ -329,7 +314,6 @@ class GoCModel:
             d_dt_geologic += geologic.manual_carbon_add(
                 self.num_tracer, self.num_box, 0.06, "marchitto", self.mass
             )
-
         # subsurface addition #
         if (time_bp < 18000) and (time_bp >= 16500):
             d_dt_geologic += geologic.manual_carbon_add(
@@ -338,17 +322,14 @@ class GoCModel:
             d_dt_geologic += geologic.manual_carbon_add(
                 self.num_tracer, self.num_box, 0.06, "marchitto", self.mass
             )
-
         if (time_bp < 15500) and (time_bp >= 14500):
             d_dt_geologic += geologic.manual_carbon_add(
                 self.num_tracer, self.num_box, 0.07, "subsurface", self.mass
             )
-
         if (time_bp <= 14500) and (time_bp >= 13500):
             d_dt_geologic += geologic.manual_carbon_add(
                 self.num_tracer, self.num_box, 0.08, "subsurface", self.mass
             )
-
         if (time_bp < 13500) and (time_bp >= 12000):
             d_dt_geologic += geologic.manual_carbon_add(
                 self.num_tracer, self.num_box, 0.08, "subsurface", self.mass
@@ -356,13 +337,11 @@ class GoCModel:
             d_dt_geologic += geologic.manual_carbon_add(
                 self.num_tracer, self.num_box, 0.1, "surface", self.mass
             )
-
         # surface addition #
         if (time_bp < 15500) and (time_bp > 14500):
             d_dt_geologic += geologic.manual_carbon_add(
                 self.num_tracer, self.num_box, 0.075, "surface", self.mass
             )
-
         if (time_bp < 13500) and (time_bp > 12000):
             d_dt_geologic += geologic.manual_carbon_add(
                 self.num_tracer, self.num_box, 0.1, "surface", self.mass
@@ -378,18 +357,19 @@ class GoCModel:
             self.num_bc,
             self.CaRatio,
             self.export_matrix,
-            self.remin_matrix,
         )
 
         ### Remineralization ###
-        d_dt_remin = product.remin(
-            exportP,
-            del_13_c_org,
-            del_14_c_org,
-            self.num_tracer,
-            self.num_box,
-            self.remin_matrix,
-        )
+        d_dt_remin = np.zeros((self.num_tracer, self.num_box))
+        if self.reminBoolean:
+            d_dt_remin = product.remin(
+                exportP,
+                del_13_c_org,
+                del_14_c_org,
+                self.num_tracer,
+                self.num_box,
+                self.remin_matrix,
+            )
 
         ### Circulation ###
         d_dt_circ = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
@@ -411,7 +391,7 @@ class GoCModel:
 
         # where you can turn on or off any processes
         d_dt += d_dt_circ
-        d_dt += d_dt_geologic
+        # d_dt += d_dt_geologic
         d_dt += d_dt_export
         d_dt += d_dt_remin
         d_dt += d_dt_gasexchange
@@ -451,10 +431,5 @@ class GoCModel:
 
 
 if __name__ == "__main__":
-<<<<<<< HEAD
-    ModelInstance = GoCModel()
-    ModelInstance.run_box_model(20000, 2001)
-=======
     ModelInstance = GoCModel(reminBoolean=True)
     ModelInstance.run_box_model(21000, 211)
->>>>>>> Dev
