@@ -133,9 +133,13 @@ class GoCModel:
 
         self.state_copy = np.zeros((self.num_tracer, self.num_box))
         self.time_copy = 0
-        self.optimized_timesteps = np.zeros((20000))
+        self.optimized_timesteps_mar = np.zeros((20000))
+        self.optimized_timesteps_sub = np.zeros((20000))
+        self.optimized_timesteps_surf = np.zeros((20000))
         self.reminBoolean = reminBoolean
-        self.geologic_add = np.array([0, 0, 0])
+        self.marchitto_rate = np.array([0])
+        self.subsurface_rate = np.array([0])
+        self.surface_rate = np.array([0])
 
     def make_state_a(self, state_v, time, bc):
         """Gets called every year and makes new state in matrix format. Boxes are in columns and tracers are in
@@ -248,16 +252,18 @@ class GoCModel:
         # convert PgC to model concentration units (umol/kg)
         carbon_flux = geologic_carbon_rate * 1e15 / 12 * 1e6 / self.mass[: self.num_box]
 
-        # grab delta 14C value for the specific year
-        del_14_c_obs_permil = np.array([self.f_mar(self.time_copy), self.f_sub(self.time_copy), self.f_surf(self.time_copy)]) # [1 x 3]
+        # grab delta 14C value for the specific year and the specified box
+        # get_d14c is is either f_mar, f_surf, or f_sub and is changed in box_model
+        # depending on the current box being optimized
+        del_14_c_obs_permil = np.array([self.get_d14c(self.time_copy)]) # [1 x 3]
 
         # calculate D14C state with geologic carbon
         # all geologic carbon has a per mil value of -1000
         # carbon_flux is the additional change in concentration after carbon addition
-        del_14_c_model = self.state_copy[4] + (-1000 * carbon_flux)
+        del_14_c_model = self.state_copy[4, self.box_idx] + (-1000 * carbon_flux)
 
         # convert model state to per mil units
-        del_14_c_model_permil = del_14_c_model / (self.state_copy[0] + carbon_flux)
+        del_14_c_model_permil = del_14_c_model / (self.state_copy[0, self.box_idx] + carbon_flux)
 
         misfit = np.sum((del_14_c_obs_permil - del_14_c_model_permil) ** 2)
 
@@ -274,8 +280,8 @@ class GoCModel:
         state_a = self.make_state_a(statev, time, "control")
         time_bp = 21000 - time
 
-        current_state = state_a[:, : self.num_box]
-        self.state_copy = current_state
+        # current_state = state_a[:, : self.num_box]
+        self.state_copy = state_a
         self.time_copy = int(time_bp)
 
         d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
@@ -283,19 +289,52 @@ class GoCModel:
         # (Below) For every integer timestep, recalculate the geologic add, and use
         # the same geologic carbon addition for all increments within an
         # integer year
-        # """
-        if (time_bp <= 20000 and self.time_copy > 12792):
-            if self.optimized_timesteps[self.time_copy-1001] == 0:
-                self.optimized_timesteps[self.time_copy-1001] = 1
-                geologic_add_initial_guess = np.array([0,0,0])
-                self.geologic_add = optimize.minimize(self.obj_func, geologic_add_initial_guess).x
-            print("Geologic Add at Time = " + str(self.time_copy) + ":", end=" ")
-            print(self.geologic_add)
 
-            ### Geologic Carbon Addition ###
-            d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[0], "marchitto", self.mass)
-            d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[1], "subsurface", self.mass)
-            d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[2], "surface", self.mass)
+        """
+        Method of Optimization
+        1. calculate flux due to new circulation
+        2. add flux from circulation into state
+        3. optimize geologic carbon addition for current box
+        4. add optimized carbon to state
+        """
+        geologic_add_initial_guess = np.array([0])
+        # """
+        ### Geologic Carbon Addition ###
+        if (time_bp <= 20000 and time_bp > 12792):
+            # Marchitto
+            d_dt_circ = (self.transport_matrix @ self.state_copy.T).T
+            self.state_copy += d_dt_circ
+            self.get_d14c = self.f_mar # needed to extract interpolated d14c values
+            self.box_idx = 0
+            if self.optimized_timesteps_mar[self.time_copy-1001] == 0:
+                self.optimized_timesteps_mar[self.time_copy-1001] = 1
+                self.marchitto_rate = optimize.minimize(self.obj_func, geologic_add_initial_guess, tol=0.1, method="Powell").x
+            d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.marchitto_rate, "marchitto", self.mass)
+            self.state_copy[:, :self.num_box] += d_dt_geologic
+
+            # Subsurface
+            d_dt_circ = (self.transport_matrix @ self.state_copy.T).T
+            self.state_copy += d_dt_circ
+            self.get_d14c = self.f_sub # needed to extract interpolated d14c values
+            self.box_idx = 1
+            if self.optimized_timesteps_sub[self.time_copy-1001] == 0:
+                self.optimized_timesteps_sub[self.time_copy-1001] = 1
+                self.subsurface_rate = optimize.minimize(self.obj_func, geologic_add_initial_guess, tol=0.1, method="Powell").x
+            d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.subsurface_rate, "subsurface", self.mass)
+            self.state_copy[:, :self.num_box] += d_dt_geologic
+
+            # Surface
+            d_dt_circ = (self.transport_matrix @ self.state_copy.T).T
+            self.state_copy += d_dt_circ
+            self.get_d14c = self.f_surf # needed to extract interpolated d14c values
+            self.box_idx = 2
+            if self.optimized_timesteps_surf[self.time_copy-1001] == 0:
+                self.optimized_timesteps_surf[self.time_copy-1001] = 1
+                self.surface_rate = optimize.minimize(self.obj_func, geologic_add_initial_guess, tol=0.1, method="Powell").x
+            d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.surface_rate, "subsurface", self.mass)
+
+            print("Geologic Add at Time = " + str(self.time_copy) + ":", end=" ")
+            print(str(self.marchitto_rate) + "\t" + str(self.subsurface_rate) + "\t" + str(self.surface_rate))
         # """
 
         """ Commenting out manual geologic carbon additions
@@ -371,7 +410,7 @@ class GoCModel:
 
         ### Air-Sea Gas Exchange ###
         d_dt_gasexchange = airsea.gas_exchange(
-            current_state,
+            state_a[:, :self.num_box],
             self.num_tracer,
             self.num_box,
             self.CO2_atm_currentyr,
