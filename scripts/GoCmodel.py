@@ -259,6 +259,8 @@ class GoCModel:
         # convert model state to per mil units
         del_14_c_model_permil = del_14_c_model / (self.state_copy[0] + carbon_flux)
 
+        del_14_c_model_permil = np.multiply((del_14_c_obs_permil - del_14_c_model_permil <= 0), del_14_c_model_permil)
+
         misfit = np.sum((del_14_c_obs_permil - del_14_c_model_permil) ** 2)
 
         return misfit  # per mil
@@ -283,7 +285,7 @@ class GoCModel:
         # (Below) For every integer timestep, recalculate the geologic add, and use
         # the same geologic carbon addition for all increments within an
         # integer year
-        # """
+
         if (time_bp <= 20000 and self.time_copy > 12792):
             if self.optimized_timesteps[self.time_copy-1001] == 0:
                 self.optimized_timesteps[self.time_copy-1001] = 1
@@ -296,51 +298,6 @@ class GoCModel:
             d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[0], "marchitto", self.mass)
             d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[1], "subsurface", self.mass)
             d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[2], "surface", self.mass)
-        # """
-
-        """ Commenting out manual geologic carbon additions
-        # Marchitto box additions #
-        if (time_bp < 16500) and (time_bp > 14500):
-            d_dt_geologic += geologic.manual_carbon_add(
-                self.num_tracer, self.num_box, 0.06, "marchitto", self.mass
-            )
-        if (time_bp < 12750) and (time_bp > 12000):
-            d_dt_geologic += geologic.manual_carbon_add(
-                self.num_tracer, self.num_box, 0.06, "marchitto", self.mass
-            )
-        # subsurface addition #
-        if (time_bp < 18000) and (time_bp >= 16500):
-            d_dt_geologic += geologic.manual_carbon_add(
-                self.num_tracer, self.num_box, 0.05, "subsurface", self.mass
-            )
-            d_dt_geologic += geologic.manual_carbon_add(
-                self.num_tracer, self.num_box, 0.06, "marchitto", self.mass
-            )
-        if (time_bp < 15500) and (time_bp >= 14500):
-            d_dt_geologic += geologic.manual_carbon_add(
-                self.num_tracer, self.num_box, 0.07, "subsurface", self.mass
-            )
-        if (time_bp <= 14500) and (time_bp >= 13500):
-            d_dt_geologic += geologic.manual_carbon_add(
-                self.num_tracer, self.num_box, 0.08, "subsurface", self.mass
-            )
-        if (time_bp < 13500) and (time_bp >= 12000):
-            d_dt_geologic += geologic.manual_carbon_add(
-                self.num_tracer, self.num_box, 0.08, "subsurface", self.mass
-            )
-            d_dt_geologic += geologic.manual_carbon_add(
-                self.num_tracer, self.num_box, 0.1, "surface", self.mass
-            )
-        # surface addition #
-        if (time_bp < 15500) and (time_bp > 14500):
-            d_dt_geologic += geologic.manual_carbon_add(
-                self.num_tracer, self.num_box, 0.075, "surface", self.mass
-            )
-        if (time_bp < 13500) and (time_bp > 12000):
-            d_dt_geologic += geologic.manual_carbon_add(
-                self.num_tracer, self.num_box, 0.1, "surface", self.mass
-            )
-        """
 
         ### Biological Productivity (Soft Tissue + Carbonate) ###
         d_dt_export, exportP, del_13_c_org, del_14_c_org = product.productivity(
