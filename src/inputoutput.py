@@ -14,25 +14,33 @@ def save_tracers(tracers_arr):
     np.save("../results/tracers.npy", tracers_arr)
 
 
-def save_file(time, tracers, carbonate_chemistry):
+def save_file(
+    time, tracers, carbonate_chemistry,
+):
     df = pd.DataFrame(
         {
             "time": time / 1000,
             "mar_DIC": tracers[0, :],
+            "goc_sub_DIC": tracers[1, :],
+            "goc_surf_DIC": tracers[2, :],
             "mar_ALK": tracers[3, :],
+            "goc_sub_ALK": tracers[4, :],
+            "goc_surf_ALK": tracers[5, :],
             # "mar_pH": carbonate_chemistry[3, 0, :],
             "mar_d13c": tracers[9, :] / tracers[0, :],
-            "mar_D14c": tracers[12, :] / tracers[0, :],
-            "goc_sub_DIC": tracers[1, :],
-            "goc_sub_ALK": tracers[4, :],
-            # "goc_sub_pH": carbonate_chemistry[3, 1, :],
             "goc_sub_d13c": tracers[10, :] / tracers[1, :],
-            "goc_sub_D14c": tracers[13, :] / tracers[1, :],
-            "goc_surf_DIC": tracers[2, :],
-            "goc_surf_ALK": tracers[5, :],
-            # "goc_surf_pH": carbonate_chemistry[3, 2, :],
             "goc_surf_d13c": tracers[11, :] / tracers[2, :],
+            "mar_D14c": tracers[12, :] / tracers[0, :],
+            "goc_sub_D14c": tracers[13, :] / tracers[1, :],
             "goc_surf_D14c": tracers[14, :] / tracers[2, :],
+            # "goc_sub_pH": carbonate_chemistry[3, 1, :],
+            # "goc_surf_pH": carbonate_chemistry[3, 2, :],
+            "mar_cum_carbon": tracers[15, :],
+            "goc_sub_cum_carbon": tracers[16, :],
+            "goc_surf_cum_carbon": tracers[17, :],
+            # "mar_carbon_rate": marchitto_rate_array[:],
+            # "goc_sub_carbon_rate": subsurface_rate_array[:],
+            # "goc_surf_carbon_rate": surface_rate_array,
         }
     )
     np.savetxt(
@@ -145,6 +153,7 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         color="#520120",
         label="GoC surface δ$^{13}$C",
     )
+
     ax[4].plot(
         time,
         tracers[14, :] / tracers[2, :],
