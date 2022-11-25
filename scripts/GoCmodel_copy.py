@@ -704,4 +704,3 @@ if __name__ == "__main__":
     # time = np.linspace(10000, 17500)
     # plt.plot(time, ModelInstance.f_sub(time))
     # plt.show()
-
