@@ -24,7 +24,7 @@ class GoCModel:
     Gulf of California-Deep, Gulf of California-Surface, North Pacific-
     Intermediate depth and North Pacific Surface"""
 
-    def __init__(self, reminBoolean):
+    def __init__(self):
 
         self.num_box = 3
         self.num_bc = 2
@@ -134,7 +134,6 @@ class GoCModel:
         self.state_copy = np.zeros((self.num_tracer, self.num_box))
         self.time_copy = 0
         self.optimized_timesteps = np.zeros((20000))
-        self.reminBoolean = reminBoolean
         self.geologic_add = np.array([0, 0, 0])
 
     def make_state_a(self, state_v, time, bc):
@@ -367,15 +366,15 @@ class GoCModel:
 
         ### Remineralization ###
         d_dt_remin = np.zeros((self.num_tracer, self.num_box))
-        if self.reminBoolean:
-            d_dt_remin = product.remin(
-                exportP,
-                del_13_c_org,
-                del_14_c_org,
-                self.num_tracer,
-                self.num_box,
-                self.remin_matrix,
-            )
+
+        d_dt_remin = product.remin(
+            exportP,
+            del_13_c_org,
+            del_14_c_org,
+            self.num_tracer,
+            self.num_box,
+            self.remin_matrix,
+        )
 
         ### Circulation ###
         d_dt_circ = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
@@ -440,5 +439,5 @@ class GoCModel:
 
 
 if __name__ == "__main__":
-    ModelInstance = GoCModel(reminBoolean=True)
+    ModelInstance = GoCModel()
     ModelInstance.run_box_model(21000, 211)
