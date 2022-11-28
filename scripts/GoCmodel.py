@@ -129,7 +129,7 @@ class GoCModel:
         self.time = None
         self.output = None
 
-        self.f_surf, self.f_sub, self.f_mar = self.read_files()
+        self.f_surf, self.f_sub, self.f_mar = io.read_files()
 
         self.state_copy = np.zeros((self.num_tracer, self.num_box))
         self.time_copy = 0
@@ -233,12 +233,19 @@ class GoCModel:
         # Linear interpolation
         # fMar is different because there was a duplicated timestep,
         # but it was outside the time range we care about so I just removed it
-        fSurf = interp1d(Rafter_surface["Cal age [ka BP]"], Rafter_surface["Δ14C [‰]"], kind="linear")
-        fSub = interp1d(Rafter_subsurface["calendar age [kyr BP]"], Rafter_subsurface["D14C"])
-        fMar = interp1d(np.delete(np.array([Mar["Cal.Age"]]),[-3,-4]), np.delete(np.array([Mar["D14C"]]),[-3,-4]))
+        fSurf = interp1d(
+            Rafter_surface["Cal age [ka BP]"], Rafter_surface["Δ14C [‰]"], kind="linear"
+        )
+        fSub = interp1d(
+            Rafter_subsurface["calendar age [kyr BP]"], Rafter_subsurface["D14C"]
+        )
+        fMar = interp1d(
+            np.delete(np.array([Mar["Cal.Age"]]), [-3, -4]),
+            np.delete(np.array([Mar["D14C"]]), [-3, -4]),
+        )
         return fSurf, fSub, fMar
 
-    def obj_func(self, geologic_carbon_rate):  # units of PgC​
+    def obj_func(self, geologic_carbon_rate, box_idx):  # units of PgC​
         """
         Rules:
         1. Algorithm to stop running when misfit < tolerance (0.1)
@@ -246,23 +253,20 @@ class GoCModel:
         """
 
         # convert PgC to model concentration units (umol/kg)
-        carbon_flux = geologic_carbon_rate * 1e15 / 12 * 1e6 / self.mass[: self.num_box]
-
-        # grab delta 14C value for the specific year
-        del_14_c_obs_permil = np.array([self.f_mar(self.time_copy), self.f_sub(self.time_copy), self.f_surf(self.time_copy)]) # [1 x 3]
+        carbon_flux_conc = geologic_carbon_rate * 1e15 / 12 * 1e6 / self.mass[box_idx]
 
         # calculate D14C state with geologic carbon
         # all geologic carbon has a per mil value of -1000
         # carbon_flux is the additional change in concentration after carbon addition
-        del_14_c_model = self.state_copy[4] + (-1000 * carbon_flux)
+        # new dc / new DIC, delta units
+        del_14_c_model = (self.state_copy[4, box_idx] + (-1000 * carbon_flux_conc)) / (
+            self.state_copy[0, box_idx] + carbon_flux_conc
+        )
+        # del_14_c_model = (modelstate[4, box_idx] + (-1000 * carbon_flux_conc)) / (modelstate[0, box_idx] + carbon_flux_conc)
 
-        # convert model state to per mil units
-        del_14_c_model_permil = del_14_c_model / (self.state_copy[0] + carbon_flux)
-
-        del_14_c_model_permil = np.multiply((del_14_c_obs_permil - del_14_c_model_permil <= 0), del_14_c_model_permil)
-
-        misfit = np.sum((del_14_c_obs_permil - del_14_c_model_permil) ** 2)
-
+        # print("MODEL D14C is ", del_14_c_model, " and the rate to get me here was ", geologic_carbon_rate)
+        # misfit = abs((self.obs_d14c - del_14_c_model))
+        misfit = abs((self.obs_d14c - del_14_c_model))
         return misfit  # per mil
 
     def box_model(self, time, statev):
@@ -282,22 +286,67 @@ class GoCModel:
 
         d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
 
-        # (Below) For every integer timestep, recalculate the geologic add, and use
-        # the same geologic carbon addition for all increments within an
-        # integer year
+        # Marchitto
+        try:
+            self.obs_d14c = self.f_mar(self.time_copy)
+            self.marchitto_rate = optimize.minimize(
+                fun=self.obj_func,
+                x0=0.1,
+                method="TNC",
+                args=(self.marchitto_idx),
+                bounds=[(0, None)],
+                tol=0.1,
+            ).x
+        except:
+            self.marchitto_rate = 0
 
-        if (time_bp <= 20000 and self.time_copy > 12792):
-            if self.optimized_timesteps[self.time_copy-1001] == 0:
-                self.optimized_timesteps[self.time_copy-1001] = 1
-                geologic_add_initial_guess = np.array([0,0,0])
-                self.geologic_add = optimize.minimize(self.obj_func, geologic_add_initial_guess).x
-            print("Geologic Add at Time = " + str(self.time_copy) + ":", end=" ")
-            print(self.geologic_add)
+        d_dt_geologic += geologic.manual_carbon_add(
+            self.num_tracer, self.num_box, self.marchitto_rate, "marchitto", self.mass,
+        )
 
-            ### Geologic Carbon Addition ###
-            d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[0], "marchitto", self.mass)
-            d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[1], "subsurface", self.mass)
-            d_dt_geologic += geologic.manual_carbon_add(self.num_tracer, self.num_box, self.geologic_add[2], "surface", self.mass)
+        # Subsurface
+        try:
+            self.obs_d14c = self.f_sub(self.time_copy)
+            self.subsurface_rate = (
+                2
+                * optimize.minimize(
+                    fun=self.obj_func,
+                    x0=0.1,
+                    method="TNC",
+                    args=(self.subsurface_idx),
+                    bounds=[(0, None)],
+                    tol=0.1,
+                ).x
+            )
+        except:
+            self.subsurface_rate = 0
+        d_dt_geologic += geologic.manual_carbon_add(
+            self.num_tracer,
+            self.num_box,
+            self.subsurface_rate,
+            "subsurface",
+            self.mass,
+        )
+
+        # Surface
+        try:
+            self.obs_d14c = self.f_surf(self.time_copy)
+            self.surface_rate = (
+                3
+                * optimize.minimize(
+                    fun=self.obj_func,
+                    x0=0.1,
+                    method="TNC",
+                    args=(self.surface_idx),
+                    bounds=[(0, None)],
+                    tol=0.1,
+                ).x
+            )
+        except:
+            self.surface_rate = 0
+        d_dt_geologic += geologic.manual_carbon_add(
+            self.num_tracer, self.num_box, self.surface_rate, "surface", self.mass,
+        )
 
         ### Biological Productivity (Soft Tissue + Carbonate) ###
         d_dt_export, exportP, del_13_c_org, del_14_c_org = product.productivity(
@@ -378,7 +427,7 @@ class GoCModel:
         print("this solver took ", end - start, " seconds.")
 
         io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
-        io.save_file(self.time, self.result.y, self.carbonate_chemistry)
+        # io.save_file(self.time, self.result.y, self.carbonate_chemistry)
 
 
 if __name__ == "__main__":
