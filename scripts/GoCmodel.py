@@ -430,8 +430,11 @@ class GoCModel:
         self.time = self.time[10:]  # we dont care about the spin up
         self.output = self.result.y[:, 10:]  # we dont care about the spin up
 
-        print("this solver took ", end - start, " seconds.")
-
+        print(
+            "This solver took {:.2f} seconds for a ".format(end - start),
+            tmax,
+            " year simulation.",
+        )
         # io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
         io.make_plot_interp(self.time, self.output, self.carbonate_chemistry, self.mass)
 
