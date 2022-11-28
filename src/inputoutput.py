@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import src.conversions as conversions
+from scipy.interpolate import interp1d
 
 
 def make_text(state, tracers_arr):
@@ -14,9 +15,7 @@ def save_tracers(tracers_arr):
     np.save("../results/tracers.npy", tracers_arr)
 
 
-def save_file(
-    time, tracers, carbonate_chemistry,
-):
+def save_file(time, tracers, carbonate_chemistry):
     df = pd.DataFrame(
         {
             "time": time / 1000,
@@ -46,7 +45,6 @@ def save_file(
     np.savetxt(
         r"results/last_simulation_tracers.txt", df.values, fmt="%.2f", delimiter="\t"
     )
-    return
 
 
 def make_plot(time, tracers, carbonate_chemistry, mass):
@@ -232,6 +230,218 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         fig.savefig("../results/Plot.pdf")
 
 
+def make_plot_interp(time, tracers, carbonate_chemistry, mass):
+    """makes all plots"""
+    fig, ax = plt.subplots(5, figsize=(16, 20), sharex=True)
+
+    obspath = "data/observations/"
+
+    Rafter_surface = pd.read_csv(obspath + "Rafter_2019.tab", sep="\t", header=24)
+    Rafter_surface.loc[(Rafter_surface["Habitat"] == "planktic")]
+    Rafter_surface["Cal age [ka BP]"] = 1000 * Rafter_surface["Cal age [ka BP]"]
+    Rafter_surface = Rafter_surface.sort_values(by=["Cal age [ka BP]"])
+
+    Rafter_subsurface = pd.read_excel(
+        obspath + "prafter-2019-Gulf-CA-Data-for-Ryan.xls"
+    )
+    Rafter_subsurface = Rafter_subsurface.loc[
+        (Rafter_subsurface["species"] == "U. peregrina")
+        | (Rafter_subsurface["species"] == "Planulina ariminensis")
+        | (Rafter_subsurface["species"] == "U. peregrina ")
+    ]
+    Rafter_subsurface = Rafter_subsurface.sort_values(by=["calendar age [kyr BP]"])
+    Rafter_subsurface = Rafter_subsurface[["calendar age [kyr BP]", "D14C"]]
+    Rafter_subsurface = Rafter_subsurface.dropna(subset=["D14C"])
+    Rafter_subsurface = (
+        Rafter_subsurface.groupby("calendar age [kyr BP]").mean().reset_index()
+    )
+
+    Mar = pd.read_csv(obspath + "Marchitto.txt", sep="\s+")
+    Mar["Cal.Age"] = 1000 * Mar["Cal.Age"]
+
+    f_surf, f_sub, f_mar = read_files()
+    # ax[0].plot(time, carbonate_chemistry[3, 0, :], label="Baja California pH")
+    ax[1].plot(
+        time, tracers[0, :], color="#706513", label="Baja California C",
+    )
+    # ax[2].plot(
+    #     time,
+    #     conversions.moles_to_micromoles_kg(tracers[3, :], mass[0]),
+    #     label="Baja California ALK",
+    # )
+
+    ax[2].plot(
+        time, tracers[3, :], color="#706513", label="Baja California ALK",
+    )
+    ax[3].plot(
+        time,
+        tracers[9, :] / tracers[0, :],
+        color="#706513",
+        label="Baja California δ$^{13}$C",
+    )
+    ax[4].plot(
+        time,
+        tracers[12, :] / tracers[0, :],
+        color="#706513",
+        lw=4,
+        label="Marchitto box ∆$^{14}$C",
+    )
+
+    # ax[0].plot(
+    #     time,
+    #     carbonate_chemistry[3, 1, :],
+    #     linestyle="dotted",
+    #     color="#B57114",
+    #     label="GoC deep pH",
+    # )
+    ax[1].plot(
+        time, tracers[1, :], linestyle="dotted", color="#B57114", label="GoC deep C",
+    )
+    ax[2].plot(
+        time, tracers[4, :], linestyle="dotted", color="#B57114", label="GoC deep ALK",
+    )
+    ax[3].plot(
+        time,
+        tracers[10, :] / tracers[1, :],
+        linestyle="dotted",
+        label="GoC deep δ$^{13}$C",
+    )
+    ax[4].plot(
+        time,
+        tracers[13, :] / tracers[1, :],
+        linestyle="solid",
+        lw=4,
+        color="#B57114",
+        label="GoC subsurface ∆$^{14}$C",
+    )
+
+    # ax[0].plot(
+    #     time, carbonate_chemistry[3, 2, :], linestyle="dashed", label="GoC surface pH",
+    # )
+    ax[1].plot(
+        time, tracers[2, :], linestyle="dashed", color="#520120", label="GoC surface C",
+    )
+    ax[2].plot(
+        time,
+        tracers[5, :],
+        linestyle="dashed",
+        color="#520120",
+        label="GoC surface ALK",
+    )
+    ax[3].plot(
+        time,
+        tracers[11, :] / tracers[2, :],
+        linestyle="dashed",
+        color="#520120",
+        label="GoC surface δ$^{13}$C",
+    )
+
+    ax[4].plot(
+        time,
+        tracers[14, :] / tracers[2, :],
+        linestyle="solid",
+        lw=4,
+        color="#520120",
+        label="GoC surface ∆$^{14}$C",
+        zorder=4,
+    )
+
+    ax[4].plot(
+        Rafter_subsurface["calendar age [kyr BP]"] * 1000,
+        Rafter_subsurface["D14C"],
+        marker="s",
+        markeredgecolor="k",
+        markerfacecolor="white",
+        linestyle="dashed",
+        color="#B57114",
+        label="Rafter et al. 2019-GoC subsurface",
+        markersize=6,
+        lw=2,
+    )
+
+    ax[4].plot(
+        Rafter_surface["Cal age [ka BP]"],
+        Rafter_surface["Δ14C [‰]"],
+        marker="^",
+        markeredgecolor="k",
+        markerfacecolor="white",
+        linestyle="dashed",
+        color="#520120",
+        label="Rafter et al. 2019-GoC surface",
+        markersize=6,
+        lw=2,
+    )
+
+    ax[4].plot(
+        Mar["Cal.Age"],
+        Mar["D14C"],
+        marker="o",
+        markeredgecolor="k",
+        markerfacecolor="white",
+        linestyle="dashed",
+        color="#706513",
+        label="Marchitto et al. 2007",
+        markersize=6,
+        lw=2,
+    )
+
+    mar_time = np.linspace(320, 21000)
+    ax[4].plot(
+        mar_time,
+        f_mar(mar_time),
+        linestyle="solid",
+        color="#706513",
+        label="Marchitto interpolated",
+        lw=2,
+    )
+    surf_time = np.linspace(12791, 21000)
+    ax[4].plot(
+        surf_time,
+        f_surf(surf_time),
+        linestyle="solid",
+        color="#520120",
+        label="surface interpolated",
+        lw=2,
+    )
+    sub_time = np.linspace(504, 21000)
+    ax[4].plot(
+        sub_time,
+        f_sub(sub_time),
+        linestyle="solid",
+        color="#B57114",
+        label="subsurface interpolated ",
+        lw=2,
+    )
+
+    ax[0].legend(loc=1)
+    ax[1].legend(loc=1)
+    ax[2].legend(loc=1)
+    ax[3].legend(loc=1)
+    ax[4].legend(loc=1)
+
+    ax[0].set_ylabel("pH")
+    ax[0].set_title("pH")
+    ax[1].set_ylabel("DIC µmol/kg")
+    ax[1].set_title("DIC")
+    ax[2].set_ylabel("ALK (µmol/kg)")
+    ax[2].set_title("ALK")
+    ax[3].set_ylabel("δ$^{13}$C (permil)")
+    ax[3].set_title("δ$^{13}$C")
+    ax[4].set_xlabel("Years BP")
+    ax[4].set_ylabel("∆$^{14}$C (permil)")
+    ax[4].set_title("∆$^{14}$C")
+    # ax[4].set_ylim(-450, 350)
+    ax[4].grid()
+    for i in range(5):
+        ax[i].set_xlim(0, 20000)
+
+    plt.tight_layout()
+    try:
+        fig.savefig("results/Plot.pdf")
+    except:
+        fig.savefig("../results/Plot.pdf")
+
+
 def read_cadd_scenario(file):
     """returns numpy array with rate of carbon addition in
     column 0 and ALK:DIC ration in column 1. rows correspond
@@ -352,6 +562,54 @@ def read_d13C_atm_data(file):
     d13C_atm_data = df.to_numpy()
 
     return d13C_atm_data
+
+
+def read_files():
+    obspath = "data/observations/"
+
+    Rafter_surface = pd.read_csv(obspath + "Rafter_2019.tab", sep="\t", header=24)
+    Rafter_surface = Rafter_surface.loc[(Rafter_surface["Habitat"] == "planktic")]
+    Rafter_surface["Cal age [ka BP]"] = 1000 * Rafter_surface["Cal age [ka BP]"]
+    Rafter_surface = Rafter_surface.sort_values(by=["Cal age [ka BP]"])
+
+    Rafter_subsurface = pd.read_excel(
+        obspath + "prafter-2019-Gulf-CA-Data-for-Ryan.xls"
+    )
+    Rafter_subsurface = Rafter_subsurface.loc[
+        (Rafter_subsurface["species"] == "U. peregrina")
+        | (Rafter_subsurface["species"] == "Planulina ariminensis")
+        | (Rafter_subsurface["species"] == "U. peregrina ")
+    ]
+    Rafter_subsurface = Rafter_subsurface.sort_values(by=["calendar age [kyr BP]"])
+    Rafter_subsurface = Rafter_subsurface[["calendar age [kyr BP]", "D14C"]]
+    Rafter_subsurface = Rafter_subsurface.dropna(subset=["D14C"])
+    Rafter_subsurface = (
+        Rafter_subsurface.groupby("calendar age [kyr BP]").mean().reset_index()
+    )
+    Rafter_subsurface["calendar age [kyr BP]"] *= 1000
+
+    Mar = pd.read_csv(obspath + "Marchitto.txt", sep="\s+")
+    Mar["Cal.Age"] = 1000 * Mar["Cal.Age"]
+
+    # self.surf_min = Rafter_surface["Cal age [ka BP]"].min()
+    # self.sub_min = Rafter_subsurface["calendar age [kyr BP]"].min()
+    # self.mar_min = Mar["Cal.Age"].min()
+
+    # The following are functions that return the D14C value at an inputted timestep
+    # Linear interpolation
+    # fMar is different because there was a duplicated timestep,
+    # but it was outside the time range we care about so I just removed it
+    fSurf = interp1d(
+        Rafter_surface["Cal age [ka BP]"], Rafter_surface["Δ14C [‰]"], kind="linear"
+    )
+    fSub = interp1d(
+        Rafter_subsurface["calendar age [kyr BP]"], Rafter_subsurface["D14C"]
+    )
+    fMar = interp1d(
+        np.delete(np.array([Mar["Cal.Age"]]), [-3, -4]),
+        np.delete(np.array([Mar["D14C"]]), [-3, -4]),
+    )
+    return fSurf, fSub, fMar
 
 
 def plot_rate():
