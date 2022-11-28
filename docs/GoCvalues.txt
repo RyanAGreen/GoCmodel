@@ -1,0 +1,59 @@
+################## All from Rafter 2019 Supp and Main ################
+
+# seawater conditions inflow
+Flows in at 600 m depth
+Assuming steady state, in = out
+To calculate carbon inflow:
+19 Tmol C yr‐1 = 0.3-0.4 Sv (10^6 m3 / s) inflow * density of seawater averaged between 200 and 800 m near our site * seawater DIC of 2 mmol kg‐1 
+(carbon concentration of inflowing water we assume similar to the modern open ocean; Key et al., 2004)
+
+The initial, inflowing, subsurface seawater carbon chemistry was estimated from average CLIVAR observations between 500 and 700 m (station location at asterisk 
+in Fig. 1B) with salinity of 34.51, temperature of 7.2 ˚C, total alkalinity of 2329.1 umol kg-1, and DIC of 2317 umol kg-1 at a depth of 600 m (depth is average 
+of observations between 500-700 m) (Key et al., 2004)
+CO2sys gives a pH of 7.571, a [CO32-] of 46.5 umol kg-1, and an omega calcite (the ratio of [CO32-] to  [CO32-] at calcite saturation) of 0.99 
+
+# seawater conditions outflow
+Flows out at 200 m depth (Lavín & Marinone, 2003)
+1.5 cm s‐1
+150 km‐wide span of the mouth
+200m * 1.5cm s-1 * 150 km = m3 / s
+0.3-0.4 Sv (10^6 m3 / s outflow)
+
+Carbonate chemistry calculated assuming 50% increase in DIC:
+  1. without parallel increase in alkalinity lowers the pH to 6.422, [CO32-] to 2.5 umol kg-1, and Ω calcite to 0.06 (forams would not be preserved)
+  2. if carbon neutralized before release (i.e., release as bicarbonate instead of CO2, with carbon-to-alkalinity ratio of 1:1). pH= 7.719, [CO32-] = 70.4 
+  umol kg-1, and Ω = 1.69
+
+# Air-Sea Gas Exchange
+estimate a >1 year time of transit on surface based on circulation speed. About 1 year # Rafter 2019
+  Surface circulation of 1.5 cm/s # Lavin & Marinone, 2003
+  550 km distance from waters upwelled (Guaymas Basin) to mouth of the GoC # Rafter 2019
+
+# Delta C 13 of geologic carbon 
+The del13C of potential geologic carbon sources to Gulf of California seawater range from -6‰ for mantle CO2 (Deines, 2002) to -9‰ (Pearson et al., 2005) 
+for hydrothermal fluid DIC (here assumed to be representative of the mixed sources and processes linking sill emplacement pyrolysis of sedimentary carbon 
+and AOM to produce HCO3-) and -44‰ for microbial methane (Pearson et al., 2005). We chose the DIC and methane del13C values from Pearson et al., (2005) 
+because they are direct measurements of geologic carbon introduced to the Gulf of California seawater and therefore encompass the various processes 
+influencing pore fluid measurements (e.g., mixing with seawater and partial methane oxidation). Note that -44‰ is an upper bound for microbial methane as 
+noted by (Pearson et al., 2005).
+Given an inflowing deep Gulf seawater DIC del13C of ≈1‰ (see deglacial age benthic foraminifera del13C in (Rafter et al., 2018)), we expect geologic carbon
+to lower delC13 and therefore planktics to represent this. Assuming DIC is 2mmol/kg we predict that seawater DIC 13C will lower to: (i) -1.2‰ for the addition 
+of HCO3-, (ii) -2.2‰ for mantle CO2, and (iii) -11.5‰ for methane
+
+# incoming DIC values 
+inflowing seawater DIC is 2 mmol kg-1 (modern values) with a del13C of +1‰ (based on deglacial benthic foraminifera del13C (Rafter et al., 2018)
+
+# Colorado riverine input 
+Another possible source of 14C-free DIC is the Colorado River, which drains into the northern end of the Gulf of California. Based on a freshwater shell 
+measurement, the pre-bomb ∆14C value for Lower Colorado River water prior to large scale agricultural diversion of river flow was -156‰ (Goodfriend & Flessa, 1997),
+and the measured DIC concentration was ≈2700 µmol kg-1 in 1971, comparable with that of seawater (McDonald & Loeltz, 1971). However, mean flow over the past 500 
+years is estimated at ≈600 m3 s-1 (0.0006 Sv) (Stockton & Jacoby, 1976), which is several orders of magnitude lower than mean Gulf of California flow of 0.3 Sv 
+(calculated above) or 0.4 Sv (from (Navarro et al., 2016)). Hence, even allowing for possible changes in DIC concentration prior to the building of Hoover Dam 
+in the 1930s and large-scale increases in river flow for the late Pleistocene, Colorado River input could not have significantly impacted surface ∆14C values for 
+the Gulf of California.
+
+# General notes
+Seawater equilibration with the atmosphere follows a power law, so that a 1 year equilibration over a 10-year equilibration e-folding timescale of 
+DIC (common for the low latitude Pacific (Galbraith et al., 2015)) means that seawater DIC in the mixed layer is about 10% of its way to equilibration 
+with the atmosphere. Increased upwelling during the deglaciation (Chang et al., 2015) is consistent with windier conditions and a likely increased 
+equilibration with the atmosphere. Although higher concentrations of seawater DIC will slow the 14C equilibration with the atmosphere (Galbraith et al., 2015).

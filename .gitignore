@@ -23,7 +23,6 @@ wheels/
 pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
-data
 .installed.cfg
 *.egg
 results/
@@ -78,6 +77,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+Untitled.ipynb
 
 # IPython
 profile_default/
@@ -132,3 +132,5 @@ dmypy.json
 
 # Desktop services 
 .DS_Store
+scripts/.vscode/settings.json
+Untitled.ipynb
