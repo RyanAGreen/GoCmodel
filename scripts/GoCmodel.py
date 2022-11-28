@@ -279,10 +279,16 @@ class GoCModel:
 
         state_a = self.make_state_a(statev, time, "control")
         time_bp = 21000 - time
+        if self.time_copy == time_bp:
+            self.counter += 1
+            if self.counter > 200:
+                print("current count is ", self.counter)
+        else:
+            print("This year took ", self.counter, " steps.")
+            self.counter = 1
 
-        current_state = state_a[:, : self.num_box]
-        self.state_copy = current_state
-        self.time_copy = int(time_bp)
+        self.time_copy = round(time_bp)
+        print(self.time_copy)
 
         d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
 
@@ -377,7 +383,7 @@ class GoCModel:
 
         ### Air-Sea Gas Exchange ###
         d_dt_gasexchange = airsea.gas_exchange(
-            current_state,
+            state_a[:, : self.num_box],
             self.num_tracer,
             self.num_box,
             self.CO2_atm_currentyr,
