@@ -42,6 +42,16 @@ def save_file(time, tracers, carbonate_chemistry):
             # "goc_surf_carbon_rate": surface_rate_array,
         }
     )
+
+    rates = [[],[],[]]
+    for i in range(len(rates)):
+        for j in range(df.shape[0] - 1):
+            rates[i].append((df.iloc[j+1,-(3-i)] - df.iloc[j,-(3-i)]) / 100)
+        rates[i].append(0)
+    df["mar_rate_carbon"] = rates[0]
+    df["goc_sub_rate_carbon"] = rates[1]
+    df["goc_surf_rate_carbon"] = rates[2]
+
     np.savetxt(
         r"results/last_simulation_tracers.txt", df.values, fmt="%.2f", delimiter="\t"
     )
@@ -635,4 +645,3 @@ def plot_rate():
     plt.plot(rate_geologic_carbon_to_marchitto, label="Marchitto")
     plt.legend()
     plt.show()
-
