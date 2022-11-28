@@ -428,11 +428,14 @@ class GoCModel:
         end = time.time()
 
         self.time = np.flipud(self.result.t)  # plot from past to present
-        self.output = self.result.y
+        self.time = self.time[10:]  # we dont care about the spin up
+        self.output = self.result.y[:, 10:]  # we dont care about the spin up
 
         print("this solver took ", end - start, " seconds.")
 
-        io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
+        # io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
+        io.make_plot_interp(self.time, self.output, self.carbonate_chemistry, self.mass)
+
         # io.save_file(self.time, self.result.y, self.carbonate_chemistry)
 
 
