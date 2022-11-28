@@ -135,6 +135,10 @@ class GoCModel:
         self.time_copy = 0
         self.optimized_timesteps = np.zeros((20000))
         self.geologic_add = np.array([0, 0, 0])
+        self.counter = 1
+        self.marchitto_idx = 0
+        self.subsurface_idx = 1
+        self.surface_idx = 2
 
     def make_state_a(self, state_v, time, bc):
         """Gets called every year and makes new state in matrix format. Boxes are in columns and tracers are in
@@ -197,53 +201,6 @@ class GoCModel:
 
         return state_a
 
-    def read_files(self):
-        obspath = "data/observations/"
-
-        Rafter_surface = pd.read_csv(obspath + "Rafter_2019.tab", sep="\t", header=24)
-        Rafter_surface = Rafter_surface.loc[(Rafter_surface["Habitat"] == "planktic")]
-        Rafter_surface["Cal age [ka BP]"] = 1000 * Rafter_surface["Cal age [ka BP]"]
-        Rafter_surface = Rafter_surface.sort_values(by=["Cal age [ka BP]"])
-
-        Rafter_subsurface = pd.read_excel(
-            obspath + "prafter-2019-Gulf-CA-Data-for-Ryan.xls"
-        )
-        Rafter_subsurface = Rafter_subsurface.loc[
-            (Rafter_subsurface["species"] == "U. peregrina")
-            | (Rafter_subsurface["species"] == "Planulina ariminensis")
-            | (Rafter_subsurface["species"] == "U. peregrina ")
-        ]
-        Rafter_subsurface = Rafter_subsurface.sort_values(by=["calendar age [kyr BP]"])
-        Rafter_subsurface = Rafter_subsurface[["calendar age [kyr BP]", "D14C"]]
-        Rafter_subsurface = Rafter_subsurface.dropna(subset=["D14C"])
-        Rafter_subsurface = (
-            Rafter_subsurface.groupby("calendar age [kyr BP]").mean().reset_index()
-        )
-        Rafter_subsurface["calendar age [kyr BP]"] *= 1000
-
-        Mar = pd.read_csv(obspath + "Marchitto.txt", sep="\s+")
-        Mar["Cal.Age"] = 1000 * Mar["Cal.Age"]
-
-        self.surf_min = Rafter_surface["Cal age [ka BP]"].min()
-        self.sub_min = Rafter_subsurface["calendar age [kyr BP]"].min()
-        self.mar_min = Mar["Cal.Age"].min()
-
-        # The following are functions that return the D14C value at an inputted timestep
-        # Linear interpolation
-        # fMar is different because there was a duplicated timestep,
-        # but it was outside the time range we care about so I just removed it
-        fSurf = interp1d(
-            Rafter_surface["Cal age [ka BP]"], Rafter_surface["Δ14C [‰]"], kind="linear"
-        )
-        fSub = interp1d(
-            Rafter_subsurface["calendar age [kyr BP]"], Rafter_subsurface["D14C"]
-        )
-        fMar = interp1d(
-            np.delete(np.array([Mar["Cal.Age"]]), [-3, -4]),
-            np.delete(np.array([Mar["D14C"]]), [-3, -4]),
-        )
-        return fSurf, fSub, fMar
-
     def obj_func(self, geologic_carbon_rate, box_idx):  # units of PgC​
         """
         Rules:
@@ -277,7 +234,12 @@ class GoCModel:
         """
 
         state_a = self.make_state_a(statev, time, "control")
-        time_bp = 21000 - time
+
+        time_bp = round(21000 - time)
+
+        current_state = state_a[:, : self.num_box]
+        self.state_copy = state_a
+
         if self.time_copy == time_bp:
             self.counter += 1
             if self.counter > 200:
@@ -419,8 +381,6 @@ class GoCModel:
             vectorized=True,
             rtol=1e-2,
             atol=1e-2,
-            # jac = None,
-            # min_step = 0.00000001,
         )
         # self.carbonate_chemistry = self.carb_chem1()  # shape = [tracer,box,year]
         # print("The shape of carbonate_chemistry is ", np.shape(self.carbonate_chemistry))
