@@ -417,8 +417,8 @@ class GoCModel:
             method="RK45",
             t_eval=self.time,
             vectorized=True,
-            rtol=1e-6,
-            atol=1e-6,
+            rtol=1e-2,
+            atol=1e-2,
             # jac = None,
             # min_step = 0.00000001,
         )
