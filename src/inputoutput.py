@@ -15,7 +15,7 @@ def save_tracers(tracers_arr):
     np.save("../results/tracers.npy", tracers_arr)
 
 
-def save_file(time, tracers, carbonate_chemistry):
+def save_file(time, tracers, filename):
     df = pd.DataFrame(
         {
             "time": time / 1000,
@@ -52,14 +52,20 @@ def save_file(time, tracers, carbonate_chemistry):
     df["goc_sub_rate_carbon"] = rates[1]
     df["goc_surf_rate_carbon"] = rates[2]
 
+    # np.savetxt(
+    #     r"results/optimizedrun_" + filename + ".txt", df.values, fmt="%.2f", delimiter="\t"
+    # )
     np.savetxt(
-        r"results/last_simulation_tracers.txt", df.values, fmt="%.2f", delimiter="\t"
+        "results/optimizedrun_" + str(filename) + ".txt",
+        df.values,
+        fmt="%.2f",
+        delimiter="\t",
     )
 
 
-def make_plot(time, tracers, carbonate_chemistry, mass):
+def make_plot(time, tracers, pH, filename):
     """makes all plots"""
-    fig, ax = plt.subplots(5, figsize=(16, 20), sharex=True)
+    fig, ax = plt.subplots(3, sharex=True)
 
     obspath = "data/observations/"
 
@@ -86,26 +92,19 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
     Mar = pd.read_csv(obspath + "Marchitto.txt", sep="\s+")
     Mar["Cal.Age"] = 1000 * Mar["Cal.Age"]
 
-    # ax[0].plot(time, carbonate_chemistry[3, 0, :], label="Baja California pH")
-    ax[1].plot(
-        time, tracers[0, :], color="#706513", label="Baja California C",
-    )
-    # ax[2].plot(
-    #     time,
-    #     conversions.moles_to_micromoles_kg(tracers[3, :], mass[0]),
-    #     label="Baja California ALK",
-    # )
+    d13C_obs = pd.read_excel(obspath + "d13C_GoC_benthic_LPAZ21P.xlsx")
 
+    d13C_obs = d13C_obs.sort_values(by=["cal.age"])
+
+    ax[0].plot(time, pH[3, 0, :], label="Baja California pH")
+
+    # ax[3].plot(
+    #     time,
+    #     tracers[9, :] / tracers[0, :],
+    #     color="#706513",
+    #     label="Baja California δ$^{13}$C",
+    # )
     ax[2].plot(
-        time, tracers[3, :], color="#706513", label="Baja California ALK",
-    )
-    ax[3].plot(
-        time,
-        tracers[9, :] / tracers[0, :],
-        color="#706513",
-        label="Baja California δ$^{13}$C",
-    )
-    ax[4].plot(
         time,
         tracers[12, :] / tracers[0, :],
         color="#706513",
@@ -113,26 +112,28 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         label="Marchitto box ∆$^{14}$C",
     )
 
-    # ax[0].plot(
-    #     time,
-    #     carbonate_chemistry[3, 1, :],
-    #     linestyle="dotted",
-    #     color="#B57114",
-    #     label="GoC deep pH",
-    # )
+    ax[0].plot(
+        time, pH[3, 1, :], linestyle="dotted", color="#B57114", label="GoC deep pH",
+    )
+
     ax[1].plot(
-        time, tracers[1, :], linestyle="dotted", color="#B57114", label="GoC deep C",
-    )
-    ax[2].plot(
-        time, tracers[4, :], linestyle="dotted", color="#B57114", label="GoC deep ALK",
-    )
-    ax[3].plot(
         time,
         tracers[10, :] / tracers[1, :],
         linestyle="dotted",
         label="GoC deep δ$^{13}$C",
     )
-    ax[4].plot(
+
+    ax[1].plot(
+        d13C_obs["cal.age"] * 1000,
+        d13C_obs["δ¹³C (‰, VPDB)"],
+        marker="s",
+        markeredgecolor="k",
+        markerfacecolor="white",
+        linestyle="dashed",
+        color="#B57114",
+        label="benthic d13C data",
+    )
+    ax[2].plot(
         time,
         tracers[13, :] / tracers[1, :],
         linestyle="solid",
@@ -141,28 +142,19 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         label="GoC subsurface ∆$^{14}$C",
     )
 
-    # ax[0].plot(
-    #     time, carbonate_chemistry[3, 2, :], linestyle="dashed", label="GoC surface pH",
-    # )
-    ax[1].plot(
-        time, tracers[2, :], linestyle="dashed", color="#520120", label="GoC surface C",
-    )
-    ax[2].plot(
-        time,
-        tracers[5, :],
-        linestyle="dashed",
-        color="#520120",
-        label="GoC surface ALK",
-    )
-    ax[3].plot(
-        time,
-        tracers[11, :] / tracers[2, :],
-        linestyle="dashed",
-        color="#520120",
-        label="GoC surface δ$^{13}$C",
+    ax[0].plot(
+        time, pH[3, 2, :], linestyle="dashed", label="GoC surface pH",
     )
 
-    ax[4].plot(
+    # ax[3].plot(
+    #     time,
+    #     tracers[11, :] / tracers[2, :],
+    #     linestyle="dashed",
+    #     color="#520120",
+    #     label="GoC surface δ$^{13}$C",
+    # )
+
+    ax[2].plot(
         time,
         tracers[14, :] / tracers[2, :],
         linestyle="solid",
@@ -172,7 +164,7 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         zorder=4,
     )
 
-    ax[4].plot(
+    ax[2].plot(
         Rafter_subsurface["calendar age [kyr BP]"] * 1000,
         Rafter_subsurface["D14C"],
         marker="s",
@@ -185,7 +177,7 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         lw=2,
     )
 
-    ax[4].plot(
+    ax[2].plot(
         Rafter_surface["Cal age [ka BP]"],
         Rafter_surface["Δ14C [‰]"],
         marker="^",
@@ -198,7 +190,7 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         lw=2,
     )
 
-    ax[4].plot(
+    ax[2].plot(
         Mar["Cal.Age"],
         Mar["D14C"],
         marker="o",
@@ -211,36 +203,30 @@ def make_plot(time, tracers, carbonate_chemistry, mass):
         lw=2,
     )
 
-    ax[0].legend(loc=1)
-    ax[1].legend(loc=1)
-    ax[2].legend(loc=1)
-    ax[3].legend(loc=1)
-    ax[4].legend(loc=1)
+    ax[0].legend(loc="best")
+    ax[1].legend(loc="best")
+    ax[2].legend(loc="best", ncols=2)
 
     ax[0].set_ylabel("pH")
     ax[0].set_title("pH")
-    ax[1].set_ylabel("DIC µmol/kg")
-    ax[1].set_title("DIC")
-    ax[2].set_ylabel("ALK (µmol/kg)")
-    ax[2].set_title("ALK")
-    ax[3].set_ylabel("δ$^{13}$C (permil)")
-    ax[3].set_title("δ$^{13}$C")
-    ax[4].set_xlabel("Years BP")
-    ax[4].set_ylabel("∆$^{14}$C (permil)")
-    ax[4].set_title("∆$^{14}$C")
+    ax[1].set_ylabel("δ$^{13}$C (permil)")
+    ax[1].set_title("δ$^{13}$C")
+    ax[2].set_xlabel("Years BP")
+    ax[2].set_ylabel("∆$^{14}$C (permil)")
+    ax[2].set_title("∆$^{14}$C")
     # ax[4].set_ylim(-450, 350)
-    ax[4].grid()
-    for i in range(5):
+    ax[2].grid()
+    for i in range(3):
         ax[i].set_xlim(0, 20000)
 
     plt.tight_layout()
     try:
-        fig.savefig("results/Plot.pdf")
+        fig.savefig("results/Plot_" + filename + ".pdf")
     except:
-        fig.savefig("../results/Plot.pdf")
+        fig.savefig("../results/Plot_" + filename + ".pdf")
 
 
-def make_plot_interp(time, tracers, carbonate_chemistry, mass):
+def make_plot_interp(time, tracers, filename):
     """makes all plots"""
     fig, ax = plt.subplots(5, figsize=(16, 20), sharex=True)
 
@@ -268,6 +254,8 @@ def make_plot_interp(time, tracers, carbonate_chemistry, mass):
 
     Mar = pd.read_csv(obspath + "Marchitto.txt", sep="\s+")
     Mar["Cal.Age"] = 1000 * Mar["Cal.Age"]
+    d13C_obs = pd.read_excel(obspath + "d13C_GoC_benthic_LPAZ21P.xlsx")
+    d13C_obs = d13C_obs.sort_values(by=["cal.age"])
 
     f_surf, f_sub, f_mar = read_files()
     # ax[0].plot(time, carbonate_chemistry[3, 0, :], label="Baja California pH")
@@ -283,12 +271,12 @@ def make_plot_interp(time, tracers, carbonate_chemistry, mass):
     ax[2].plot(
         time, tracers[3, :], color="#706513", label="Baja California ALK",
     )
-    ax[3].plot(
-        time,
-        tracers[9, :] / tracers[0, :],
-        color="#706513",
-        label="Baja California δ$^{13}$C",
-    )
+    # ax[3].plot(
+    #     time,
+    #     tracers[9, :] / tracers[0, :],
+    #     color="#706513",
+    #     label="Baja California δ$^{13}$C",
+    # )
     ax[4].plot(
         time,
         tracers[12, :] / tracers[0, :],
@@ -316,6 +304,16 @@ def make_plot_interp(time, tracers, carbonate_chemistry, mass):
         linestyle="dotted",
         label="GoC deep δ$^{13}$C",
     )
+    ax[3].plot(
+        d13C_obs["cal.age"],
+        d13C_obs["δ¹³C (‰, VPDB)"],
+        marker="s",
+        markeredgecolor="k",
+        markerfacecolor="white",
+        linestyle="dashed",
+        color="#B57114",
+        label="benthic d13C data",
+    )
     ax[4].plot(
         time,
         tracers[13, :] / tracers[1, :],
@@ -338,13 +336,13 @@ def make_plot_interp(time, tracers, carbonate_chemistry, mass):
         color="#520120",
         label="GoC surface ALK",
     )
-    ax[3].plot(
-        time,
-        tracers[11, :] / tracers[2, :],
-        linestyle="dashed",
-        color="#520120",
-        label="GoC surface δ$^{13}$C",
-    )
+    # ax[3].plot(
+    #     time,
+    #     tracers[11, :] / tracers[2, :],
+    #     linestyle="dashed",
+    #     color="#520120",
+    #     label="GoC surface δ$^{13}$C",
+    # )
 
     ax[4].plot(
         time,
@@ -447,9 +445,9 @@ def make_plot_interp(time, tracers, carbonate_chemistry, mass):
 
     plt.tight_layout()
     try:
-        fig.savefig("results/Plot.pdf")
+        fig.savefig("results/Plot_" + filename + ".pdf")
     except:
-        fig.savefig("../results/Plot.pdf")
+        fig.savefig("../results/Plot_" + filename + ".pdf")
 
 
 def read_cadd_scenario(file):
