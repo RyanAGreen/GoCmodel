@@ -24,7 +24,7 @@ class GoCModel:
     Gulf of California-Deep, Gulf of California-Surface, North Pacific-
     Intermediate depth and North Pacific Surface"""
 
-    def __init__(self):
+    def __init__(self, geologic_d13c_source):
 
         self.num_box = 3
         self.num_bc = 2
@@ -72,6 +72,12 @@ class GoCModel:
             np.array([0.1, 0.1, 0.1]) * self.carbon
         )  # delta [permil] * concentration
 
+        if geologic_d13c_source == "AOM":
+            self.geologic_d13c = -12  # same d13C as organic matter
+        elif geologic_d13c_source == "CO2_dissolving_carbonates":
+            self.geologic_d13c = -2.5  # CO2 is -5, CaCO3 is SW 0
+        elif geologic_d13c_source == "biogenic_methane":
+            self.geologic_d13c = -50
         self.cum_geologic_carbon_to_marchitto = 0
         self.cum_geologic_carbon_to_goc_sub = 0
         self.cum_geologic_carbon_to_goc_surf = 0
@@ -267,15 +273,20 @@ class GoCModel:
         except:
             self.marchitto_rate = 0
 
-        d_dt_geologic += geologic.manual_carbon_add(
-            self.num_tracer, self.num_box, self.marchitto_rate, "marchitto", self.mass,
+        d_dt_geologic += geologic.carbon_add(
+            self.num_tracer,
+            self.num_box,
+            self.marchitto_rate,
+            "marchitto",
+            self.mass,
+            self.geologic_d13c,
         )
 
         # Subsurface
         try:
             self.obs_d14c = self.f_sub(self.time_copy)
             self.subsurface_rate = (
-                2
+                8
                 * optimize.minimize(
                     fun=self.obj_func,
                     x0=0.1,
@@ -287,19 +298,20 @@ class GoCModel:
             )
         except:
             self.subsurface_rate = 0
-        d_dt_geologic += geologic.manual_carbon_add(
+        d_dt_geologic += geologic.carbon_add(
             self.num_tracer,
             self.num_box,
             self.subsurface_rate,
             "subsurface",
             self.mass,
+            self.geologic_d13c,
         )
 
         # Surface
         try:
             self.obs_d14c = self.f_surf(self.time_copy)
             self.surface_rate = (
-                3
+                7
                 * optimize.minimize(
                     fun=self.obj_func,
                     x0=0.1,
@@ -311,8 +323,13 @@ class GoCModel:
             )
         except:
             self.surface_rate = 0
-        d_dt_geologic += geologic.manual_carbon_add(
-            self.num_tracer, self.num_box, self.surface_rate, "surface", self.mass,
+        d_dt_geologic += geologic.carbon_add(
+            self.num_tracer,
+            self.num_box,
+            self.surface_rate,
+            "surface",
+            self.mass,
+            self.geologic_d13c,
         )
 
         ### Biological Productivity (Soft Tissue + Carbonate) ###
@@ -395,12 +412,12 @@ class GoCModel:
             tmax,
             " year simulation.",
         )
-        # io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
-        io.make_plot_interp(self.time, self.output, self.carbonate_chemistry, self.mass)
+        io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
+        # io.make_plot_interp(self.time, self.output, self.carbonate_chemistry, self.mass)
 
-        # io.save_file(self.time, self.result.y, self.carbonate_chemistry)
+        io.save_file(self.time, self.output, self.carbonate_chemistry)
 
 
 if __name__ == "__main__":
-    ModelInstance = GoCModel()
+    ModelInstance = GoCModel("AOM")
     ModelInstance.run_box_model(21000, 211)
