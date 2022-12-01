@@ -43,10 +43,10 @@ def save_file(time, tracers, carbonate_chemistry):
         }
     )
 
-    rates = [[],[],[]]
+    rates = [[], [], []]
     for i in range(len(rates)):
         for j in range(df.shape[0] - 1):
-            rates[i].append((df.iloc[j+1,-(3-i)] - df.iloc[j,-(3-i)]) / 100)
+            rates[i].append((df.iloc[j + 1, -(3 - i)] - df.iloc[j, -(3 - i)]) / 100)
         rates[i].append(0)
     df["mar_rate_carbon"] = rates[0]
     df["goc_sub_rate_carbon"] = rates[1]
@@ -399,7 +399,7 @@ def make_plot_interp(time, tracers, carbonate_chemistry, mass):
     ax[4].plot(
         mar_time,
         f_mar(mar_time),
-        linestyle="solid",
+        linestyle=":",
         color="#706513",
         label="Marchitto interpolated",
         lw=2,
@@ -408,7 +408,7 @@ def make_plot_interp(time, tracers, carbonate_chemistry, mass):
     ax[4].plot(
         surf_time,
         f_surf(surf_time),
-        linestyle="solid",
+        linestyle=":",
         color="#520120",
         label="surface interpolated",
         lw=2,
@@ -417,7 +417,7 @@ def make_plot_interp(time, tracers, carbonate_chemistry, mass):
     ax[4].plot(
         sub_time,
         f_sub(sub_time),
-        linestyle="solid",
+        linestyle=":",
         color="#B57114",
         label="subsurface interpolated ",
         lw=2,
