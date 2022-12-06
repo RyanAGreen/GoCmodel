@@ -65,12 +65,12 @@ def save_file(time, tracers, filename):
 
 def make_plot(time, tracers, pH, filename):
     """makes all plots"""
-    fig, ax = plt.subplots(3, sharex=True)
+    fig, ax = plt.subplots(3, sharex=True,figsize=(4,10))
 
     obspath = "data/observations/"
 
     Rafter_surface = pd.read_csv(obspath + "Rafter_2019.tab", sep="\t", header=24)
-    Rafter_surface.loc[(Rafter_surface["Habitat"] == "planktic")]
+    Rafter_surface = Rafter_surface.loc[(Rafter_surface["Habitat"] == "planktic")]
     Rafter_surface["Cal age [ka BP]"] = 1000 * Rafter_surface["Cal age [ka BP]"]
     Rafter_surface = Rafter_surface.sort_values(by=["Cal age [ka BP]"])
 
@@ -118,14 +118,14 @@ def make_plot(time, tracers, pH, filename):
 
     ax[1].plot(
         time,
-        tracers[10, :] / tracers[1, :],
+        (tracers[10, :] / tracers[1, :]) - (0.6884),
         linestyle="dotted",
         label="GoC deep δ$^{13}$C",
     )
 
     ax[1].plot(
         d13C_obs["cal.age"] * 1000,
-        d13C_obs["δ¹³C (‰, VPDB)"],
+        d13C_obs["δ¹³C (‰, VPDB)"]- (-0.17),
         marker="s",
         markeredgecolor="k",
         markerfacecolor="white",
@@ -205,11 +205,11 @@ def make_plot(time, tracers, pH, filename):
 
     ax[0].legend(loc="best")
     ax[1].legend(loc="best")
-    ax[2].legend(loc="best", ncols=2)
+    ax[2].legend(loc="best")
 
     ax[0].set_ylabel("pH")
     ax[0].set_title("pH")
-    ax[1].set_ylabel("δ$^{13}$C (permil)")
+    ax[1].set_ylabel("δ$^{13}$C (permil) anomaly from LGM")
     ax[1].set_title("δ$^{13}$C")
     ax[2].set_xlabel("Years BP")
     ax[2].set_ylabel("∆$^{14}$C (permil)")
