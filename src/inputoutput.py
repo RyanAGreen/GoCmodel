@@ -56,6 +56,12 @@ def save_file(time, tracers, carbonate_chemistry):
         r"results/last_simulation_tracers.txt", df.values, fmt="%.2f", delimiter="\t"
     )
 
+def save_rates_GoC_file(time, tracers):
+    df = save_file(time, tracers, carbonate_chemistry)
+    rates = np.sum(df[:,-3:], axis=1)
+    df_new = pd.DataFrame({"time": time/1000, "rate": rates})
+    np.savetxt(r"results/rates_GoC.txt", df_new.values, fmt="%.2f", delimiter="\t")
+    return df_new.values
 
 def make_plot(time, tracers, carbonate_chemistry, mass):
     """makes all plots"""
