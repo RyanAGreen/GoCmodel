@@ -201,7 +201,7 @@ class GoCModel:
 
         return state_a
 
-    def obj_func(self, geologic_carbon_rate, box_idx):  # units of PgC​
+    def obj_func(self, geologic_carbon_rate, box_idx):  # units of PgC
         """
         Rules:
         1. Algorithm to stop running when misfit < tolerance (0.1)
@@ -398,7 +398,8 @@ class GoCModel:
         # io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
         io.make_plot_interp(self.time, self.output, self.carbonate_chemistry, self.mass)
 
-        # io.save_file(self.time, self.result.y, self.carbonate_chemistry)
+        io.save_file(self.time, self.result.y, self.carbonate_chemistry)
+        io.save_rates_GoC_file(self.time, self.result.y, self.carbonate_chemistry)
 
 
 if __name__ == "__main__":
