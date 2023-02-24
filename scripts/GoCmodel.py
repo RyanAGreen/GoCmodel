@@ -15,6 +15,7 @@ import src.airseagas as airsea
 import src.inputoutput as io
 import src.circulation as circulation
 import src.product as product
+import src.carbchem as cc
 import time
 
 
@@ -24,7 +25,7 @@ class GoCModel:
     Gulf of California-Deep, Gulf of California-Surface, North Pacific-
     Intermediate depth and North Pacific Surface"""
 
-    def __init__(self):
+    def __init__(self, geologic_d13c_source):
 
         self.num_box = 3
         self.num_bc = 2
@@ -72,6 +73,20 @@ class GoCModel:
             np.array([0.1, 0.1, 0.1]) * self.carbon
         )  # delta [permil] * concentration
 
+        if geologic_d13c_source == "AOM":
+            self.geologic_d13c = -12  # same d13C as organic matter
+            self.filename = "AOM_source"
+        elif geologic_d13c_source == "CO2_dissolving_carbonates":
+            self.geologic_d13c = -2.5  # CO2 is -5, CaCO3 is SW 0
+            self.filename = "CO2carbonate_source"
+        elif geologic_d13c_source == "biogenic_methane":
+            self.geologic_d13c = -50
+            self.filename = "methane_source"
+        else:
+            print(
+                "This is not a correct geochemical pathway of geologic carbon addition."
+            )
+            exit()
         self.cum_geologic_carbon_to_marchitto = 0
         self.cum_geologic_carbon_to_goc_sub = 0
         self.cum_geologic_carbon_to_goc_surf = 0
@@ -245,11 +260,11 @@ class GoCModel:
             if self.counter > 200:
                 print("current count is ", self.counter)
         else:
-            print("This year took ", self.counter, " steps.")
+            # print("This year took ", self.counter, " steps.")
             self.counter = 1
 
         self.time_copy = round(time_bp)
-        print(self.time_copy)
+        # print(self.time_copy)
 
         d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
 
@@ -267,15 +282,21 @@ class GoCModel:
         except:
             self.marchitto_rate = 0
 
-        d_dt_geologic += geologic.manual_carbon_add(
-            self.num_tracer, self.num_box, self.marchitto_rate, "marchitto", self.mass,
+        d_dt_geologic += geologic.carbon_add(
+            self.num_tracer,
+            self.num_box,
+            self.marchitto_rate,
+            "marchitto",
+            self.mass,
+            self.geologic_d13c,
         )
 
         # Subsurface
         try:
             self.obs_d14c = self.f_sub(self.time_copy)
+            # multiple by 8 gets closer to line but takes longer
             self.subsurface_rate = (
-                2
+                3
                 * optimize.minimize(
                     fun=self.obj_func,
                     x0=0.1,
@@ -287,17 +308,19 @@ class GoCModel:
             )
         except:
             self.subsurface_rate = 0
-        d_dt_geologic += geologic.manual_carbon_add(
+        d_dt_geologic += geologic.carbon_add(
             self.num_tracer,
             self.num_box,
             self.subsurface_rate,
             "subsurface",
             self.mass,
+            self.geologic_d13c,
         )
 
         # Surface
         try:
             self.obs_d14c = self.f_surf(self.time_copy)
+            # multiply by 7 gets closer to line but takes longer
             self.surface_rate = (
                 3
                 * optimize.minimize(
@@ -311,8 +334,13 @@ class GoCModel:
             )
         except:
             self.surface_rate = 0
-        d_dt_geologic += geologic.manual_carbon_add(
-            self.num_tracer, self.num_box, self.surface_rate, "surface", self.mass,
+        d_dt_geologic += geologic.carbon_add(
+            self.num_tracer,
+            self.num_box,
+            self.surface_rate,
+            "surface",
+            self.mass,
+            self.geologic_d13c,
         )
 
         ### Biological Productivity (Soft Tissue + Carbonate) ###
@@ -382,26 +410,41 @@ class GoCModel:
             rtol=1e-2,
             atol=1e-2,
         )
-        # self.carbonate_chemistry = self.carb_chem1()  # shape = [tracer,box,year]
-        # print("The shape of carbonate_chemistry is ", np.shape(self.carbonate_chemistry))
+
         end = time.time()
 
         self.time = np.flipud(self.result.t)  # plot from past to present
         self.time = self.time[10:]  # we dont care about the spin up
         self.output = self.result.y[:, 10:]  # we dont care about the spin up
 
+        carb_chem = cc.carb_chem(self.output)  # shape = [tracer,box,year]
+        pH = carb_chem[3, :, :]
+
         print(
             "This solver took {:.2f} seconds for a ".format(end - start),
             tmax,
             " year simulation.",
         )
-        # io.make_plot(self.time, self.result.y, self.carbonate_chemistry, self.mass)
-        io.make_plot_interp(self.time, self.output, self.carbonate_chemistry, self.mass)
+        io.make_plot(self.time, self.output, carb_chem, self.filename)
+        # io.make_plot_interp(self.time, self.output)
 
+        io.save_file(self.time, self.output, self.filename)
+        # io.save_file(self.time, self.output, "control_run")
+
+
+    def make_AGU_plots(self):
+        io.make_carbon_rate_plot(self.filename)
         io.save_file(self.time, self.result.y, self.carbonate_chemistry)
         io.save_rates_GoC_file(self.time, self.result.y, self.carbonate_chemistry)
 
 
+
 if __name__ == "__main__":
-    ModelInstance = GoCModel()
-    ModelInstance.run_box_model(21000, 211)
+    # AOM = GoCModel("AOM")
+    # AOM.make_AGU_plots()
+    # AOM.run_box_model(21000, 211)
+    CO2 = GoCModel("CO2_dissolving_carbonates")
+    CO2.run_box_model(21000, 211)
+    # methane = GoCModel("biogenic_methane")
+    # methane.run_box_model(21000, 211)
+
