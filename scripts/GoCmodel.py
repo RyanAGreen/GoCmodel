@@ -418,7 +418,7 @@ class GoCModel:
         self.output = self.result.y[:, 10:]  # we dont care about the spin up
 
         carb_chem = cc.carb_chem(self.output)  # shape = [tracer,box,year]
-        # pH = carb_chem[3, :, :]
+        pH = carb_chem[3, :, :]
 
         print(
             "This solver took {:.2f} seconds for a ".format(end - start),
@@ -429,13 +429,18 @@ class GoCModel:
         # io.make_plot_interp(self.time, self.output)
 
         io.save_file(self.time, self.output, self.filename)
+        # io.save_file(self.time, self.output, "control_run")
+
+    def make_AGU_plots(self):
+        io.make_carbon_rate_plot(self.filename)
 
 
 if __name__ == "__main__":
-    AOM = GoCModel("AOM")
-    AOM.run_box_model(21000, 211)
+    # AOM = GoCModel("AOM")
+    # AOM.make_AGU_plots()
+    # AOM.run_box_model(21000, 211)
     CO2 = GoCModel("CO2_dissolving_carbonates")
     CO2.run_box_model(21000, 211)
-    methane = GoCModel("biogenic_methane")
-    methane.run_box_model(21000, 211)
+    # methane = GoCModel("biogenic_methane")
+    # methane.run_box_model(21000, 211)
 

@@ -63,9 +63,98 @@ def save_file(time, tracers, filename):
     )
 
 
+def make_carbon_rate_plot(filename):
+    df = pd.read_table(
+        "results/optimizedrun_" + filename + ".txt", sep="\s+", header=None
+    )
+    df = df.rename(
+        columns={
+            0: "year",
+            1: "DIC_mar",
+            2: "DIC_sub",
+            3: "DIC_surf",
+            4: "ALK_mar",
+            5: "ALK_sub",
+            6: "ALK_surf",
+            7: "d13C_mar",
+            8: "d13C_sub",
+            9: "d13C_surf",
+            10: "D14C_mar",
+            11: "D14C_sub",
+            12: "D14C_surf",
+            13: "Ccum_mar",
+            14: "Ccum_sub",
+            15: "Ccum_surf",
+            16: "Crate_mar",
+            17: "Crate_sub",
+            18: "Crate_surf",
+        }
+    )
+
+    obspath = "data/observations/"
+
+    Rafter_surface = pd.read_csv(obspath + "Rafter_2019.tab", sep="\t", header=24)
+    Rafter_surface = Rafter_surface.loc[(Rafter_surface["Habitat"] == "planktic")]
+    # Rafter_surface["Cal age [ka BP]"] = 1000 * Rafter_surface["Cal age [ka BP]"]
+    Rafter_surface = Rafter_surface.sort_values(by=["Cal age [ka BP]"])
+
+    Rafter_subsurface = pd.read_excel(
+        obspath + "prafter-2019-Gulf-CA-Data-for-Ryan.xls"
+    )
+    Rafter_subsurface = Rafter_subsurface.loc[
+        (Rafter_subsurface["species"] == "U. peregrina")
+        | (Rafter_subsurface["species"] == "Planulina ariminensis")
+        | (Rafter_subsurface["species"] == "U. peregrina ")
+    ]
+    Rafter_subsurface = Rafter_subsurface.sort_values(by=["calendar age [kyr BP]"])
+    Rafter_subsurface = Rafter_subsurface[["calendar age [kyr BP]", "D14C"]]
+    Rafter_subsurface = Rafter_subsurface.dropna(subset=["D14C"])
+    Rafter_subsurface = (
+        Rafter_subsurface.groupby("calendar age [kyr BP]").mean().reset_index()
+    )
+
+    Mar = pd.read_csv(obspath + "Marchitto.txt", sep="\s+")
+    # Mar["Cal.Age"] = 1000 * Mar["Cal.Age"]
+    # df["year"] = 1000 * df["year"]
+
+    # Marchitto, subsurface, surface
+    colors = ["#706513", "#B57114", "#520120"]
+    D14C_model = [df.D14C_mar, df.D14C_sub, df.D14C_surf]
+    D14C_obs = [Mar["D14C"], Rafter_subsurface["D14C"], Rafter_surface["Δ14C [‰]"]]
+    year_obs = [
+        Mar["Cal.Age"],
+        Rafter_subsurface["calendar age [kyr BP]"],
+        Rafter_surface["Cal age [ka BP]"],
+    ]
+    marker_obs = ["s", "^", "o"]
+    Crate_model = [df.Crate_mar, df.Crate_sub, df.Crate_surf]
+
+    fig, ax = plt.subplots(2, sharex=True)
+    ax1 = ax[1].twinx()
+    for i in range(3):
+        ax[0].plot(df.year, D14C_model[i], color=colors[i], linestyle="solid")
+        ax[0].plot(
+            year_obs[i],
+            D14C_obs[i],
+            color=colors[i],
+            linestyle="dashed",
+            marker=marker_obs[i],
+        )
+        ax[1].plot(df.year, Crate_model[i], color=colors[i], linestyle="solid")
+    ax1.plot(df.year, df.Ccum_mar + df.Ccum_sub + df.Ccum_surf, color="k")
+    ax1.fill_between(
+        df.year, df.Ccum_mar + df.Ccum_sub + df.Ccum_surf, 0, color="k", alpha=0.1
+    )
+
+    ax[1].set_xlim(0, 20)
+
+    fig.savefig("results/Crate_plot_" + filename + ".pdf")
+    return
+
+
 def make_plot(time, tracers, pH, filename):
     """makes all plots"""
-    fig, ax = plt.subplots(3, sharex=True,figsize=(4,10))
+    fig, ax = plt.subplots(3, sharex=True, figsize=(4, 10))
 
     obspath = "data/observations/"
 
@@ -96,7 +185,8 @@ def make_plot(time, tracers, pH, filename):
 
     d13C_obs = d13C_obs.sort_values(by=["cal.age"])
 
-    ax[0].plot(time, pH[3, 0, :], label="Baja California pH")
+    # ax[0].plot(time, pH[3, 0, :], label="Baja California pH")
+    ax[0].plot(time, pH[3, 0, :] - pH[3, 0, 0], label="subsurface pH")
 
     # ax[3].plot(
     #     time,
@@ -112,20 +202,36 @@ def make_plot(time, tracers, pH, filename):
         label="Marchitto box ∆$^{14}$C",
     )
 
-    ax[0].plot(
-        time, pH[3, 1, :], linestyle="dotted", color="#B57114", label="GoC deep pH",
-    )
+    # ax[0].plot(
+    #     time, pH[3, 1, :], linestyle="dotted", color="#B57114", label="GoC deep pH",
+    # )
 
+    # ax[1].plot(
+    #     time,
+    #     (tracers[10, :] / tracers[1, :]) - (0.6884),
+    #     linestyle="dotted",
+    #     label="GoC deep δ$^{13}$C",
+    # )
     ax[1].plot(
         time,
-        (tracers[10, :] / tracers[1, :]) - (0.6884),
+        (tracers[10, :] / tracers[1, :]),
         linestyle="dotted",
         label="GoC deep δ$^{13}$C",
     )
 
+    # ax[1].plot(
+    #     d13C_obs["cal.age"] * 1000,
+    #     d13C_obs["δ¹³C (‰, VPDB)"] - (-0.17),
+    #     marker="s",
+    #     markeredgecolor="k",
+    #     markerfacecolor="white",
+    #     linestyle="dashed",
+    #     color="#B57114",
+    #     label="benthic d13C data",
+    # )
     ax[1].plot(
         d13C_obs["cal.age"] * 1000,
-        d13C_obs["δ¹³C (‰, VPDB)"]- (-0.17),
+        d13C_obs["δ¹³C (‰, VPDB)"],
         marker="s",
         markeredgecolor="k",
         markerfacecolor="white",
@@ -142,9 +248,9 @@ def make_plot(time, tracers, pH, filename):
         label="GoC subsurface ∆$^{14}$C",
     )
 
-    ax[0].plot(
-        time, pH[3, 2, :], linestyle="dashed", label="GoC surface pH",
-    )
+    # ax[0].plot(
+    #     time, pH[3, 2, :], linestyle="dashed", label="GoC surface pH",
+    # )
 
     # ax[3].plot(
     #     time,
@@ -207,9 +313,10 @@ def make_plot(time, tracers, pH, filename):
     ax[1].legend(loc="best")
     ax[2].legend(loc="best")
 
-    ax[0].set_ylabel("pH")
-    ax[0].set_title("pH")
-    ax[1].set_ylabel("δ$^{13}$C (permil) anomaly from LGM")
+    ax[0].set_ylabel("∆pH")
+    ax[0].set_title("∆pH")
+    # ax[1].set_ylabel("δ$^{13}$C (permil) \n anomaly from LGM")
+    ax[1].set_ylabel("δ$^{13}$C (permil)")
     ax[1].set_title("δ$^{13}$C")
     ax[2].set_xlabel("Years BP")
     ax[2].set_ylabel("∆$^{14}$C (permil)")
