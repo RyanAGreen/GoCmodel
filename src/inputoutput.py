@@ -51,23 +51,21 @@ def save_file(time, tracers, filename):
     df["mar_rate_carbon"] = rates[0]
     df["goc_sub_rate_carbon"] = rates[1]
     df["goc_surf_rate_carbon"] = rates[2]
+    df["total_rate"] = (
+        df["mar_rate_carbon"] + df["goc_sub_rate_carbon"] + df["goc_surf_rate_carbon"]
+    )
 
-    # np.savetxt(
-    #     r"results/optimizedrun_" + filename + ".txt", df.values, fmt="%.2f", delimiter="\t"
-    # )
+    np.savetxt(
+        r"results/total_GoC_rates.txt", df["total_rate"], fmt="%.2f", delimiter="\t"
+    )
     np.savetxt(
         "results/optimizedrun_" + str(filename) + ".txt",
         df.values,
         fmt="%.2f",
         delimiter="\t",
     )
+    return
 
-def save_rates_GoC_file(time, tracers, carbonate_chemistry):
-    df = save_file(time, tracers, carbonate_chemistry)
-    rates = np.sum(df[:,-3:], axis=1)
-    df_new = pd.DataFrame({"time": time/1000, "rate": rates})
-    np.savetxt(r"results/R_GoC.txt", df_new.values, fmt="%.2f", delimiter="\t")
-    return df_new.values
 
 def make_carbon_rate_plot(filename):
     df = pd.read_table(
