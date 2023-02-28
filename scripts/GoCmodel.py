@@ -50,14 +50,12 @@ class GoCModel:
         )
 
         # surface area of GoC and surface volume
-
         self.surf_volume = 1.65e13  # m^3
         self.surf_area = self.surf_volume / 200  # m^2
 
+        # data we will compare model to
         self.CO2_atm = io.read_co2_data("data/observations/CO2data.txt")
-
         self.D14C_atm = io.read_14C_atm_data("data/observations/D14Cdata.txt")
-
         self.d13C_atm = io.read_d13C_atm_data(
             "data/observations/d13Cdata_500yearsnotadded.txt"
         )
@@ -87,6 +85,7 @@ class GoCModel:
                 "This is not a correct geochemical pathway of geologic carbon addition."
             )
             exit()
+
         self.cum_geologic_carbon_to_marchitto = 0
         self.cum_geologic_carbon_to_goc_sub = 0
         self.cum_geologic_carbon_to_goc_surf = 0
@@ -268,72 +267,74 @@ class GoCModel:
 
         d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
 
-        # Marchitto
-        try:
-            self.obs_d14c = self.f_mar(self.time_copy)
-            self.marchitto_rate = optimize.minimize(
-                fun=self.obj_func,
-                x0=0.1,
-                method="TNC",
-                args=(self.marchitto_idx),
-                bounds=[(0, None)],
-                tol=0.1,
-            ).x
-        except:
-            self.marchitto_rate = 0
-
-        d_dt_geologic += geologic.carbon_add(
-            self.num_tracer,
-            self.num_box,
-            self.marchitto_rate,
-            "marchitto",
-            self.mass,
-            self.geologic_d13c,
-        )
-
-        # Subsurface
-        try:
-            self.obs_d14c = self.f_sub(self.time_copy)
-            # multiple by 8 gets closer to line but takes longer
-            self.subsurface_rate = (
-                3
-                * optimize.minimize(
+        optimization = "true"
+        if optimization == "true":
+            # Marchitto
+            try:
+                self.obs_d14c = self.f_mar(self.time_copy)
+                self.marchitto_rate = optimize.minimize(
                     fun=self.obj_func,
                     x0=0.1,
                     method="TNC",
-                    args=(self.subsurface_idx),
+                    args=(self.marchitto_idx),
                     bounds=[(0, None)],
                     tol=0.1,
                 ).x
-            )
-        except:
-            self.subsurface_rate = 0
-        d_dt_geologic += geologic.carbon_add(
-            self.num_tracer,
-            self.num_box,
-            self.subsurface_rate,
-            "subsurface",
-            self.mass,
-            self.geologic_d13c,
-        )
+            except:
+                self.marchitto_rate = 0
 
-        # Surface
-        try:
-            self.obs_d14c = self.f_surf(self.time_copy)
-            # multiply by 7 gets closer to line but takes longer
-            self.surface_rate = (
-                3
-                * optimize.minimize(
-                    fun=self.obj_func,
-                    x0=0.1,
-                    method="TNC",
-                    args=(self.surface_idx),
-                    bounds=[(0, None)],
-                    tol=0.1,
-                ).x
+            d_dt_geologic += geologic.carbon_add(
+                self.num_tracer,
+                self.num_box,
+                self.marchitto_rate,
+                "marchitto",
+                self.mass,
+                self.geologic_d13c,
             )
-        except:
-            self.surface_rate = 0
+
+            # Subsurface
+            try:
+                self.obs_d14c = self.f_sub(self.time_copy)
+                # multiple by 8 gets closer to line but takes longer
+                self.subsurface_rate = (
+                    3
+                    * optimize.minimize(
+                        fun=self.obj_func,
+                        x0=0.1,
+                        method="TNC",
+                        args=(self.subsurface_idx),
+                        bounds=[(0, None)],
+                        tol=0.1,
+                    ).x
+                )
+            except:
+                self.subsurface_rate = 0
+            d_dt_geologic += geologic.carbon_add(
+                self.num_tracer,
+                self.num_box,
+                self.subsurface_rate,
+                "subsurface",
+                self.mass,
+                self.geologic_d13c,
+            )
+
+            # Surface
+            try:
+                self.obs_d14c = self.f_surf(self.time_copy)
+                # multiply by 7 gets closer to line but takes longer
+                self.surface_rate = (
+                    3
+                    * optimize.minimize(
+                        fun=self.obj_func,
+                        x0=0.1,
+                        method="TNC",
+                        args=(self.surface_idx),
+                        bounds=[(0, None)],
+                        tol=0.1,
+                    ).x
+                )
+            except:
+                self.surface_rate = 0
         d_dt_geologic += geologic.carbon_add(
             self.num_tracer,
             self.num_box,
@@ -427,16 +428,14 @@ class GoCModel:
         )
         io.make_plot(self.time, self.output, carb_chem, self.filename)
         # io.make_plot_interp(self.time, self.output)
-
+        # io.save_rates_GoC_file(self.time, self.output, self.filename)
         io.save_file(self.time, self.output, self.filename)
         # io.save_file(self.time, self.output, "control_run")
-
 
     def make_AGU_plots(self):
         io.make_carbon_rate_plot(self.filename)
         io.save_file(self.time, self.result.y, self.carbonate_chemistry)
         io.save_rates_GoC_file(self.time, self.result.y, self.carbonate_chemistry)
-
 
 
 if __name__ == "__main__":
