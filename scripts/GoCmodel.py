@@ -108,8 +108,11 @@ class GoCModel:
         # self.boundary_condition = io.read_bc(
         #     "data/ISchange/2Dinversion/Powell2Dinversion.txt", 0
         # )
+        # self.boundary_condition = io.read_bc(
+        #     "data/NoISchange/ForwardRun/control.txt", 0
+        # )
         self.boundary_condition = io.read_bc(
-            "data/NoISchange/ForwardRun/control.txt", 0
+            "data/ISchange/ForwardRun/CoupledRun.txt", 0
         )
 
         svedrup_matrix = circulation.circ(
@@ -426,7 +429,7 @@ class GoCModel:
             tmax,
             " year simulation.",
         )
-        io.make_plot(self.time, self.output, carb_chem, self.filename)
+        # io.make_plot(self.time, self.output, carb_chem, self.filename)
         # io.make_plot_interp(self.time, self.output)
         # io.save_rates_GoC_file(self.time, self.output, self.filename)
         io.save_file(self.time, self.output, self.filename)
