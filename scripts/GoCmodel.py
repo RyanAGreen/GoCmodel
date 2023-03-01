@@ -112,7 +112,7 @@ class GoCModel:
         #     "data/NoISchange/ForwardRun/control.txt", 0
         # )
         self.boundary_condition = io.read_bc(
-            "data/ISchange/ForwardRun/CoupledRun.txt", 0
+            "data/NoISchange/ForwardRun/CoupledRun.txt", 0
         )
 
         svedrup_matrix = circulation.circ(
@@ -176,8 +176,11 @@ class GoCModel:
                     ((time_rounded - spinuptime) / 100),
                 )
             elif time_rounded < spinuptime:
+                # self.boundary_condition = io.read_bc(
+                #     "data/NoISchange/ForwardRun/control.txt", 0
+                # )
                 self.boundary_condition = io.read_bc(
-                    "data/NoISchange/ForwardRun/control.txt", 0
+                    "data/NoISchange/ForwardRun/CoupledRun.txt", 0
                 )
 
         if bc == "2dinversion":
@@ -421,6 +424,11 @@ class GoCModel:
         self.time = self.time[10:]  # we dont care about the spin up
         self.output = self.result.y[:, 10:]  # we dont care about the spin up
 
+        # total_carbon_added = (
+        #     self.output[15][200] + self.output[16][200] + self.output[17][200]
+        # )
+        # print("TOTAL CARBON IS: ", total_carbon_added)
+
         carb_chem = cc.carb_chem(self.output)  # shape = [tracer,box,year]
         pH = carb_chem[3, :, :]
 
@@ -429,11 +437,11 @@ class GoCModel:
             tmax,
             " year simulation.",
         )
-        # io.make_plot(self.time, self.output, carb_chem, self.filename)
+        io.make_plot(self.time, self.output, carb_chem, self.filename)
         # io.make_plot_interp(self.time, self.output)
         # io.save_rates_GoC_file(self.time, self.output, self.filename)
-        io.save_file(self.time, self.output, self.filename)
-        # io.save_file(self.time, self.output, "control_run")
+        # io.save_file(self.time, self.output, self.filename)
+        io.save_file(self.time, self.output, "control_run")
 
     def make_AGU_plots(self):
         io.make_carbon_rate_plot(self.filename)
