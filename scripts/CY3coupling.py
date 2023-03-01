@@ -13,23 +13,25 @@ def CheckRate():
         sep="\s+",
         header=None,
     )
-    return df[13][200] + df[14][200] + df[15][200]
+    total_carbon_added = df[13][200] + df[14][200] + df[15][200]
+    print("TOTAL CARBON IS: ", total_carbon_added)
+    return total_carbon_added
 
 
 # Run GoC model the first time
-print("Running GoC model")
+print("Running initial GoC simulation \n")
 os.system("python scripts/GoCmodel.py")
 
 new_total_carbon = CheckRate()
 old_total_carbon = 0
 counter = 0
 
+print("Starting for loop...")
 if abs(new_total_carbon - old_total_carbon) > 1:
     old_total_carbon = CheckRate()
-    print("LAST RUN TOTAL CARBON : ", old_total_carbon)
 
+    print("Run CYCLOPS with GoC rates \n ")
     # Move GoC rates into CYCLOPS
-    print("Moving the GoC rates into the CY3 folder")
     os.system(
         "cp results/total_GoC_rates.txt ../CY3/FORCING/Project1/total_GoC_rates.txt"
     )
@@ -45,11 +47,11 @@ if abs(new_total_carbon - old_total_carbon) > 1:
     ### Run GoC with the new CYCLOPS output ###
     # Change directory into GoC
     os.chdir("../GoCmodel")
+    print("Run GoC with new boundary conditions \n")
     # Rerun GoC model
     os.system("python scripts/GoCmodel.py")
 
     new_total_carbon = CheckRate()
-    print("NEW RUN TOTAL CARBON : ", new_total_carbon)
     counter += 1
     print("Loop #: ", counter)
 
