@@ -189,8 +189,36 @@ def make_plot(time, tracers, pH, filename):
 
     d13C_obs = d13C_obs.sort_values(by=["cal.age"])
 
+    d11B_obs = pd.read_excel("data/observations/prafter-2022-12-21-LPAZ21P-d11B.xlsx")
+
+    # Constants
+    dSW = 39.61  # delta of modern SW, per mille
+    alpha = 1.0272  # from Hain et al 2018
+    epsilon = 27.2  # from Hain et al 2018 per mille
+    delta_pKb = 0  # from Hain et al 2018, assume no change in pkb
+    d0 = d11B_obs["d11B"].iloc[10]
+
+    def pH_change(d0, d1):
+        return delta_pKb - np.log10(
+            1
+            + (d1 - d0)
+            / (dSW - alpha * d1 - epsilon)
+            * ((alpha - 1) * dSW - epsilon / (d0 - dSW))
+        )
+
+    pH_changes_obs = []
+    for i in range(11):
+        pH_changes_obs.append(pH_change(d0, d11B_obs["d11B"].iloc[i]))
+
     # ax[0].plot(time, pH[3, 0, :], label="Baja California pH")
     ax[0].plot(time, pH[3, 0, :] - pH[3, 0, 0], label="subsurface pH")
+    ax[0].plot(
+        d11B_obs["cal.age.kyr"].iloc[:11],
+        pH_changes_obs,
+        "o--",
+        color="black",
+        label="subsurface pH",
+    )
 
     # ax[3].plot(
     #     time,
