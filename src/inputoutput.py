@@ -213,7 +213,7 @@ def make_plot(time, tracers, pH, filename):
     # ax[0].plot(time, pH[3, 0, :], label="Baja California pH")
     ax[0].plot(time, pH[3, 0, :] - pH[3, 0, 0], label="subsurface pH")
     ax[0].plot(
-        d11B_obs["cal.age.kyr"].iloc[:11],
+        d11B_obs["cal.age.kyr"].iloc[:11] * 1000,
         pH_changes_obs,
         "o--",
         color="black",
