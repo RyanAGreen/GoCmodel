@@ -16,6 +16,7 @@ import src.inputoutput as io
 import src.circulation as circulation
 import src.product as product
 import src.carbchem as cc
+import src.figures as fig
 import time
 
 
@@ -443,18 +444,21 @@ class GoCModel:
         # io.save_file(self.time, self.output, self.filename)
         io.save_file(self.time, self.output, "control_run")
 
-    def make_AGU_plots(self):
-        io.make_carbon_rate_plot(self.filename)
-        io.save_file(self.time, self.result.y, self.carbonate_chemistry)
-        io.save_rates_GoC_file(self.time, self.result.y, self.carbonate_chemistry)
+    # def make_AGU_plots(self):
+    #     io.make_carbon_rate_plot(self.filename)
+    #     io.save_file(self.time, self.result.y, self.carbonate_chemistry)
+    #     io.save_rates_GoC_file(self.time, self.result.y, self.carbonate_chemistry)
 
 
 if __name__ == "__main__":
+    fig.Figure1()
+    fig.Figure3()
+
     # AOM = GoCModel("AOM")
     # AOM.make_AGU_plots()
     # AOM.run_box_model(21000, 211)
-    CO2 = GoCModel("CO2_dissolving_carbonates")
-    CO2.run_box_model(21000, 211)
+    # CO2 = GoCModel("CO2_dissolving_carbonates")
+    # CO2.run_box_model(21000, 211)
     # methane = GoCModel("biogenic_methane")
     # methane.run_box_model(21000, 211)
 
