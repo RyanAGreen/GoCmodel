@@ -1,0 +1,24 @@
+/* DATA DESCRIPTION:
+Citation:	Rafter, Patrick A; Herguera, Juan-Carlos; Southon, John R (2018): Foraminifera and wood 14C in the Gulf of California from sediment core LPAZ-21PG. PANGAEA, https://doi.org/10.1594/PANGAEA.896310, 
+	In supplement to: Rafter, PA et al. (2018): Extreme lowering of deglacial seawater radiocarbon recorded by both epifaunal and infaunal benthic foraminifera in a wood-dated sediment core. Climate of the Past, 14(12), 1977-1989, https://doi.org/10.5194/cp-14-1977-2018
+Coverage:	LATITUDE: 22.900000 * LONGITUDE: -109.500000
+	MINIMUM DEPTH, sediment/rock: 0.030 m * MAXIMUM DEPTH, sediment/rock: 1.395 m
+Event(s):	LPAZ-21PG * LATITUDE: 22.900000 * LONGITUDE: -109.500000 * ELEVATION: -624.0 m * LOCATION: Gulf of California * METHOD/DEVICE: Core (CORE)
+Parameter(s):	Sample ID (Sample ID) * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu)
+	Depth, top/min [m] (Depth top) * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu)
+	Depth, bottom/max [m] (Depth bot) * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu)
+	DEPTH, sediment/rock [m] (Depth) * GEOCODE * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu)
+	Age, dated material (Dated material) * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu) * METHOD/DEVICE: Age, 14C
+	Age, dated [ka] (Age dated) * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu) * METHOD/DEVICE: Age, 14C
+	Age, dated standard error [±] (Age std e) * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu) * METHOD/DEVICE: Age, 14C
+License:	Creative Commons Attribution 4.0 International (CC-BY-4.0)
+Size:	42 data points
+*/
+Sample ID	Depth top [m]	Depth bot [m]	Depth [m]	Dated material	Age dated [ka]	Age std e [±]
+163270	0.02	0.04	0.030	Bolivina spp.	1.785	0.015
+163270	0.04	0.03	0.035	Bolivina spp.	1.785	0.015
+163271	0.67	0.69	0.680	Bolivina spp.	4.875	0.025
+163271	0.69	0.68	0.685	Bolivina spp.	4.875	0.025
+163272	1.38	1.40	1.390	Bolivina spp.	8.470	0.070
+163272	1.40	1.39	1.395	Bolivina spp.	8.470	0.070
+181563	0.02	0.04	0.030	U. peregrina	1.690	0.020
