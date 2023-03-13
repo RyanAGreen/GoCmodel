@@ -9,6 +9,7 @@ import matplotlib.ticker as mticker
 import cartopy.mpl.geoaxes
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import cartopy.crs as ccrs
+import src.carbchem as cc
 import cartopy.feature as cfeature
 from cartopy.util import add_cyclic_point
 import netCDF4 as nc4
@@ -20,7 +21,17 @@ figurepath = "results/Figures/"
 
 plt.rcParams["font.weight"] = "bold"
 
-if "reading in ∆14C, CO2, CO3, and OCIM data":
+
+def pH_change(d0, d1):
+    return delta_pKb - np.log10(
+        1
+        + (d1 - d0)
+        / (dSW - alpha * d1 - epsilon)
+        * ((alpha - 1) * dSW - epsilon / (d0 - dSW))
+    )
+
+
+if "reading in ∆14C, CO2, d13c,d11b, CO3, and OCIM data":
     Rafter_subsurface = pd.read_excel(
         obspath + "prafter-2019-Gulf-CA-Data-for-Ryan.xls"
     )
@@ -99,6 +110,22 @@ if "reading in ∆14C, CO2, CO3, and OCIM data":
 
     Anomalies = [GoCobs[0], GoCobs[1], GoCobs[2], GoCobs[3]]
 
+    # d13C observations
+    d13C_obs = pd.read_excel(obspath + "d13C_GoC_benthic_LPAZ21P.xlsx")
+    d13C_obs = d13C_obs.sort_values(by=["cal.age"])
+
+    # d11B pH change data
+    d11B_obs = pd.read_excel("data/observations/prafter-2022-12-21-LPAZ21P-d11B.xlsx")
+    # Constants
+    dSW = 39.61  # delta of modern SW, per mille
+    alpha = 1.0272  # from Hain et al 2018
+    epsilon = 27.2  # from Hain et al 2018 per mille
+    delta_pKb = 0  # from Hain et al 2018, assume no change in pkb
+    d0 = d11B_obs["d11B"].iloc[10]  # starting around 20 kyr BP
+    pH_changes_obs = []
+    for i in range(11):
+        pH_changes_obs.append(pH_change(d0, d11B_obs["d11B"].iloc[i]))
+
     # CO3 observational data
     indian_obs = pd.read_table(
         obspath + "WIND28K_Yuetal2010.txt", sep="\t", header=None
@@ -120,36 +147,26 @@ if "reading in ∆14C, CO2, CO3, and OCIM data":
     OCIM["cal.age"] = OCIM["cal.age"] / 1000
 
 if "reading in CYCLOPS and GoC output":
-    # read in model data
-    control = pd.read_fwf(
-        NoISpath + "ForwardRun/ControlRun.txt", header=None, infer_nrows=1000
+    # read in CYCLOPS data
+    control = pd.read_table(
+        NoISpath + "ForwardRun/ControlRun.txt", header=None, sep="\s+"
     )
     control = f.organizedata(control)
-    IScontrol = pd.read_fwf(
-        ISpath + "ForwardRun/ControlRun.txt", header=None, infer_nrows=1000
+    IScontrol = pd.read_table(
+        ISpath + "ForwardRun/ControlRun.txt", header=None, sep="\s+"
     )
     IScontrol = f.organizedata(IScontrol)
-    # ex1 = pd.read_table(
-    #     NoISpath + "2Dinversion/Powell2Dinversion.txt", header=None, sep="\s+",
-    # )
-    # ex2 = pd.read_table(
-    #     NoISpath + "2Dinversion/Experiment2/Powell2Dinversion.txt",
-    #     header=None,
-    #     sep="\s+",
-    # )
-    # ex3 = pd.read_table(
-    #     NoISpath + "2Dinversion/Experiment3/Powell2Dinversion.txt",
-    #     header=None,
-    #     sep="\s+",
-    # )
     ex4 = pd.read_table(
         ISpath + "2Dinversion/Powell2Dinversion.txt", header=None, sep="\s+"
     )
 
-    # ex1 = f.organizedata(ex1)
-    # ex2 = f.organizedata(ex2)
-    # ex3 = f.organizedata(ex3)
     ex4 = f.organizedata(ex4)
+
+    # read in GoC data
+    GoC = pd.read_table(
+        "results/optimizedrun_CO2carbonate_source.txt", header=None, sep="\s+"
+    )
+    GoC = f.organizedata_goc(GoC)
 
 
 def Figure1():
@@ -317,54 +334,61 @@ def Figure3():
         label="Indo-pacific",
     )
     # observations
-    # ax[2].plot(
-    #     atlantic_obs["time"],
-    #     atlantic_obs["CO3"],
-    #     color=color_parallel,
-    #     alpha=0.5,
-    #     lw=1,
-    #     marker="o",
-    #     markeredgecolor=atlantic_color,
-    #     markerfacecolor=atlantic_color,
-    #     ls="None",
-    #     markersize=5,
-    #     zorder=0,
-    #     label="BOFS 8K N. Atlantic",
-    # )
-    # ax[2].plot(
-    #     indian_obs["time"],
-    #     indian_obs["CO3"],
-    #     color=color_parallel,
-    #     alpha=0.5,
-    #     lw=1,
-    #     marker="^",
-    #     markeredgecolor=indo_pac_color,
-    #     markerfacecolor=indo_pac_color,
-    #     ls="None",
-    #     markersize=5,
-    #     zorder=0,
-    #     label="WIND 28K Indian",
-    # )
-    # ax[2].plot(
-    #     pacific_obs["time"],
-    #     pacific_obs["CO3"],
-    #     color=indo_pac_color,
-    #     alpha=0.5,
-    #     lw=1,
-    #     marker="s",
-    #     markeredgecolor=indo_pac_color,
-    #     markerfacecolor=indo_pac_color,
-    #     ls="None",
-    #     markersize=5,
-    #     zorder=0,
-    #     label="GGC48 EQ Pacific",
-    # )
+    ax[2].plot(
+        atlantic_obs["time"],
+        atlantic_obs["CO3"],
+        color=color_parallel,
+        alpha=0.5,
+        lw=1,
+        marker="o",
+        markeredgecolor=atlantic_color,
+        markerfacecolor=atlantic_color,
+        ls="None",
+        markersize=5,
+        zorder=0,
+        label="BOFS 8K N. Atlantic",
+    )
+    ax[2].plot(
+        indian_obs["time"],
+        indian_obs["CO3"],
+        color=color_parallel,
+        alpha=0.5,
+        lw=1,
+        marker="^",
+        markeredgecolor=indo_pac_color,
+        markerfacecolor=indo_pac_color,
+        ls="None",
+        markersize=5,
+        zorder=0,
+        label="WIND 28K Indian",
+    )
+    ax[2].plot(
+        pacific_obs["time"],
+        pacific_obs["CO3"],
+        color=indo_pac_color,
+        alpha=0.5,
+        lw=1,
+        marker="s",
+        markeredgecolor=indo_pac_color,
+        markerfacecolor=indo_pac_color,
+        ls="None",
+        markersize=5,
+        zorder=0,
+        label="GGC48 EQ Pacific",
+    )
     # labels
     ax[2].set_ylabel("[CO$_{3}$$^{2-}$]", fontsize=8, fontweight="bold")
 
     ### pH ###
-    # ax[3].plot()
-    ax[3].set_ylabel("pH", fontsize=8, fontweight="bold")
+    ax[3].plot(GoC.year, GoC.pH_sub - GoC.pH_sub[0], label="subsurface pH")
+    ax[3].plot(
+        d11B_obs["cal.age.kyr"].iloc[:11],
+        pH_changes_obs,
+        "o--",
+        color="black",
+        label="subsurface pH",
+    )
+    ax[3].set_ylabel("∆pH", fontsize=8, fontweight="bold")
 
     ### ETNP ∆14C ###
     ax[4].plot(
@@ -399,10 +423,11 @@ def Figure3():
             markeredgecolor="k",
             markerfacecolor=color_anomaly,
             color=color_anomaly,
-            ls="solid",
+            ls=" ",
             lw=1,
-            markersize=8,
+            markersize=4,
             zorder=2,
+            alpha=0.6,
         )
 
     # Chen
@@ -413,10 +438,11 @@ def Figure3():
         markeredgecolor="k",
         markerfacecolor=color_parallel,
         color=color_parallel,
-        ls="solid",
+        ls=" ",
         lw=1,
-        markersize=10,
+        markersize=4,
         zorder=2,
+        alpha=0.6,
     )
     # Rafter Compilation
     ax[4].plot(
@@ -428,13 +454,74 @@ def Figure3():
         zorder=0,
     )
     ax[4].fill_between(t, m - s, m + s, color=color_parallel, alpha=0.5)
+    ax[4].plot(GoC.year, GoC.D14C_mar)
+    ax[4].plot(GoC.year, GoC.D14C_sub)
+    ax[4].plot(GoC.year, GoC.D14C_surf)
     ax[4].set_ylabel("ETNP ∆$^{14}$C (‰)", fontsize=8, fontweight="bold")
 
-    # ax[5].plot()
+    ax[5].plot(GoC.year, GoC.Crate_mar)
+    ax[5].plot(GoC.year, GoC.Crate_sub)
+    ax[5].plot(GoC.year, GoC.Crate_surf)
     ax[5].set_ylabel("Carbon rate of release", fontsize=8, fontweight="bold")
     ax[5].set_xlabel("Calendar age (kyr BP)", fontsize=8, fontweight="bold")
     ax[5].set_xlim(0, 20)
 
-    plt.savefig(figurepath + "Figure2.png", bbox_inches="tight")
+    fig.text(
+        1.02, 0.65, "Global constraints", va="center", rotation="vertical", fontsize=10
+    )
+    fig.text(
+        1.02, 0.3, "Regional constraints", va="center", rotation="vertical", fontsize=10
+    )
+
+    plt.savefig(figurepath + "Figure3.png", bbox_inches="tight")
     return
 
+
+def Figure4():
+    """plotting d13C model output vs observations"""
+    fig, ax = plt.subplots(1)
+
+    # thickening axis
+    for axis in ["top", "left", "right", "bottom"]:
+        ax.spines[axis].set_linewidth(3)
+    ax.tick_params(axis="y", labelsize="large")
+    ax.tick_params(axis="x", labelsize="large")
+    # ax[0].set_yticklabels([])
+
+    ax.set_ylabel("∆$\delta^{13}$C (‰)", fontsize=20, fontweight="bold")
+    ax.set_xlabel("Calendar age (kyr BP)", fontsize=20, fontweight="bold")
+    ax.set_xlim((0, 20))
+
+    # ax.plot(
+    #     GoC.year, GoC.d13C_mar - GoC.d13C_mar[0], ls="-", lw=4, zorder=0,
+    # )
+    ax.plot(
+        GoC.year, GoC.d13C_sub - GoC.d13C_sub[0], ls="-", lw=4, zorder=0,
+    )
+    # ax.plot(
+    #     GoC.year, GoC.d13C_surf - GoC.d13C_surf[0], ls="-", lw=4, zorder=0,
+    # )
+    ax.plot(
+        d13C_obs["cal.age"],
+        d13C_obs["δ¹³C (‰, VPDB)"] - d13C_obs["δ¹³C (‰, VPDB)"][14],
+        marker="s",
+        markeredgecolor="k",
+        markerfacecolor="white",
+        linestyle="dashed",
+        color="#B57114",
+        label="benthic d13C data",
+    )
+
+    # ax.legend(
+    #     loc="lower left", fontsize=10, ncol=1, frameon=False
+    # )  # , bbox_to_anchor=(1, 0.96)
+
+    ax.tick_params(bottom=True, top=True, left=True, right=True)
+    ax.tick_params(axis="both", direction="in", length=7, width=3, color="black")
+
+    ax.set_xlim(0, 20)
+
+    plt.savefig(
+        "/home/rygreen/GoCmodel/results/Figures/Figure4.png", bbox_inches="tight"
+    )
+    return

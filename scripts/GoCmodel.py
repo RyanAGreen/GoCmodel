@@ -442,7 +442,7 @@ class GoCModel:
         # io.make_plot_interp(self.time, self.output)
         # io.save_rates_GoC_file(self.time, self.output, self.filename)
         # io.save_file(self.time, self.output, self.filename)
-        io.save_file(self.time, self.output, "control_run")
+        io.save_file(self.time, self.output, carb_chem, self.filename)
 
     # def make_AGU_plots(self):
     #     io.make_carbon_rate_plot(self.filename)
@@ -453,6 +453,7 @@ class GoCModel:
 if __name__ == "__main__":
     fig.Figure1()
     fig.Figure3()
+    fig.Figure4()
 
     # AOM = GoCModel("AOM")
     # AOM.make_AGU_plots()

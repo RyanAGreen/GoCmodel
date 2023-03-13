@@ -11,10 +11,10 @@ def landchange_shade(df):
     col2 = []
     for val in df["ForestUptakeRate"]:
         if val > 0.0:
-            col.append("green")
+            col1.append("green")
     for val in df["PermafrostReleaseRate"]:
         if val > 0.0:
-            col.append("red")
+            col1.append("red")
     return col1, col2
 
 
@@ -139,6 +139,37 @@ def organizedata(df):
         }
     )
     df["year"] = df["year"] / 1000
+    return df
+
+
+def organizedata_goc(df):
+    df = df.rename(
+        columns={
+            0: "year",
+            1: "DIC_mar",
+            2: "DIC_sub",
+            3: "DIC_surf",
+            4: "ALK_mar",
+            5: "ALK_sub",
+            6: "ALK_surf",
+            7: "d13C_mar",
+            8: "d13C_sub",
+            9: "d13C_surf",
+            10: "D14C_mar",
+            11: "D14C_sub",
+            12: "D14C_surf",
+            13: "pH_mar",
+            14: "pH_sub",
+            15: "pH_surf",
+            16: "Ccum_mar",
+            17: "Ccum_sub",
+            18: "Ccum_surf",
+            19: "Crate_mar",
+            20: "Crate_sub",
+            21: "Crate_surf",
+        }
+    )
+    # df["year"] = df["year"] / 1000
     return df
 
 

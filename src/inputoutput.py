@@ -26,7 +26,7 @@ def save_tracers(tracers_arr):
     np.save("../results/tracers.npy", tracers_arr)
 
 
-def save_file(time, tracers, filename):
+def save_file(time, tracers, pH, filename):
     df = pd.DataFrame(
         {
             "time": time / 1000,
@@ -36,15 +36,15 @@ def save_file(time, tracers, filename):
             "mar_ALK": tracers[3, :],
             "goc_sub_ALK": tracers[4, :],
             "goc_surf_ALK": tracers[5, :],
-            # "mar_pH": carbonate_chemistry[3, 0, :],
             "mar_d13c": tracers[9, :] / tracers[0, :],
             "goc_sub_d13c": tracers[10, :] / tracers[1, :],
             "goc_surf_d13c": tracers[11, :] / tracers[2, :],
             "mar_D14c": tracers[12, :] / tracers[0, :],
             "goc_sub_D14c": tracers[13, :] / tracers[1, :],
             "goc_surf_D14c": tracers[14, :] / tracers[2, :],
-            # "goc_sub_pH": carbonate_chemistry[3, 1, :],
-            # "goc_surf_pH": carbonate_chemistry[3, 2, :],
+            "mar_pH": pH[3, 0, :],
+            "goc_sub_pH": pH[3, 1, :],
+            "goc_surf_pH": pH[3, 2, :],
             "mar_cum_carbon": tracers[15, :],
             "goc_sub_cum_carbon": tracers[16, :],
             "goc_surf_cum_carbon": tracers[17, :],
