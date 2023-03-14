@@ -13,6 +13,9 @@ import src.carbchem as cc
 import cartopy.feature as cfeature
 from cartopy.util import add_cyclic_point
 import netCDF4 as nc4
+import matplotlib.path as mpath
+import matplotlib.lines as mlines
+import matplotlib.patches as mpatches
 
 obspath = "data/observations/"
 ISpath = "data/ISchange/"
@@ -288,7 +291,7 @@ def Figure3():
     indo_pac_color = "#BF840E"
     markers = ["o", "v", "s", "<", "P"]
 
-    fig, ax = plt.subplots(6, 1, figsize=(3, 15), sharex=True)
+    fig, ax = plt.subplots(6, 1, figsize=(3.5, 15.5), sharex=True)
 
     for i in range(6):
         # thickening axis
@@ -303,7 +306,14 @@ def Figure3():
 
     # observations
     ax[0].plot(
-        CO2obs.year, CO2obs.CO2, color=color_global_obs, ls="-", lw=4, zorder=0,
+        CO2obs.year,
+        CO2obs.CO2,
+        color=color_global_obs,
+        marker="o",
+        markersize=1,
+        ls="--",
+        lw=2,
+        zorder=0,
     )
     # models
     ax[0].plot(ex4.year, ex4.CO2, color=color_global_model, lw=2)
@@ -316,7 +326,14 @@ def Figure3():
 
     # observations
     ax[1].plot(
-        D14C.year, D14C.D14C, color=color_global_obs, ls="-", lw=4, zorder=0,
+        D14C.year,
+        D14C.D14C,
+        color=color_global_obs,
+        marker="o",
+        markersize=1,
+        ls="--",
+        lw=2,
+        zorder=0,
     )
     # models
     ax[1].plot(ex4.year, ex4.D14C, color=color_global_model, lw=2)
@@ -402,40 +419,17 @@ def Figure3():
     ax[3].plot(
         d11B_obs["cal.age.kyr"].iloc[:11],
         pH_changes_obs,
-        ls="--",
+        ls=":",
         lw=1,
-        marker="o",
+        marker="s",
         markersize=4,
         color=color_subsurface,
         label="subsurface pH",
     )
+    ax[3].axhline(0, ls=":", color="k", alpha=0.75)
     ax[3].set_ylabel("∆pH", fontsize=font_label_size, fontweight="bold")
 
     ### ETNP ∆14C ###
-    # ax[4].plot(
-    #     ex4.year,
-    #     ex4.D14CintNP,
-    #     linewidth=2.5,
-    #     ls="-",
-    #     color=color_model,
-    #     label="NP+LC+PF+RC",
-    # )
-    # ax[4].plot(
-    #     t,
-    #     m,
-    #     linewidth=1,
-    #     ls="solid",
-    #     color=color_parallel,
-    #     label="Mid-depth ∆$^{14}$C compilation",
-    # )
-    # ax[4].plot(
-    #     OCIM["cal.age"],
-    #     OCIM["D14C.Shallow.Pacific.North.East"],
-    #     linewidth=2,
-    #     ls="-",
-    #     color="k",
-    #     label="OCIM model",
-    # )
     # Marchitto
     ax[4].plot(
         Anomalies[0].year,
@@ -444,7 +438,7 @@ def Figure3():
         markeredgecolor="k",
         markerfacecolor=color_marchitto,
         color=color_marchitto,
-        ls="--",
+        ls=":",
         lw=1,
         markersize=4,
         zorder=2,
@@ -458,7 +452,7 @@ def Figure3():
         markeredgecolor="k",
         markerfacecolor=color_subsurface,
         color=color_subsurface,
-        ls="--",
+        ls=":",
         lw=1,
         markersize=4,
         zorder=2,
@@ -479,53 +473,24 @@ def Figure3():
         zorder=2,
         alpha=0.8,
     )
-    # for i in range(len(Anomalies)):
-    #     ax[4].plot(
-    #         Anomalies[i].year,
-    #         Anomalies[i].D14CintNP,
-    #         marker=markers[i],
-    #         markeredgecolor="k",
-    #         markerfacecolor=color_anomaly,
-    #         color=color,
-    #         ls=" ",
-    #         lw=1,
-    #         markersize=4,
-    #         zorder=2,
-    #         alpha=0.4,
-    #     )
-
-    # Chen
-    # ax[4].plot(
-    #     GoCobs[4].year,
-    #     GoCobs[4].D14CintNP,
-    #     marker=markers[4],
-    #     markeredgecolor="k",
-    #     markerfacecolor=color_parallel,
-    #     color=color_parallel,
-    #     ls=" ",
-    #     lw=1,
-    #     markersize=4,
-    #     zorder=2,
-    #     alpha=0.6,
-    # )
-    # # Rafter Compilation
-    # ax[4].plot(
-    #     GoCobs[5].year,
-    #     GoCobs[5].D14CintNP,
-    #     linestyle="solid",
-    #     color=color_parallel,
-    #     lw=2.5,
-    #     zorder=0,
-    # )
-    # ax[4].fill_between(t, m - s, m + s, color=color_parallel, alpha=0.5)
     ax[4].plot(GoC.year, GoC.D14C_mar, lw=2, color=color_marchitto)
     ax[4].plot(GoC.year, GoC.D14C_sub, lw=2, color=color_subsurface)
     ax[4].plot(GoC.year, GoC.D14C_surf, lw=2, color=color_surface)
     ax[4].set_ylabel("ETNP ∆$^{14}$C (‰)", fontsize=font_label_size, fontweight="bold")
 
-    ax[5].plot(GoC.year, GoC.Crate_mar, color=color_marchitto)
-    ax[5].plot(GoC.year, GoC.Crate_sub, color=color_subsurface)
-    ax[5].plot(GoC.year, GoC.Crate_surf, color=color_surface)
+    ### Release Rate ###
+    ax[5].plot(GoC.year, GoC.Crate_mar, color=color_marchitto, zorder=0)
+    ax[5].bar(
+        GoC.year, GoC.Crate_mar, width=0.1, alpha=0.8, color=color_marchitto, zorder=0
+    )
+    ax[5].plot(GoC.year, GoC.Crate_sub, color=color_subsurface, zorder=1)
+    ax[5].bar(
+        GoC.year, GoC.Crate_sub, width=0.1, alpha=0.8, color=color_subsurface, zorder=1
+    )
+    ax[5].plot(GoC.year, GoC.Crate_surf, color=color_surface, zorder=2)
+    ax[5].bar(
+        GoC.year, GoC.Crate_surf, width=0.1, alpha=0.8, color=color_surface, zorder=2
+    )
     ax[5].set_ylabel("Release rate", fontsize=font_label_size, fontweight="bold")
     ax[5].set_xlabel(
         "Calendar age (kyr BP)", fontsize=font_label_size, fontweight="bold"
@@ -533,11 +498,166 @@ def Figure3():
     ax[5].set_xlim(0, 20)
 
     fig.text(
-        1.02, 0.65, "Global constraints", va="center", rotation="vertical", fontsize=10
+        1.02, 0.68, "Global constraints", va="center", rotation="vertical", fontsize=10
     )
     fig.text(
-        1.02, 0.3, "Regional constraints", va="center", rotation="vertical", fontsize=10
+        1.02, 0.4, "Regional constraints", va="center", rotation="vertical", fontsize=10
     )
+
+    if "making legends":
+
+        # make legends
+        legend_global_model = mlines.Line2D(
+            [], [], color=color_global_model, linestyle="solid", lw=2.5, label="Model",
+        )
+        legend_global_obs = mlines.Line2D(
+            [],
+            [],
+            color=color_global_obs,
+            marker="o",
+            linestyle=":",
+            lw=2,
+            label="Observations",
+        )
+        legend_atlantic_model = mlines.Line2D(
+            [],
+            [],
+            color=color_atlantic,
+            linestyle="solid",
+            lw=2.5,
+            label="Model-Atlantic",
+        )
+        legend_indopac_model = mlines.Line2D(
+            [],
+            [],
+            color=color_indopac,
+            linestyle="solid",
+            lw=2.5,
+            label="Model-Indo Pacific",
+        )
+        legend_atlantic_obs = mlines.Line2D(
+            [],
+            [],
+            color=color_atlantic,
+            alpha=0.5,
+            marker="o",
+            linestyle="None",
+            markersize=5,
+            label="Observations-Atlantic",
+        )
+        legend_ind_obs = mlines.Line2D(
+            [],
+            [],
+            color=color_indopac,
+            alpha=0.5,
+            marker="^",
+            linestyle="None",
+            markersize=5,
+            label="Observations-Indian",
+        )
+        legend_pac_obs = mlines.Line2D(
+            [],
+            [],
+            color=color_indopac,
+            alpha=0.5,
+            marker="s",
+            linestyle="None",
+            markersize=5,
+            label="Observations-Pacific",
+        )
+
+        legend_marchitto_model = mlines.Line2D(
+            [],
+            [],
+            color=color_marchitto,
+            linestyle="solid",
+            lw=2.5,
+            label="Simulated Marchitto box",
+        )
+        legend_subsurface_model = mlines.Line2D(
+            [],
+            [],
+            color=color_subsurface,
+            linestyle="solid",
+            lw=2.5,
+            label="Simulated GoC subsurface box",
+        )
+        legend_surface_model = mlines.Line2D(
+            [],
+            [],
+            color=color_surface,
+            linestyle="solid",
+            lw=2.5,
+            label="Simulated GoC surface box",
+        )
+        legend_marchitto_obs = mlines.Line2D(
+            [],
+            [],
+            color=color_marchitto,
+            marker=markers[0],
+            linestyle="--",
+            lw=2.5,
+            label="Observations from Marchitto box",
+        )
+        legend_subsurface_obs = mlines.Line2D(
+            [],
+            [],
+            color=color_subsurface,
+            linestyle="--",
+            marker=markers[2],
+            lw=2.5,
+            label="Observations from GoC subsurface box",
+        )
+        legend_surface_obs = mlines.Line2D(
+            [],
+            [],
+            color=color_surface,
+            linestyle="--",
+            marker=markers[3],
+            lw=2.5,
+            label="Observations from GoC surface box",
+        )
+
+        ### simplified version ###
+        legend_atlantic = mlines.Line2D(
+            [], [], color=color_atlantic, linestyle="solid", lw=2.5, label="Atlantic"
+        )
+        legend_indopac = mlines.Line2D(
+            [], [], color=color_indopac, linestyle="solid", lw=2.5, label="Indo Pacific"
+        )
+        legend_marchitto = mpatches.Patch(
+            color=color_marchitto, linestyle="solid", lw=2.5, label="Marchitto box",
+        )
+        legend_subsurface = mpatches.Patch(
+            color=color_subsurface,
+            linestyle="solid",
+            lw=2.5,
+            label="GoC subsurface box",
+        )
+        legend_surface = mpatches.Patch(
+            color=color_surface, linestyle="solid", lw=2.5, label="GoC surface box",
+        )
+
+        ax[0].legend(
+            handles=[legend_global_model, legend_global_obs],
+            ncol=1,
+            loc="lower left",
+            frameon=False,
+        )
+        #     ax[2].legend(
+        #     handles=[legend_atlantic_model,legend_indopac_model,legend_atlantic_obs,legend_ind_obs,legend_pac_obs],
+        #     loc="upper left",
+        #     frameon=False,
+        # )
+        ax[2].legend(
+            handles=[legend_atlantic, legend_indopac], loc="upper left", frameon=False,
+        )
+        ax[5].legend(
+            handles=[legend_surface, legend_subsurface, legend_marchitto],
+            ncol=1,
+            loc="upper left",
+            frameon=False,
+        )
 
     plt.savefig(figurepath + "Figure3.png", bbox_inches="tight")
     return
