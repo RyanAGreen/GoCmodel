@@ -272,9 +272,17 @@ def Figure3():
     plotting global and regional results against observations
     atmospheric CO2, ∆14C, deep ocean [CO3], regional pH, regional ∆14C, rate of carbon additon?
     """
-    color_anomaly = "#44AA99"
-    color_parallel = "#8A0C0D"
-    color_model = "#6699A2"
+    # color_anomaly = "#44AA99"
+    # color_parallel = "#8A0C0D"
+    color_global_obs = "darkgray"
+    color_atlantic = "#0455BF"
+    color_indopac = "#88B6F2"
+    color_global_model = "#0455BF"
+    color_marchitto = "#F2A35E"
+    color_subsurface = "#01403A"
+    color_surface = "#F27E7E"
+
+    font_label_size = 12
 
     atlantic_color = "#1763F9"
     indo_pac_color = "#BF840E"
@@ -295,23 +303,27 @@ def Figure3():
 
     # observations
     ax[0].plot(
-        CO2obs.year, CO2obs.CO2, color="darkgray", ls="-", lw=4, zorder=0,
+        CO2obs.year, CO2obs.CO2, color=color_global_obs, ls="-", lw=4, zorder=0,
     )
     # models
-    ax[0].plot(ex4.year, ex4.CO2)
+    ax[0].plot(ex4.year, ex4.CO2, color=color_global_model, lw=2)
     # labels
-    ax[0].set_ylabel("CO$_{2}$$^{atm}$ (ppm)", fontsize=8, fontweight="bold")
+    ax[0].set_ylabel(
+        "CO$_{2}$$^{atm}$ (ppm)", fontsize=font_label_size, fontweight="bold"
+    )
 
     ### atmospheric D14C ###
 
     # observations
     ax[1].plot(
-        D14C.year, D14C.D14C, color="darkgray", ls="-", lw=4, zorder=0,
+        D14C.year, D14C.D14C, color=color_global_obs, ls="-", lw=4, zorder=0,
     )
     # models
-    ax[1].plot(ex4.year, ex4.D14C)
+    ax[1].plot(ex4.year, ex4.D14C, color=color_global_model, lw=2)
     # labels
-    ax[1].set_ylabel("∆$^{14}$C$^{atm}$ (‰)", fontsize=8, fontweight="bold")
+    ax[1].set_ylabel(
+        "∆$^{14}$C$^{atm}$ (‰)", fontsize=font_label_size, fontweight="bold"
+    )
 
     ### Deep ocean CO3 ###
 
@@ -319,7 +331,7 @@ def Figure3():
     ax[2].plot(
         ex4.year,
         ex4.AtlCO3,
-        color=atlantic_color,
+        color=color_atlantic,
         alpha=1,
         linestyle="-",
         lw=2,
@@ -328,7 +340,7 @@ def Figure3():
     ax[2].plot(
         ex4.year,
         (ex4.NPacCO3 + ex4.SPacCO3 + ex4.IndCO3) / 3,
-        color=indo_pac_color,
+        color=color_indopac,
         linestyle="-",
         lw=2,
         label="Indo-pacific",
@@ -337,12 +349,12 @@ def Figure3():
     ax[2].plot(
         atlantic_obs["time"],
         atlantic_obs["CO3"],
-        color=color_parallel,
+        color=color_atlantic,
         alpha=0.5,
         lw=1,
         marker="o",
-        markeredgecolor=atlantic_color,
-        markerfacecolor=atlantic_color,
+        markeredgecolor=color_atlantic,
+        markerfacecolor=color_atlantic,
         ls="None",
         markersize=5,
         zorder=0,
@@ -351,12 +363,12 @@ def Figure3():
     ax[2].plot(
         indian_obs["time"],
         indian_obs["CO3"],
-        color=color_parallel,
+        color=color_indopac,
         alpha=0.5,
         lw=1,
         marker="^",
-        markeredgecolor=indo_pac_color,
-        markerfacecolor=indo_pac_color,
+        markeredgecolor=color_indopac,
+        markerfacecolor=color_indopac,
         ls="None",
         markersize=5,
         zorder=0,
@@ -365,105 +377,159 @@ def Figure3():
     ax[2].plot(
         pacific_obs["time"],
         pacific_obs["CO3"],
-        color=indo_pac_color,
+        color=color_indopac,
         alpha=0.5,
         lw=1,
         marker="s",
-        markeredgecolor=indo_pac_color,
-        markerfacecolor=indo_pac_color,
+        markeredgecolor=color_indopac,
+        markerfacecolor=color_indopac,
         ls="None",
         markersize=5,
         zorder=0,
         label="GGC48 EQ Pacific",
     )
     # labels
-    ax[2].set_ylabel("[CO$_{3}$$^{2-}$]", fontsize=8, fontweight="bold")
+    ax[2].set_ylabel("[CO$_{3}$$^{2-}$]", fontsize=font_label_size, fontweight="bold")
 
     ### pH ###
-    ax[3].plot(GoC.year, GoC.pH_sub - GoC.pH_sub[0], label="subsurface pH")
+    ax[3].plot(
+        GoC.year,
+        GoC.pH_sub - GoC.pH_sub[0],
+        lw=2,
+        color=color_subsurface,
+        label="subsurface pH",
+    )
     ax[3].plot(
         d11B_obs["cal.age.kyr"].iloc[:11],
         pH_changes_obs,
-        "o--",
-        color="black",
+        ls="--",
+        lw=1,
+        marker="o",
+        markersize=4,
+        color=color_subsurface,
         label="subsurface pH",
     )
-    ax[3].set_ylabel("∆pH", fontsize=8, fontweight="bold")
+    ax[3].set_ylabel("∆pH", fontsize=font_label_size, fontweight="bold")
 
     ### ETNP ∆14C ###
+    # ax[4].plot(
+    #     ex4.year,
+    #     ex4.D14CintNP,
+    #     linewidth=2.5,
+    #     ls="-",
+    #     color=color_model,
+    #     label="NP+LC+PF+RC",
+    # )
+    # ax[4].plot(
+    #     t,
+    #     m,
+    #     linewidth=1,
+    #     ls="solid",
+    #     color=color_parallel,
+    #     label="Mid-depth ∆$^{14}$C compilation",
+    # )
+    # ax[4].plot(
+    #     OCIM["cal.age"],
+    #     OCIM["D14C.Shallow.Pacific.North.East"],
+    #     linewidth=2,
+    #     ls="-",
+    #     color="k",
+    #     label="OCIM model",
+    # )
+    # Marchitto
     ax[4].plot(
-        ex4.year,
-        ex4.D14CintNP,
-        linewidth=2.5,
-        ls="-",
-        color=color_model,
-        label="NP+LC+PF+RC",
-    )
-    ax[4].plot(
-        t,
-        m,
-        linewidth=1,
-        ls="solid",
-        color=color_parallel,
-        label="Mid-depth ∆$^{14}$C compilation",
-    )
-    ax[4].plot(
-        OCIM["cal.age"],
-        OCIM["D14C.Shallow.Pacific.North.East"],
-        linewidth=2,
-        ls="-",
-        color="k",
-        label="OCIM model",
-    )
-    for i in range(len(Anomalies)):
-        ax[4].plot(
-            Anomalies[i].year,
-            Anomalies[i].D14CintNP,
-            marker=markers[i],
-            markeredgecolor="k",
-            markerfacecolor=color_anomaly,
-            color=color_anomaly,
-            ls=" ",
-            lw=1,
-            markersize=4,
-            zorder=2,
-            alpha=0.6,
-        )
-
-    # Chen
-    ax[4].plot(
-        GoCobs[4].year,
-        GoCobs[4].D14CintNP,
-        marker=markers[4],
+        Anomalies[0].year,
+        Anomalies[0].D14CintNP,
+        marker=markers[0],
         markeredgecolor="k",
-        markerfacecolor=color_parallel,
-        color=color_parallel,
-        ls=" ",
+        markerfacecolor=color_marchitto,
+        color=color_marchitto,
+        ls="--",
         lw=1,
         markersize=4,
         zorder=2,
-        alpha=0.6,
+        alpha=0.8,
     )
-    # Rafter Compilation
+    # subsurface
     ax[4].plot(
-        GoCobs[5].year,
-        GoCobs[5].D14CintNP,
-        linestyle="solid",
-        color=color_parallel,
-        lw=2.5,
-        zorder=0,
+        Anomalies[2].year,
+        Anomalies[2].D14CintNP,
+        marker=markers[2],
+        markeredgecolor="k",
+        markerfacecolor=color_subsurface,
+        color=color_subsurface,
+        ls="--",
+        lw=1,
+        markersize=4,
+        zorder=2,
+        alpha=0.8,
     )
-    ax[4].fill_between(t, m - s, m + s, color=color_parallel, alpha=0.5)
-    ax[4].plot(GoC.year, GoC.D14C_mar)
-    ax[4].plot(GoC.year, GoC.D14C_sub)
-    ax[4].plot(GoC.year, GoC.D14C_surf)
-    ax[4].set_ylabel("ETNP ∆$^{14}$C (‰)", fontsize=8, fontweight="bold")
 
-    ax[5].plot(GoC.year, GoC.Crate_mar)
-    ax[5].plot(GoC.year, GoC.Crate_sub)
-    ax[5].plot(GoC.year, GoC.Crate_surf)
-    ax[5].set_ylabel("Carbon rate of release", fontsize=8, fontweight="bold")
-    ax[5].set_xlabel("Calendar age (kyr BP)", fontsize=8, fontweight="bold")
+    # surface
+    ax[4].plot(
+        Anomalies[3].year,
+        Anomalies[3].D14CintNP,
+        marker=markers[3],
+        markeredgecolor="k",
+        markerfacecolor=color_surface,
+        color=color_surface,
+        ls="--",
+        lw=1,
+        markersize=4,
+        zorder=2,
+        alpha=0.8,
+    )
+    # for i in range(len(Anomalies)):
+    #     ax[4].plot(
+    #         Anomalies[i].year,
+    #         Anomalies[i].D14CintNP,
+    #         marker=markers[i],
+    #         markeredgecolor="k",
+    #         markerfacecolor=color_anomaly,
+    #         color=color,
+    #         ls=" ",
+    #         lw=1,
+    #         markersize=4,
+    #         zorder=2,
+    #         alpha=0.4,
+    #     )
+
+    # Chen
+    # ax[4].plot(
+    #     GoCobs[4].year,
+    #     GoCobs[4].D14CintNP,
+    #     marker=markers[4],
+    #     markeredgecolor="k",
+    #     markerfacecolor=color_parallel,
+    #     color=color_parallel,
+    #     ls=" ",
+    #     lw=1,
+    #     markersize=4,
+    #     zorder=2,
+    #     alpha=0.6,
+    # )
+    # # Rafter Compilation
+    # ax[4].plot(
+    #     GoCobs[5].year,
+    #     GoCobs[5].D14CintNP,
+    #     linestyle="solid",
+    #     color=color_parallel,
+    #     lw=2.5,
+    #     zorder=0,
+    # )
+    # ax[4].fill_between(t, m - s, m + s, color=color_parallel, alpha=0.5)
+    ax[4].plot(GoC.year, GoC.D14C_mar, lw=2, color=color_marchitto)
+    ax[4].plot(GoC.year, GoC.D14C_sub, lw=2, color=color_subsurface)
+    ax[4].plot(GoC.year, GoC.D14C_surf, lw=2, color=color_surface)
+    ax[4].set_ylabel("ETNP ∆$^{14}$C (‰)", fontsize=font_label_size, fontweight="bold")
+
+    ax[5].plot(GoC.year, GoC.Crate_mar, color=color_marchitto)
+    ax[5].plot(GoC.year, GoC.Crate_sub, color=color_subsurface)
+    ax[5].plot(GoC.year, GoC.Crate_surf, color=color_surface)
+    ax[5].set_ylabel("Release rate", fontsize=font_label_size, fontweight="bold")
+    ax[5].set_xlabel(
+        "Calendar age (kyr BP)", fontsize=font_label_size, fontweight="bold"
+    )
     ax[5].set_xlim(0, 20)
 
     fig.text(
