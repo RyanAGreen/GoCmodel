@@ -280,7 +280,7 @@ def Figure3():
     color_global_obs = "darkgray"
     color_atlantic = "#0455BF"
     color_indopac = "#88B6F2"
-    color_global_model = "#0455BF"
+    color_global_model = "black"
     color_marchitto = "#F2A35E"
     color_subsurface = "#01403A"
     color_surface = "#F27E7E"
@@ -299,6 +299,8 @@ def Figure3():
             ax[i].spines[axis].set_linewidth(3)
         ax[i].tick_params(axis="y", labelsize="large")
         ax[i].tick_params(axis="x", labelsize="large")
+        ax[i].axvspan(11.6, 12.9, alpha=0.4, color="darkgray", zorder=0)
+        ax[i].axvspan(14.5, 18, alpha=0.4, color="darkgray", zorder=0)
         ax[i].tick_params(bottom=True, top=True, left=True, right=True)
         ax[i].tick_params(axis="both", direction="in", length=7, width=2, color="black")
 
@@ -311,9 +313,12 @@ def Figure3():
         color=color_global_obs,
         marker="o",
         markersize=1,
-        ls="--",
+        ls=" ",
         lw=2,
         zorder=0,
+    )
+    ax[0].plot(
+        CO2obs.year, CO2obs.CO2, color=color_global_obs, ls=":", lw=2, zorder=0,
     )
     # models
     ax[0].plot(ex4.year, ex4.CO2, color=color_global_model, lw=2)
@@ -325,15 +330,18 @@ def Figure3():
     ### atmospheric D14C ###
 
     # observations
+    # ax[1].plot(
+    #     D14C.year,
+    #     D14C.D14C,
+    #     color=color_global_obs,
+    #     marker="o",
+    #     markersize=1,
+    #     ls=" ",
+    #     lw=2,
+    #     zorder=0,
+    # )
     ax[1].plot(
-        D14C.year,
-        D14C.D14C,
-        color=color_global_obs,
-        marker="o",
-        markersize=1,
-        ls="--",
-        lw=2,
-        zorder=0,
+        D14C.year, D14C.D14C, color=color_global_obs, ls=":", lw=2, zorder=0,
     )
     # models
     ax[1].plot(ex4.year, ex4.D14C, color=color_global_model, lw=2)
@@ -426,7 +434,7 @@ def Figure3():
         color=color_subsurface,
         label="subsurface pH",
     )
-    ax[3].axhline(0, ls=":", color="k", alpha=0.75)
+    ax[3].axhline(0, ls=":", color="k", alpha=0.4)
     ax[3].set_ylabel("∆pH", fontsize=font_label_size, fontweight="bold")
 
     ### ETNP ∆14C ###
@@ -467,7 +475,7 @@ def Figure3():
         markeredgecolor="k",
         markerfacecolor=color_surface,
         color=color_surface,
-        ls="--",
+        ls=":",
         lw=1,
         markersize=4,
         zorder=2,
@@ -619,11 +627,39 @@ def Figure3():
         )
 
         ### simplified version ###
-        legend_atlantic = mlines.Line2D(
-            [], [], color=color_atlantic, linestyle="solid", lw=2.5, label="Atlantic"
+
+        legend_CO2_model = mlines.Line2D(
+            [],
+            [],
+            color=color_global_model,
+            linestyle="solid",
+            lw=2.5,
+            label="CO$_2^{model}$",
         )
-        legend_indopac = mlines.Line2D(
-            [], [], color=color_indopac, linestyle="solid", lw=2.5, label="Indo Pacific"
+        legend_CO2_obs = mlines.Line2D(
+            [], [], color=color_global_obs, linestyle=":", lw=2, label="CO$_2^{obs}$",
+        )
+        legend_D14C_model = mlines.Line2D(
+            [],
+            [],
+            color=color_global_model,
+            linestyle="solid",
+            lw=2.5,
+            label="∆$^{14}$C$^{model}$",
+        )
+        legend_D14C_obs = mlines.Line2D(
+            [],
+            [],
+            color=color_global_obs,
+            linestyle=":",
+            lw=2,
+            label="∆$^{14}$C$^{obs}$",
+        )
+        legend_atlantic = mpatches.Patch(
+            color=color_atlantic, linestyle="solid", lw=2.5, label="Atlantic"
+        )
+        legend_indopac = mpatches.Patch(
+            color=color_indopac, linestyle="solid", lw=2.5, label="Indo Pacific"
         )
         legend_marchitto = mpatches.Patch(
             color=color_marchitto, linestyle="solid", lw=2.5, label="Marchitto box",
@@ -639,9 +675,15 @@ def Figure3():
         )
 
         ax[0].legend(
-            handles=[legend_global_model, legend_global_obs],
+            handles=[legend_CO2_model, legend_CO2_obs],
             ncol=1,
             loc="lower left",
+            frameon=False,
+        )
+        ax[1].legend(
+            handles=[legend_D14C_model, legend_D14C_obs],
+            ncol=1,
+            loc="upper left",
             frameon=False,
         )
         #     ax[2].legend(
@@ -650,7 +692,7 @@ def Figure3():
         #     frameon=False,
         # )
         ax[2].legend(
-            handles=[legend_atlantic, legend_indopac], loc="upper left", frameon=False,
+            handles=[legend_atlantic, legend_indopac], loc="upper left", frameon=True,
         )
         ax[5].legend(
             handles=[legend_surface, legend_subsurface, legend_marchitto],
@@ -659,7 +701,7 @@ def Figure3():
             frameon=False,
         )
 
-    plt.savefig(figurepath + "Figure3.png", bbox_inches="tight")
+    plt.savefig(figurepath + "Figure3.pdf", bbox_inches="tight")
     return
 
 
