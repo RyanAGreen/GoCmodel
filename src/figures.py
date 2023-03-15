@@ -506,10 +506,10 @@ def Figure3():
     ax[5].set_xlim(0, 20)
 
     fig.text(
-        1.02, 0.68, "Global constraints", va="center", rotation="vertical", fontsize=10
+        1.04, 0.68, "Global constraints", va="center", rotation="vertical", fontsize=15
     )
     fig.text(
-        1.02, 0.4, "Regional constraints", va="center", rotation="vertical", fontsize=10
+        1.04, 0.4, "Regional constraints", va="center", rotation="vertical", fontsize=15
     )
 
     if "making legends":
