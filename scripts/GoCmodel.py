@@ -256,26 +256,25 @@ class GoCModel:
 
         state_a = self.make_state_a(statev, time, "control")
 
-        time_bp = round(21000 - time)
-
         current_state = state_a[:, : self.num_box]
         self.state_copy = state_a
 
+        # round the time step to whole number and
+        time_bp = round(21000 - time)
         if self.time_copy == time_bp:
+            # counting how many steps per year
             self.counter += 1
             if self.counter > 200:
                 print("current count is ", self.counter)
         else:
             # print("This year took ", self.counter, " steps.")
             self.counter = 1
-
         self.time_copy = round(time_bp)
-        # print(self.time_copy)
 
+        # might not need this? Don't think I need to initialize each d_dt matrix
         d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
 
-        optimization = "true"
-        if optimization == "true":
+        if "optimization":
             # Marchitto
             try:
                 self.obs_d14c = self.f_mar(self.time_copy)
@@ -342,62 +341,64 @@ class GoCModel:
                 )
             except:
                 self.surface_rate = 0
-        d_dt_geologic += geologic.carbon_add(
-            self.num_tracer,
-            self.num_box,
-            self.surface_rate,
-            "surface",
-            self.mass,
-            self.geologic_d13c,
-        )
 
-        ### Biological Productivity (Soft Tissue + Carbonate) ###
-        d_dt_export, exportP, del_13_c_org, del_14_c_org = product.productivity(
-            state_a[:, : self.num_box],
-            self.boundary_condition,
-            self.num_tracer,
-            self.num_box,
-            self.num_bc,
-            self.CaRatio,
-            self.export_matrix,
-        )
+        if "adding together d_dt for all processes":
+            d_dt_geologic += geologic.carbon_add(
+                self.num_tracer,
+                self.num_box,
+                self.surface_rate,
+                "surface",
+                self.mass,
+                self.geologic_d13c,
+            )
 
-        ### Remineralization ###
-        d_dt_remin = np.zeros((self.num_tracer, self.num_box))
+            ### Biological Productivity (Soft Tissue + Carbonate) ###
+            d_dt_export, exportP, del_13_c_org, del_14_c_org = product.productivity(
+                state_a[:, : self.num_box],
+                self.boundary_condition,
+                self.num_tracer,
+                self.num_box,
+                self.num_bc,
+                self.CaRatio,
+                self.export_matrix,
+            )
 
-        d_dt_remin = product.remin(
-            exportP,
-            del_13_c_org,
-            del_14_c_org,
-            self.num_tracer,
-            self.num_box,
-            self.remin_matrix,
-        )
+            ### Remineralization ###
+            d_dt_remin = np.zeros((self.num_tracer, self.num_box))
 
-        ### Circulation ###
-        d_dt_circ = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
-        # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
+            d_dt_remin = product.remin(
+                exportP,
+                del_13_c_org,
+                del_14_c_org,
+                self.num_tracer,
+                self.num_box,
+                self.remin_matrix,
+            )
 
-        ### Air-Sea Gas Exchange ###
-        d_dt_gasexchange = airsea.gas_exchange(
-            state_a[:, : self.num_box],
-            self.num_tracer,
-            self.num_box,
-            self.CO2_atm_currentyr,
-            self.d13C_atm_currentyr,
-            self.D14C_atm_currentyr,
-            self.surf_area,
-            self.mass[2],
-        )
+            ### Circulation ###
+            d_dt_circ = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
+            # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
 
-        d_dt = np.zeros((self.num_tracer, self.num_box))
+            ### Air-Sea Gas Exchange ###
+            d_dt_gasexchange = airsea.gas_exchange(
+                state_a[:, : self.num_box],
+                self.num_tracer,
+                self.num_box,
+                self.CO2_atm_currentyr,
+                self.d13C_atm_currentyr,
+                self.D14C_atm_currentyr,
+                self.surf_area,
+                self.mass[2],
+            )
 
-        # where you can turn on or off any processes
-        d_dt += d_dt_circ
-        d_dt += d_dt_geologic
-        d_dt += d_dt_export
-        d_dt += d_dt_remin
-        d_dt += d_dt_gasexchange
+            d_dt = np.zeros((self.num_tracer, self.num_box))
+
+            # where you can turn on or off any processes
+            d_dt += d_dt_circ
+            d_dt += d_dt_geologic
+            d_dt += d_dt_export
+            d_dt += d_dt_remin
+            d_dt += d_dt_gasexchange
 
         return d_dt.flatten()
 
