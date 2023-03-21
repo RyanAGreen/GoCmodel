@@ -25,7 +25,7 @@ class GoCModel:
     Gulf of California-Deep, Gulf of California-Surface, North Pacific-
     Intermediate depth and North Pacific Surface"""
 
-    def __init__(self, geologic_d13c_source):
+    def __init__(self, geologic_d13c, ALK_DIC_ratio, optimization):
 
         self.num_box = 3
         self.num_bc = 2
@@ -71,20 +71,25 @@ class GoCModel:
             np.array([0.1, 0.1, 0.1]) * self.carbon
         )  # delta [permil] * concentration
 
-        if geologic_d13c_source == "AOM":
-            self.geologic_d13c = -12  # same d13C as organic matter
-            self.filename = "AOM_source"
-        elif geologic_d13c_source == "CO2_dissolving_carbonates":
-            self.geologic_d13c = -2.5  # CO2 is -5, CaCO3 is SW 0
-            self.filename = "CO2carbonate_source"
-        elif geologic_d13c_source == "biogenic_methane":
-            self.geologic_d13c = -50
-            self.filename = "methane_source"
+        self.geologic_d13c = geologic_d13c
+        self.ALK_DIC_ratio = ALK_DIC_ratio
+        self.optimization = optimization
+        
+        self.filename = "d13c-"
+        if self.geologic_d13c == -12: # same d13C as organic matter
+            self.filename += "AOM_source"
+        elif self.geologic_d13c == -2.5: # CO2 is -5, CaCO3 is SW 0
+            self.filename += "CO2carbonate_source"
+        elif self.geologic_d13c == -50:
+            self.filename += "methane_source"
         else:
-            print(
-                "This is not a correct geochemical pathway of geologic carbon addition."
-            )
-            exit()
+            self.filename += str(geologic_d13c)
+            
+        self.filename += "_ALK_DIC-" + str(self.ALK_DIC_ratio) + "_"
+        if self.optimization:
+            self.filename += "optimization"
+        else:
+            self.filename += "forward_run"
 
         self.cum_geologic_carbon_to_marchitto = 0
         self.cum_geologic_carbon_to_goc_sub = 0
@@ -92,7 +97,7 @@ class GoCModel:
         self.cum_geologic_carbon = np.array([0, 0, 0])
 
         self.CaRatio = 0.4
-
+        
         # Packing initial conditions in matrixes
         # flat array (18,)
         self.state_v0 = np.hstack(
@@ -273,8 +278,7 @@ class GoCModel:
 
         d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
 
-        optimization = "true"
-        if optimization == "true":
+        if self.optimization: # inverse run
             # Marchitto
             try:
                 self.obs_d14c = self.f_mar(self.time_copy)
@@ -296,6 +300,7 @@ class GoCModel:
                 "marchitto",
                 self.mass,
                 self.geologic_d13c,
+                self.ALK_DIC_ratio
             )
 
             # Subsurface
@@ -322,6 +327,7 @@ class GoCModel:
                 "subsurface",
                 self.mass,
                 self.geologic_d13c,
+                self.ALK_DIC_ratio
             )
 
             # Surface
@@ -341,15 +347,47 @@ class GoCModel:
                 )
             except:
                 self.surface_rate = 0
-        d_dt_geologic += geologic.carbon_add(
-            self.num_tracer,
-            self.num_box,
-            self.surface_rate,
-            "surface",
-            self.mass,
-            self.geologic_d13c,
-        )
+            d_dt_geologic += geologic.carbon_add(
+                self.num_tracer,
+                self.num_box,
+                self.surface_rate,
+                "surface",
+                self.mass,
+                self.geologic_d13c,
+                self.ALK_DIC_ratio
+            )
 
+        else: # forward run
+            if int(time) > 1000:
+                geologic_rates = io.read_all_geologic_rates("data/GoC_rates_all.txt")
+                d_dt_geologic += geologic.carbon_add(
+                    self.num_tracer,
+                    self.num_box,
+                    geologic_rates[int((time-1000)/100),0],
+                    "marchitto",
+                    self.mass,
+                    self.geologic_d13c,
+                    self.ALK_DIC_ratio
+                )
+                d_dt_geologic += geologic.carbon_add(
+                    self.num_tracer,
+                    self.num_box,
+                    geologic_rates[int((time-1000)/100),1],
+                    "subsurface",
+                    self.mass,
+                    self.geologic_d13c,
+                    self.ALK_DIC_ratio
+                )
+                d_dt_geologic += geologic.carbon_add(
+                    self.num_tracer,
+                    self.num_box,
+                    geologic_rates[int((time-1000)/100),2],
+                    "surface",
+                    self.mass,
+                    self.geologic_d13c,
+                    self.ALK_DIC_ratio
+                )
+            
         ### Biological Productivity (Soft Tissue + Carbonate) ###
         d_dt_export, exportP, del_13_c_org, del_14_c_org = product.productivity(
             state_a[:, : self.num_box],
@@ -439,21 +477,19 @@ class GoCModel:
         )
         io.make_plot(self.time, self.output, carb_chem, self.filename)
         # io.make_plot_interp(self.time, self.output)
-        # io.save_rates_GoC_file(self.time, self.output, self.filename)
-        # io.save_file(self.time, self.output, self.filename)
-        io.save_file(self.time, self.output, "control_run")
+        io.save_file(self.time, self.output, self.filename)
+        # io.save_file(self.time, self.output, "control_run")
 
     def make_AGU_plots(self):
         io.make_carbon_rate_plot(self.filename)
-        io.save_file(self.time, self.result.y, self.carbonate_chemistry)
-        io.save_rates_GoC_file(self.time, self.result.y, self.carbonate_chemistry)
+        io.save_file(self.time, self.result.y, self.filename)
 
 
 if __name__ == "__main__":
     # AOM = GoCModel("AOM")
     # AOM.make_AGU_plots()
     # AOM.run_box_model(21000, 211)
-    CO2 = GoCModel("CO2_dissolving_carbonates")
+    CO2 = GoCModel(-2.5, 1, False)
     CO2.run_box_model(21000, 211)
     # methane = GoCModel("biogenic_methane")
     # methane.run_box_model(21000, 211)

@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def carbon_add(num_tracer, num_box, rate, box_name, mass_array,geologic_d13c):
+def carbon_add(num_tracer, num_box, rate, box_name, mass_array, geologic_d13c, ALK_DIC_ratio):
     """geologic carbon addition"""
 
     if box_name == "marchitto":
@@ -17,7 +17,7 @@ def carbon_add(num_tracer, num_box, rate, box_name, mass_array,geologic_d13c):
     # DIC
     d_dt[0, i] = carbon_flux
     # ALK
-    d_dt[1, i] = 1 * carbon_flux
+    d_dt[1, i] = ALK_DIC_ratio * carbon_flux
     # d13C
     d_dt[3, i] = geologic_d13c * carbon_flux
     # D14C

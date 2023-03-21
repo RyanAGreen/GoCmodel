@@ -56,7 +56,10 @@ def save_file(time, tracers, filename):
     )
 
     np.savetxt(
-        r"results/total_GoC_rates.txt", df["total_rate"], fmt="%.2f", delimiter="\t"
+        r"results/total_GoC_rates.txt", df["total_rate"], fmt="%.4f", delimiter="\t"
+    )
+    np.savetxt(
+        r"results/GoC_rates_all.txt", df[["mar_rate_carbon", "goc_sub_rate_carbon", "goc_surf_rate_carbon"]], fmt="%.4f", delimiter="\t"
     )
     np.savetxt(
         "results/optimizedrun_" + str(filename) + ".txt",
@@ -758,6 +761,10 @@ def read_files():
     )
     return fSurf, fSub, fMar
 
+
+def read_all_geologic_rates(file):
+    df = pd.read_csv(file, sep="\t", header=None)
+    return df.values
 
 def plot_rate():
     rate_geologic_carbon_to_marchitto = np.zeros((20000))
