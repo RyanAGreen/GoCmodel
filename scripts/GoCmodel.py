@@ -358,7 +358,7 @@ class GoCModel:
             )
 
         else: # forward run
-            if int(time) > 1000:
+            if int(time) > 1000: # accounting for spin up time
                 geologic_rates = io.read_all_geologic_rates("data/GoC_rates_all.txt")
                 d_dt_geologic += geologic.carbon_add(
                     self.num_tracer,
@@ -471,9 +471,8 @@ class GoCModel:
         pH = carb_chem[3, :, :]
 
         print(
-            "This solver took {:.2f} seconds for a ".format(end - start),
-            tmax,
-            " year simulation.",
+            "This solver (d13C = " + str(self.geologic_d13c) + ", ALK/DIC = " + str(self.ALK_DIC_ratio) +  
+            ") took {:.2f} seconds for a".format(end - start), tmax, "year simulation.",
         )
         io.make_plot(self.time, self.output, carb_chem, self.filename)
         # io.make_plot_interp(self.time, self.output)
@@ -489,8 +488,12 @@ if __name__ == "__main__":
     # AOM = GoCModel("AOM")
     # AOM.make_AGU_plots()
     # AOM.run_box_model(21000, 211)
-    CO2 = GoCModel(-2.5, 1, False)
-    CO2.run_box_model(21000, 211)
+    # CO2 = GoCModel(-2.5, 1, False)
+    # CO2.run_box_model(21000, 211)
     # methane = GoCModel("biogenic_methane")
     # methane.run_box_model(21000, 211)
+
+    for d13C in range(-50, 16):
+        model_instance = GoCModel(d13C, 1, False)
+        model_instance.run_box_model(21000, 211)
 

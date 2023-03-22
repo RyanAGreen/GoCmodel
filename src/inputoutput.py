@@ -59,7 +59,7 @@ def save_file(time, tracers, filename):
         r"results/total_GoC_rates.txt", df["total_rate"], fmt="%.4f", delimiter="\t"
     )
     np.savetxt(
-        r"results/GoC_rates_all.txt", df[["mar_rate_carbon", "goc_sub_rate_carbon", "goc_surf_rate_carbon"]], fmt="%.4f", delimiter="\t"
+        r"data/GoC_rates_all.txt", df[["mar_rate_carbon", "goc_sub_rate_carbon", "goc_surf_rate_carbon"]], fmt="%.4f", delimiter="\t"
     )
     np.savetxt(
         "results/optimizedrun_" + str(filename) + ".txt",
