@@ -16,7 +16,40 @@ def landchange_shade(df):
         if val > 0.0:
             col1.append("red")
     return col1, col2
-
+    
+def organize_CYCLOPS_data(NP,NP_LC,NP_LC_PF,NP_LC_PF_RF,control,control_RC):
+    # feed in data as dataframes
+    experiments = [NP,NP_LC,NP_LC_PF,NP_LC_PF_RF,control,control_RC]
+    names = ["NP", "NP+LC","NP+LC+PF","NP+LC+PF+RC","Control","Control+RC"]
+    
+    for i in range(len(experiments)): 
+        # drop the ones that dont matter
+        experiments[i] = experiments[i].drop([6, 7,8,9,10,11,13,14,15,16,17,18], axis=1)
+        # reorganize 
+        experiments[i] = experiments[i][[0,1,3,2,23,24,25,26,4,5,12,19,20,21,22]]
+        experiments[i] = experiments[i].rename(
+            columns={
+                0: "year_kyrBP",
+                1: "geologic_carbon_rate_PgCyr",
+                2: "alk_to_dic_ratio",
+                3: "geologic_carbon_cumulative_PgC",
+                4: "atmospheric_CO2_ppm",
+                5: "atmospheric_∆14C_permil",
+                12: "intNP_∆14C_permil",
+                19: "deep_atlantic_CO3_umolkg",
+                20: "deep_indian_CO3_umolkg",
+                21: "deep_south_pacific_CO3_umolkg",
+                22: "deep_north_pacific_CO3_umolkg",
+                23: "terrestrial_carbon_uptake_rate_PgCyr",
+                24: "terrestrial_carbon_uptake_cumulative_PgC",
+                25: "terrestrial_carbon_release_rate_PgCyr",
+                26: "terrestrial_carbon_release_cumulative_PgC",
+            }
+        )
+        experiments[i]["year_kyrBP"] = df["year_kyrBP"]/1000
+        experiments[i].to_csv("data/model/"+ names[i] + '.txt', sep='\t', index=False)
+        
+    return 
 
 def decompose(df):
     # set the total amount of each
@@ -27,14 +60,6 @@ def decompose(df):
     df.loc[df["ALKtoDIC"] <= 1, "PgHCO3"] = df["ALKtoDIC"] * (df["Crate"] * 100)
     df.loc[df["ALKtoDIC"] > 1, "PgHCO3"] = (2 - df["ALKtoDIC"]) * (df["Crate"] * 100)
     df.loc[df["ALKtoDIC"] > 1, "PgCO3"] = (df["ALKtoDIC"] - 1) * (df["Crate"] * 100)
-    # set the rate of each
-    # df['PgCO2rate'] = 0
-    # df['PgHCO3rate'] = 0
-    # df['PgCO3rate'] = 0
-    # df.loc[df['ALKtoDIC'] <= 1, 'PgCO2rate'] = (1-df['ALKtoDIC'])*(df['Crate'])
-    # df.loc[df['ALKtoDIC'] <= 1, 'PgHCO3rate'] = df['ALKtoDIC']*(df['Crate'])
-    # df.loc[df['ALKtoDIC'] > 1, 'PgHCO3rate'] = (2-df['ALKtoDIC'])*(df['Crate'])
-    # df.loc[df['ALKtoDIC'] > 1, 'PgCO3rate'] = (df['ALKtoDIC']-1)*(df['Crate'])
     df["PgCO2rate"] = df["PgCO2"] / 100
     df["PgHCO3rate"] = df["PgHCO3"] / 100
     df["PgCO3rate"] = df["PgCO3"] / 100
