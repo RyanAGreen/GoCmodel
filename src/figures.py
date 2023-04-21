@@ -18,9 +18,8 @@ import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 
 obspath = "data/observations/"
-ISpath = "data/ISchange/"
-NoISpath = "data/NoISchange/"
-figurepath = "results/Figures/"
+modelpath = "data/model/"
+figurepath = "results/figures/"
 
 plt.rcParams["font.weight"] = "bold"
 
@@ -34,62 +33,114 @@ def pH_change(d0, d1):
     )
 
 
+color_global_obs = "darkgray"
+color_atlantic = "#0455BF"
+color_indopac = "#88B6F2"
+color_global_model = "black"
+color_marchitto = "#F2A35E"
+color_subsurface = "#01403A"
+color_surface = "#F27E7E"
+
+font_label_size = 12
+
 if "reading in ∆14C, CO2, d13c,d11b, CO3, and OCIM data":
-    Rafter_subsurface = pd.read_excel(
+    # Benthic foram data from the mouth of GoC. Rafter et al. 2018. anomalies observed
+    rafter2018_benthic = pd.read_excel(
         obspath + "prafter-2019-Gulf-CA-Data-for-Ryan.xls"
     )
     # Based on Pats instructions -> we use P.ariminensis and U.peregrina, which appear to be the most consistent.
     # both benthic species
-    Rafter_subsurface = Rafter_subsurface.loc[
-        (Rafter_subsurface["species"] == "U. peregrina")
-        | (Rafter_subsurface["species"] == "Planulina ariminensis")
-        | (Rafter_subsurface["species"] == "U. peregrina ")
+    rafter2018_benthic = rafter2018_benthic.loc[
+        (rafter2018_benthic["species"] == "U. peregrina")
+        | (rafter2018_benthic["species"] == "Planulina ariminensis")
+        | (rafter2018_benthic["species"] == "U. peregrina ")
     ]
-    Rafter_subsurface = Rafter_subsurface.sort_values(by=["calendar age [kyr BP]"])
-    Rafter_subsurface = Rafter_subsurface[["calendar age [kyr BP]", "D14C"]]
-    Rafter_subsurface = Rafter_subsurface.dropna(subset=["D14C"])
-    Rafter_subsurface = (
-        Rafter_subsurface.groupby("calendar age [kyr BP]").mean().reset_index()
+    rafter2018_benthic = rafter2018_benthic.sort_values(by=["calendar age [kyr BP]"])
+    rafter2018_benthic = rafter2018_benthic[["calendar age [kyr BP]", "D14C"]]
+    rafter2018_benthic = rafter2018_benthic.dropna(subset=["D14C"])
+    rafter2018_benthic = (
+        rafter2018_benthic.groupby("calendar age [kyr BP]").mean().reset_index()
     )
-    Rafter_subsurface["calendar age [kyr BP]"] = (
-        1000 * Rafter_subsurface["calendar age [kyr BP]"]
+    rafter2018_benthic["calendar age [kyr BP]"] = (
+        1000 * rafter2018_benthic["calendar age [kyr BP]"]
     )
 
-    # Rafter planktic
-    Rafter_surface = pd.read_csv(obspath + "Rafter_2019.tab", sep="\t", header=24)
-    Rafter_surface.loc[(Rafter_surface["Habitat"] == "planktic")]
-    Rafter_surface["Cal age [ka BP]"] = 1000 * Rafter_surface["Cal age [ka BP]"]
-    Rafter_surface = Rafter_surface.sort_values(by=["Cal age [ka BP]"])
+    # Planktic foram data from the mouth of GoC. Rafter et al. 2018. anomalies observed
+    rafter2018_planktic = pd.read_csv(obspath + "Rafter_2019.tab", sep="\t", header=24)
+    rafter2018_planktic.loc[(rafter2018_planktic["Habitat"] == "planktic")]
+    rafter2018_planktic["Cal age [ka BP]"] = (
+        1000 * rafter2018_planktic["Cal age [ka BP]"]
+    )
+    rafter2018_planktic = rafter2018_planktic.sort_values(by=["Cal age [ka BP]"])
 
-    # CO2 observations EPICA
-    CO2obs = pd.read_csv(obspath + "CO2data1.txt", sep="\t")
-    CO2obs["year"] = CO2obs["year"] / 1000
+    # Reconstructed CO2 observations, compiled in Bereiter et al. 2015
+    bereiter2015_atmCO2 = pd.read_csv(obspath + "CO2data1.txt", sep="\t")
+    bereiter2015_atmCO2["year"] = bereiter2015_atmCO2["year"] / 1000
 
-    # ∆14C observations IntCal
-    d14C = pd.read_csv(obspath + "IntCalSmoothed.txt", header=None)
-    D14C = d14C.rename(columns={0: "year", 3: "D14C"})
-    D14C["year"] = D14C["year"] / 1000
+    # Reconstructed ∆14C observations, IntCal20 Reimer et al. 2020
+    reimer2020_atmD14C = pd.read_csv(obspath + "IntCalSmoothed.txt", header=None)
+    reimer2020_atmD14C = reimer2020_atmD14C.rename(columns={0: "year", 3: "D14C"})
+    reimer2020_atmD14C["year"] = reimer2020_atmD14C["year"] / 1000
 
-    # Chen ∆14C
+    # Deep sea coral ∆14C data from 627 depth near Galapagos, Chen et al. 2020. No anomalies observed
     chen = pd.read_csv(obspath + "Chen2020.txt", sep="\t", header=0, skiprows=110)
-    Chen = chen[chen["water.depth"] == 627]
+    chen2020_coral = chen[chen["water.depth"] == 627]
 
-    # Marchitto ∆14C
-    Mar = pd.read_csv(obspath + "Marchitto.txt", sep="\s+")
-    Mar["Cal.Age"] = 1000 * Mar["Cal.Age"]
+    # Benthic foram data from the coast of Baja California. Marchitto et al. 2007. Anomalies observed
+    marchitto2007_benthic = pd.read_csv(obspath + "Marchitto.txt", sep="\s+")
+    marchitto2007_benthic["Cal.Age"] = 1000 * marchitto2007_benthic["Cal.Age"]
 
-    # Stott ∆14C
-    Stott = chen[chen["water.depth"] == 617]
-    Stott = Stott[Stott["ref."] == "Stott et al. (2009)"]
+    # Benthic foram ∆14C data from 617 depth near Galapagos. large anomalies observed
+    stott2009_benthic = chen[chen["water.depth"] == 617]
+    stott2009_benthic = stott2009_benthic[
+        stott2009_benthic["ref."] == "Stott et al. (2009)"
+    ]
 
-    # Rafter ∆14C compilation
-    Rafter_compilation = pd.read_csv(obspath + "csv-D14Cbin_500bin_Pacific_mid.csv")
-    t = Rafter_compilation.int_age / 1000
-    m = Rafter_compilation.loess_fit
-    s = Rafter_compilation.loess_se
+    # ∆14C compilation from Rafter et al. 2022
+    rafter2022_14Ccompilation = pd.read_csv(
+        obspath + "prafter-2022-Global-D14C-Comp-FIN.csv"
+    )
+    rafter2022_deeppac = rafter2022_14Ccompilation.loc[
+        (
+            rafter2022_14Ccompilation[
+                "Ocean basin and water mass (along density surfaces; see text)"
+            ]
+            == "PACIFIC BOTTOM"
+        )
+    ]
+
+    rafter2022_midpac = rafter2022_14Ccompilation.loc[
+        (
+            rafter2022_14Ccompilation[
+                "Ocean basin and water mass (along density surfaces; see text)"
+            ]
+            == "PACIFIC MID"
+        )
+    ]
+
+    rafter2022_time = rafter2022_deeppac["calendar age bin (years BP)"] / 1000
+    mean_deep = rafter2022_deeppac["loess_fit"]
+    upr68_deep = rafter2022_deeppac["loess_upr68"]
+    lwr68_deep = rafter2022_deeppac["loess_lwr68"]
+    upr95_deep = rafter2022_deeppac["loess_upr95"]
+    lwr95_deep = rafter2022_deeppac["loess_lwr95"]
+
+    mean_mid = rafter2022_midpac["loess_fit"]
+    upr68_mid = rafter2022_midpac["loess_upr68"]
+    lwr68_mid = rafter2022_midpac["loess_lwr68"]
+    upr95_mid = rafter2022_midpac["loess_upr95"]
+    lwr95_mid = rafter2022_midpac["loess_lwr95"]
 
     # Order -> 4 anoamlies (don't behave), then 2 parallel records (behave)
-    GoCobs = [Mar, Stott, Rafter_surface, Rafter_subsurface, Chen, Rafter_compilation]
+    GoCobs = [
+        marchitto2007_benthic,
+        stott2009_benthic,
+        rafter2018_planktic,
+        rafter2018_benthic,
+        chen2020_coral,
+        rafter2022_midpac,
+        rafter2022_deeppac,
+    ]
 
     # make sure the columns are named the same thing
     GoCobs[0] = GoCobs[0].rename(columns={"Cal.Age": "year", "D14C": "D14CintNP",})
@@ -105,36 +156,49 @@ if "reading in ∆14C, CO2, d13c,d11b, CO3, and OCIM data":
     GoCobs[4] = GoCobs[4].rename(
         columns={"cal.age": "year", "benthic.D14C": "D14CintNP"}
     )
-    GoCobs[5] = GoCobs[5].rename(columns={"int_age": "year", "loess_fit": "D14CintNP"})
+    GoCobs[5] = GoCobs[5].rename(
+        columns={"calendar age bin (years BP)": "year", "loess_fit": "D14CintNP",}
+    )
+    GoCobs[6] = GoCobs[6].rename(
+        columns={"calendar age bin (years BP)": "year", "loess_fit": "D14CintNP",}
+    )
 
-    for i in range(6):
+    for i in range(7):
         GoCobs[i] = GoCobs[i][GoCobs[i]["year"] < 20000]
         GoCobs[i]["year"] = GoCobs[i]["year"] / 1000
 
     Anomalies = [GoCobs[0], GoCobs[1], GoCobs[2], GoCobs[3]]
 
-    # d13C observations
-    d13C_obs = pd.read_excel(obspath + "d13C_GoC_benthic_LPAZ21P.xlsx")
-    d13C_obs = d13C_obs.sort_values(by=["cal.age"])
+    # d13C data from benthic forams in the GoC. unpublished
+    d13C_benthic_GoC = pd.read_excel(obspath + "d13C_GoC_benthic_LPAZ21P_averaged.xlsx")
+    d13C_benthic_GoC = d13C_benthic_GoC.sort_values(by=["cal.age"])
 
-    # d11B pH change data
-    d11B_obs = pd.read_excel("data/observations/prafter-2022-12-21-LPAZ21P-d11B.xlsx")
+    # d11B data from benthic forams in the GoC. unpublished
+    d11B_benthic_GoC = pd.read_excel(
+        "data/observations/prafter-2022-12-21-LPAZ21P-d11B.xlsx"
+    )
     # Constants
     dSW = 39.61  # delta of modern SW, per mille
     alpha = 1.0272  # from Hain et al 2018
     epsilon = 27.2  # from Hain et al 2018 per mille
     delta_pKb = 0  # from Hain et al 2018, assume no change in pkb
-    d0 = d11B_obs["d11B"].iloc[10]  # starting around 20 kyr BP
+    d0 = d11B_benthic_GoC["d11B"].iloc[10]  # starting around 20 kyr BP
     pH_changes_obs = []
     for i in range(11):
-        pH_changes_obs.append(pH_change(d0, d11B_obs["d11B"].iloc[i]))
+        pH_changes_obs.append(pH_change(d0, d11B_benthic_GoC["d11B"].iloc[i]))
 
-    # CO3 observational data
+    # read in CO3 observational data
     indian_obs = pd.read_table(
         obspath + "WIND28K_Yuetal2010.txt", sep="\t", header=None
     )
     indian_obs = indian_obs.drop(labels=0, axis=1)
     indian_obs = indian_obs.rename(columns={1: "time", 2: "CO3"})
+
+    centralpac = pd.read_table(
+        obspath + "TTNO13PC61_Yuetal2013.txt", sep="\t", skiprows=3
+    )
+    southatl = pd.read_table(obspath + "TNO57-21_Yuetal2014.txt", sep="\t", skiprows=2)
+
     atlantic_obs = pd.read_table(
         obspath + "BOFS8K_Yuetal2008.txt", sep="\t", header=None
     )
@@ -145,34 +209,32 @@ if "reading in ∆14C, CO2, d13c,d11b, CO3, and OCIM data":
     )
     pacific_obs = pacific_obs.rename(columns={3: "time", 13: "CO3"})
 
-    # OCIM
-    OCIM = pd.read_csv(obspath + "14C-Pac-OCIM-North-and-ETNP.csv", skiprows=1)
-    OCIM["cal.age"] = OCIM["cal.age"] / 1000
-
 if "reading in CYCLOPS and GoC output":
-    # read in CYCLOPS data
-    control = pd.read_table(
-        NoISpath + "ForwardRun/ControlRun.txt", header=None, sep="\s+"
-    )
-    control = f.organizedata(control)
-    IScontrol = pd.read_table(
-        ISpath + "ForwardRun/ControlRun.txt", header=None, sep="\s+"
-    )
-    IScontrol = f.organizedata(IScontrol)
-    ex4 = pd.read_table(
-        ISpath + "2Dinversion/Powell2Dinversion.txt", header=None, sep="\s+"
-    )
-
-    ex4 = f.organizedata(ex4)
+    # load in CYCLOPS data
+    # need to fix these names when we run the simulation in a coupled run
+    control = pd.read_table(modelpath + "Control.txt", sep="\s+")
+    control_RC = pd.read_table(modelpath + "Control+RC.txt", sep="\s+")
+    NP = pd.read_table(modelpath + "NP.txt", sep="\s+")
+    NP_LC = pd.read_table(modelpath + "NP+LC.txt", sep="\s+")
+    NP_LC_PF = pd.read_table(modelpath + "NP+LC+PF.txt", sep="\s+")
+    NP_LC_PF_RC = pd.read_table(modelpath + "NP+LC+PF+RC.txt", sep="\s+")
 
     # read in GoC data
     GoC = pd.read_table(
         "results/optimizedrun_CO2carbonate_source.txt", header=None, sep="\s+"
     )
     GoC = f.organizedata_goc(GoC)
+    GoC_d13C_neg5 = pd.read_table(
+        "results/optimizedrun_d13c--5_ALK_DIC-1_forward_run.txt", header=None, sep="\s+"
+    )
+    GoC_d13C_neg5 = f.organizedata_goc(GoC_d13C_neg5)
+    GoC_d13C_neg0 = pd.read_table(
+        "results/optimizedrun_d13c-0_ALK_DIC-1_forward_run.txt", header=None, sep="\s+"
+    )
+    GoC_d13C_neg0 = f.organizedata_goc(GoC_d13C_neg0)
 
 
-def Figure1():
+def Figure1_anomalies():
 
     """plotting ∆14C anomalies from ETNP"""
 
@@ -242,18 +304,17 @@ def Figure1():
         lw=4,
         zorder=0,
     )
-    ax.fill_between(t, m - s, m + s, color="teal", alpha=0.5)
+    ax.fill_between(rafter2022_time, lwr95_mid, upr95_mid, color="teal", alpha=0.5)
     # atmospheric observations
     ax.plot(
-        D14C.year,
-        D14C.D14C,
+        reimer2020_atmD14C.year,
+        reimer2020_atmD14C.D14C,
         color="darkgray",
         ls="-",
         label="Atmospheric observations",
         lw=4,
         zorder=0,
     )
-
     ax.legend(
         loc="lower left", fontsize=10, ncol=1, frameon=False
     )  # , bbox_to_anchor=(1, 0.96)
@@ -270,7 +331,144 @@ def Figure1():
     return
 
 
-def Figure3():
+def Figure3_modelresults():
+    """This figure shows the model results (∆14C or carbon rate?) for each box"""
+
+    fig, ax = plt.subplots(3, figsize=(8, 11), sharex=True)
+    ax0 = ax[0].twinx()
+    ax1 = ax[1].twinx()
+    ax2 = ax[2].twinx()
+
+    # designing plot
+    for i in range(3):
+        for axis in ["top", "bottom", "left", "right"]:
+            ax[i].spines[axis].set_linewidth(3.5)
+        ax[i].tick_params(axis="y", labelsize="large")
+        ax[i].tick_params(axis="x", labelsize="large")
+        ax[i].tick_params(bottom=True, top=True, left=True, right=False)
+        ax[i].tick_params(
+            labelbottom=False, labeltop=False, labelleft=True, labelright=False
+        )
+        ax[i].tick_params(axis="both", direction="in", length=7, width=3, color="black")
+        ax[i].set_ylim(-450, 350)
+        # ax[i].grid()
+    # ax[2].set_title("Gulf of California surface box", fontweight="bold", fontsize=10)
+    # ax[1].set_title("Gulf of California subsurface box", fontweight="bold", fontsize=10)
+    # ax[0].set_title("Marchitto box", fontweight="bold", fontsize=10)
+    ax[2].set_xlabel("Calendar age [kyr BP]", fontweight="bold", fontsize=10)
+    ax[2].set_xlim(0, 20)
+    # plotting data
+    # surface box
+    ax[2].plot(
+        GoC.year, GoC.D14C_surf, linestyle="solid", color=color_surface, lw=4,
+    )
+    ax[2].plot(
+        rafter2018_planktic["Cal age [ka BP]"] / 1000,
+        rafter2018_planktic["Δ14C [‰]"],
+        marker="^",
+        markeredgecolor="k",
+        markerfacecolor="white",
+        linestyle="dashed",
+        color=color_surface,
+        label="Rafter et al. 2019-GoC surface",
+        markersize=6,
+        lw=2,
+    )
+
+    # subsurface box
+    ax[1].plot(
+        GoC.year, GoC.D14C_sub, linestyle="solid", color=color_subsurface, lw=4,
+    )
+    ax[1].plot(
+        rafter2018_benthic["calendar age [kyr BP]"] / 1000,
+        rafter2018_benthic["D14C"],
+        marker="s",
+        markeredgecolor="k",
+        markerfacecolor="white",
+        linestyle="dashed",
+        color=color_subsurface,
+        label="Rafter et al. 2019-benthic",
+        markersize=6,
+        lw=2,
+    )
+
+    # Marchitto Box
+    ax[0].plot(
+        GoC.year, GoC.D14C_mar, linestyle="solid", color=color_marchitto, lw=4,
+    )
+    ax[0].plot(
+        marchitto2007_benthic["Cal.Age"] / 1000,
+        marchitto2007_benthic["D14C"],
+        marker="o",
+        markeredgecolor="k",
+        markerfacecolor="white",
+        linestyle="dashed",
+        color=color_marchitto,
+        label="Marchitto et al. 2007-benthic",
+        markersize=6,
+        lw=2,
+    )
+
+    # release rates
+    ax0.plot(GoC.year, GoC.Crate_mar, color=color_marchitto, alpha=0.8, zorder=0)
+    ax0.bar(
+        GoC.year, GoC.Crate_mar, width=0.1, alpha=0.4, color=color_marchitto, zorder=0
+    )
+    ax1.plot(GoC.year, GoC.Crate_sub, color=color_subsurface, alpha=0.8, zorder=1)
+    ax1.bar(
+        GoC.year, GoC.Crate_sub, width=0.1, alpha=0.4, color=color_subsurface, zorder=1
+    )
+    ax2.plot(GoC.year, GoC.Crate_surf, color=color_surface, alpha=0.8, zorder=2)
+    ax2.bar(
+        GoC.year, GoC.Crate_surf, width=0.1, alpha=0.4, color=color_surface, zorder=2
+    )
+
+    carbon_added = [
+        str(round(GoC.Ccum_mar[200])),
+        str(round(GoC.Ccum_sub[200])),
+        str(round(GoC.Ccum_surf[200])),
+    ]
+    colors = [color_marchitto, color_subsurface, color_surface]
+    names = ["Marchitto box", "GoC subsurface", "GoC surface"]
+    for i in range(3):
+        ax[i].text(
+            2.51,
+            75,
+            names[i] + "\n    " + carbon_added[i] + " [PgC]",
+            fontsize=10,
+            fontweight="bold",
+            color=colors[i],
+        )
+
+    # set up common y label
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axis
+    plt.tick_params(
+        labelcolor="none",
+        which="both",
+        top=False,
+        bottom=False,
+        left=False,
+        right=False,
+    )
+    plt.ylabel("∆$^{14}$C [‰]", fontweight="bold", fontsize=10, labelpad=15)
+    yaxis = plt.twinx()
+    twinaxes = [yaxis, ax0, ax1, ax2]
+    for i in range(len(twinaxes)):
+        twinaxes[i].tick_params(bottom=False, top=False, left=False, right=True)
+        twinaxes[i].tick_params(
+            labelbottom=False, labeltop=False, labelleft=False, labelright=True
+        )
+        twinaxes[i].tick_params(
+            axis="both", direction="in", length=7, width=3, color="black"
+        )
+
+    yaxis.set_ylabel("Release rate", fontsize=10, fontweight="bold")
+    # plt.show()
+    plt.savefig(figurepath + "Figure3_modelresults.pdf", bbox_inches="tight")
+
+
+def Figure4_modelvsobs():
     """
     plotting global and regional results against observations
     atmospheric CO2, ∆14C, deep ocean [CO3], regional pH, regional ∆14C, rate of carbon additon?
@@ -308,8 +506,8 @@ def Figure3():
 
     # observations
     ax[0].plot(
-        CO2obs.year,
-        CO2obs.CO2,
+        bereiter2015_atmCO2.year,
+        bereiter2015_atmCO2.CO2,
         color=color_global_obs,
         marker="o",
         markersize=1,
@@ -318,10 +516,20 @@ def Figure3():
         zorder=0,
     )
     ax[0].plot(
-        CO2obs.year, CO2obs.CO2, color=color_global_obs, ls=":", lw=2, zorder=0,
+        bereiter2015_atmCO2.year,
+        bereiter2015_atmCO2.CO2,
+        color=color_global_obs,
+        ls=":",
+        lw=2,
+        zorder=0,
     )
     # models
-    ax[0].plot(ex4.year, ex4.CO2, color=color_global_model, lw=2)
+    ax[0].plot(
+        NP_LC_PF_RC.year_kyrBP,
+        NP_LC_PF_RC.atmospheric_CO2_ppm,
+        color=color_global_model,
+        lw=2,
+    )
     # labels
     ax[0].set_ylabel(
         "CO$_{2}$$^{atm}$ (ppm)", fontsize=font_label_size, fontweight="bold"
@@ -341,10 +549,20 @@ def Figure3():
     #     zorder=0,
     # )
     ax[1].plot(
-        D14C.year, D14C.D14C, color=color_global_obs, ls=":", lw=2, zorder=0,
+        reimer2020_atmD14C.year,
+        reimer2020_atmD14C.D14C,
+        color=color_global_obs,
+        ls=":",
+        lw=2,
+        zorder=0,
     )
     # models
-    ax[1].plot(ex4.year, ex4.D14C, color=color_global_model, lw=2)
+    ax[1].plot(
+        NP_LC_PF_RC.year_kyrBP,
+        NP_LC_PF_RC["atmospheric_∆14C_permil"],
+        color=color_global_model,
+        lw=2,
+    )
     # labels
     ax[1].set_ylabel(
         "∆$^{14}$C$^{atm}$ (‰)", fontsize=font_label_size, fontweight="bold"
@@ -354,8 +572,8 @@ def Figure3():
 
     # models
     ax[2].plot(
-        ex4.year,
-        ex4.AtlCO3,
+        NP_LC_PF_RC.year_kyrBP,
+        NP_LC_PF_RC.deep_atlantic_CO3_umolkg,
         color=color_atlantic,
         alpha=1,
         linestyle="-",
@@ -363,8 +581,13 @@ def Figure3():
         label="Atlantic",
     )
     ax[2].plot(
-        ex4.year,
-        (ex4.NPacCO3 + ex4.SPacCO3 + ex4.IndCO3) / 3,
+        NP_LC_PF_RC.year_kyrBP,
+        (
+            NP_LC_PF_RC.deep_north_pacific_CO3_umolkg
+            + NP_LC_PF_RC.deep_south_pacific_CO3_umolkg
+            + NP_LC_PF_RC.deep_indian_CO3_umolkg
+        )
+        / 3,
         color=color_indopac,
         linestyle="-",
         lw=2,
@@ -425,7 +648,7 @@ def Figure3():
         label="subsurface pH",
     )
     ax[3].plot(
-        d11B_obs["cal.age.kyr"].iloc[:11],
+        d11B_benthic_GoC["cal.age.kyr"].iloc[:11],
         pH_changes_obs,
         ls=":",
         lw=1,
@@ -705,7 +928,7 @@ def Figure3():
     return
 
 
-def Figure4():
+def Figure5_d13C():
     """plotting d13C model output vs observations"""
     fig, ax = plt.subplots(1)
 
@@ -716,40 +939,101 @@ def Figure4():
     ax.tick_params(axis="x", labelsize="large")
     # ax[0].set_yticklabels([])
 
-    ax.set_ylabel("∆$\delta^{13}$C (‰)", fontsize=20, fontweight="bold")
-    ax.set_xlabel("Calendar age (kyr BP)", fontsize=20, fontweight="bold")
+    ax.set_ylabel("$\delta^{13}$C change since LGM (‰)", fontsize=13, fontweight="bold")
+    ax.set_xlabel("Calendar age (kyr BP)", fontsize=13, fontweight="bold")
     ax.set_xlim((0, 20))
 
     # ax.plot(
     #     GoC.year, GoC.d13C_mar - GoC.d13C_mar[0], ls="-", lw=4, zorder=0,
     # )
     ax.plot(
-        GoC.year, GoC.d13C_sub - GoC.d13C_sub[0], ls="-", lw=4, zorder=0,
+        GoC.year,
+        GoC.d13C_sub - GoC.d13C_sub[0],
+        ls="-",
+        color=color_subsurface,
+        lw=4,
+        zorder=0,
     )
+    ax.plot(
+        GoC_d13C_neg5.year,
+        GoC_d13C_neg5.d13C_sub - GoC_d13C_neg5.d13C_sub[0],
+        ls="-",
+        color=color_subsurface,
+        alpha=0.35,
+        lw=4,
+        zorder=0,
+    )
+    ax.plot(
+        GoC_d13C_neg0.year,
+        GoC_d13C_neg0.d13C_sub - GoC_d13C_neg0.d13C_sub[0],
+        ls="-",
+        color=color_subsurface,
+        alpha=0.35,
+        lw=4,
+        zorder=0,
+    )
+
     # ax.plot(
     #     GoC.year, GoC.d13C_surf - GoC.d13C_surf[0], ls="-", lw=4, zorder=0,
     # )
     ax.plot(
-        d13C_obs["cal.age"],
-        d13C_obs["δ¹³C (‰, VPDB)"] - d13C_obs["δ¹³C (‰, VPDB)"][14],
+        d13C_benthic_GoC["cal.age"],
+        d13C_benthic_GoC["δ¹³C (‰, VPDB)"] - d13C_benthic_GoC["δ¹³C (‰, VPDB)"][14],
         marker="s",
         markeredgecolor="k",
         markerfacecolor="white",
         linestyle="dashed",
-        color="#B57114",
+        color=color_subsurface,
         label="benthic d13C data",
     )
 
     # ax.legend(
     #     loc="lower left", fontsize=10, ncol=1, frameon=False
     # )  # , bbox_to_anchor=(1, 0.96)
+    ax.text(
+        2.25,
+        -0.8,
+        "sedimentary carbonate \n dissolution δ¹³C = -2.5‰",
+        fontsize=10,
+        fontweight="bold",
+        color=color_subsurface,
+    )
+
+    ax.text(
+        15,
+        -1.5,
+        "δ¹³C = -5‰",
+        fontsize=10,
+        alpha=0.35,
+        fontweight="bold",
+        color=color_subsurface,
+    )
+    ax.text(
+        7,
+        -0.12,
+        "δ¹³C = 0‰",
+        fontsize=10,
+        alpha=0.35,
+        fontweight="bold",
+        color=color_subsurface,
+    )
 
     ax.tick_params(bottom=True, top=True, left=True, right=True)
     ax.tick_params(axis="both", direction="in", length=7, width=3, color="black")
 
     ax.set_xlim(0, 20)
 
-    plt.savefig(
-        "/home/rygreen/GoCmodel/results/Figures/Figure4.png", bbox_inches="tight"
-    )
+    plt.savefig(figurepath + "Figure5_d13C.pdf", bbox_inches="tight")
     return
+
+
+def presentation_fig_anomalies():
+    """this introduces the anomalies for a presentation"""
+
+
+def presentation_fig_atmrecords():
+    """"this figure shows atmospheric ∆14C and CO2"""
+
+
+def presentation_fig_methods():
+    """this figure progressively goes through the anomalies, how they are interpolated, and how the model simulates the anomalies"""

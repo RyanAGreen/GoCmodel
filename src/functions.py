@@ -46,7 +46,7 @@ def organize_CYCLOPS_data(NP,NP_LC,NP_LC_PF,NP_LC_PF_RF,control,control_RC):
                 26: "terrestrial_carbon_release_cumulative_PgC",
             }
         )
-        experiments[i]["year_kyrBP"] = df["year_kyrBP"]/1000
+        experiments[i]["year_kyrBP"] = experiments[i]["year_kyrBP"]/1000
         experiments[i].to_csv("data/model/"+ names[i] + '.txt', sep='\t', index=False)
         
     return 

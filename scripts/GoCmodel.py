@@ -452,9 +452,9 @@ class GoCModel:
 
 
 if __name__ == "__main__":
-    fig.Figure1()
-    fig.Figure3()
-    fig.Figure4()
+    fig.Figure3_modelresults()
+    fig.Figure5_d13C()
+    # fig.Figure4()
 
     # AOM = GoCModel("AOM")
     # AOM.make_AGU_plots()
