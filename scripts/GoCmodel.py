@@ -27,7 +27,6 @@ class GoCModel:
     Intermediate depth and North Pacific Surface"""
 
     def __init__(self, geologic_d13c_source):
-
         self.num_box = 3
         self.num_bc = 2
         self.num_tracer = 6
@@ -117,7 +116,13 @@ class GoCModel:
         )
 
         svedrup_matrix = circulation.circ(
-            self.num_box, self.num_bc, 0.45, 0.03, 0.03, 0.03, 0.03,
+            self.num_box,
+            self.num_bc,
+            0.45,
+            0.03,
+            0.03,
+            0.03,
+            0.03,
         )
         self.transport_matrix = circulation.make_transport_matrix(
             self.num_box, self.num_bc, svedrup_matrix, self.mass
@@ -213,7 +218,12 @@ class GoCModel:
 
         # adds the boundary condition (column index of [:,4] and [:,5])
         # -> (6,5)
-        state_a = np.hstack((state_v_reshaped, self.boundary_condition,))
+        state_a = np.hstack(
+            (
+                state_v_reshaped,
+                self.boundary_condition,
+            )
+        )
         # clearing cumulative carbon tracer so that it is not affected
         # by circulation matrix mutiplication
         state_a[5, 0] = 0
@@ -452,8 +462,9 @@ class GoCModel:
 
 
 if __name__ == "__main__":
-    fig.Figure3_modelresults()
     fig.Figure5_d13C()
+    # fig.presentation_fig_anomalies()
+    # fig.Figure5_d13C()
     # fig.Figure4()
 
     # AOM = GoCModel("AOM")
@@ -463,4 +474,3 @@ if __name__ == "__main__":
     # CO2.run_box_model(21000, 211)
     # methane = GoCModel("biogenic_methane")
     # methane.run_box_model(21000, 211)
-
