@@ -323,6 +323,125 @@ if "reading in CYCLOPS and GoC output":
     )
     GoC_d13C_neg0 = f.organizedata_goc(GoC_d13C_neg0)
 
+    # reading in model data for the discussion figure
+    NP_LC_PF_RC_forward_NP_HCO3 = pd.read_table(
+        modelpath + "NP+LC+PF+RC+forward+NP+HCO3.txt", sep="\s+"
+    )
+    NP_LC_PF_RC_forward_marchitto_HCO3 = pd.read_table(
+        modelpath + "NP+LC+PF+RC+forward+marchitto+HCO3.txt", sep="\s+"
+    )
+    NP_LC_PF_RC_forward_GoCsub_HCO3 = pd.read_table(
+        modelpath + "NP+LC+PF+RC+forward+gocsub+HCO3.txt", sep="\s+"
+    )
+    NP_LC_PF_RC_forward_NP_CO2 = pd.read_table(
+        modelpath + "NP+LC+PF+RC+forward+NP+CO2.txt", sep="\s+"
+    )
+    NP_LC_PF_RC_forward_marchitto_CO2 = pd.read_table(
+        modelpath + "NP+LC+PF+RC+forward+marchitto+CO2.txt", sep="\s+"
+    )
+    NP_LC_PF_RC_forward_GoCsub_CO2 = pd.read_table(
+        modelpath + "NP+LC+PF+RC+forward+gocsub+CO2+CO2.txt", sep="\s+"
+    )
+
+    GoC_forward_NP_HCO3 = pd.read_table(
+        "results/optimizedrun_CO2carbonate_source.txt", header=None, sep="\s+"
+    )
+    GoC_forward_NP_HCO3 = f.organizedata_goc(GoC_forward_NP_HCO3)
+    GoC_forward_marchitto_HCO3 = pd.read_table(
+        "results/optimizedrun_CO2carbonate_source.txt", header=None, sep="\s+"
+    )
+    GoC_forward_GoC_forward_marchitto_HCO3 = f.organizedata_goc(
+        GoC_forward_marchitto_HCO3
+    )
+    GoC_forward_GoCsub_HCO3 = pd.read_table(
+        "results/optimizedrun_CO2carbonate_source.txt", header=None, sep="\s+"
+    )
+    GoC_forward_GoCsub_HCO3 = f.organizedata_goc(GoC_forward_GoCsub_HCO3)
+
+    GoC_forward_NP_CO2 = pd.read_table(
+        "results/optimizedrun_CO2carbonate_source.txt", header=None, sep="\s+"
+    )
+    GoC_forward_NP_CO2 = f.organizedata_goc(GoC_forward_NP_CO2)
+    GoC_forward_marchitto_CO2 = pd.read_table(
+        "results/optimizedrun_CO2carbonate_source.txt", header=None, sep="\s+"
+    )
+    GoC_forward_GoC_forward_marchitto_CO2 = f.organizedata_goc(
+        GoC_forward_marchitto_CO2
+    )
+    GoC_forward_GoCsub_CO2 = pd.read_table(
+        "results/optimizedrun_CO2carbonate_source.txt", header=None, sep="\s+"
+    )
+    GoC_forward_GoCsub_CO2 = f.organizedata_goc(GoC_forward_GoCsub_CO2)
+
+    # making indo pacific CO3
+    NP_LC_PF_RC_forward_NP_HCO3[
+        "deep_indo_pacific_CO3_umolkg"
+    ] = NP_LC_PF_RC_forward_NP_HCO3[
+        [
+            "deep_north_pacific_CO3_umolkg",
+            "deep_south_pacific_CO3_umolkg",
+            "deep_indian_CO3_umolkg",
+        ]
+    ].mean(
+        axis=1
+    )
+    NP_LC_PF_RC_forward_marchitto_HCO3[
+        "deep_indo_pacific_CO3_umolkg"
+    ] = NP_LC_PF_RC_forward_marchitto_HCO3[
+        [
+            "deep_north_pacific_CO3_umolkg",
+            "deep_south_pacific_CO3_umolkg",
+            "deep_indian_CO3_umolkg",
+        ]
+    ].mean(
+        axis=1
+    )
+    NP_LC_PF_RC_forward_GoCsub_HCO3[
+        "deep_indo_pacific_CO3_umolkg"
+    ] = NP_LC_PF_RC_forward_GoCsub_HCO3[
+        [
+            "deep_north_pacific_CO3_umolkg",
+            "deep_south_pacific_CO3_umolkg",
+            "deep_indian_CO3_umolkg",
+        ]
+    ].mean(
+        axis=1
+    )
+
+    NP_LC_PF_RC_forward_NP_CO2[
+        "deep_indo_pacific_CO3_umolkg"
+    ] = NP_LC_PF_RC_forward_NP_CO2[
+        [
+            "deep_north_pacific_CO3_umolkg",
+            "deep_south_pacific_CO3_umolkg",
+            "deep_indian_CO3_umolkg",
+        ]
+    ].mean(
+        axis=1
+    )
+    NP_LC_PF_RC_forward_marchitto_CO2[
+        "deep_indo_pacific_CO3_umolkg"
+    ] = NP_LC_PF_RC_forward_marchitto_CO2[
+        [
+            "deep_north_pacific_CO3_umolkg",
+            "deep_south_pacific_CO3_umolkg",
+            "deep_indian_CO3_umolkg",
+        ]
+    ].mean(
+        axis=1
+    )
+    NP_LC_PF_RC_forward_GoCsub_CO2[
+        "deep_indo_pacific_CO3_umolkg"
+    ] = NP_LC_PF_RC_forward_GoCsub_CO2[
+        [
+            "deep_north_pacific_CO3_umolkg",
+            "deep_south_pacific_CO3_umolkg",
+            "deep_indian_CO3_umolkg",
+        ]
+    ].mean(
+        axis=1
+    )
+
 
 def Figure1_anomalies():
     """plotting ∆14C anomalies from ETNP"""
@@ -430,10 +549,8 @@ def Figure3_modelresults():
 
     # designing plot
     for i in range(3):
-        for axis in ["top", "bottom", "left", "right"]:
-            ax[i].spines[axis].set_linewidth(3.5)
-        ax[i].tick_params(axis="y", labelsize="large")
-        ax[i].tick_params(axis="x", labelsize="large")
+        # for axis in ["top", "bottom", "left", "right"]:
+        #     ax[i].spines[axis].set_linewidth(3.5)
         ax[i].tick_params(bottom=True, top=True, left=True, right=False)
         ax[i].tick_params(
             labelbottom=False, labeltop=False, labelleft=True, labelright=False
@@ -605,8 +722,7 @@ def Figure4_modelvsobs():
         # thickening axis
         for axis in ["top", "left", "right", "bottom"]:
             ax[i].spines[axis].set_linewidth(3)
-        ax[i].tick_params(axis="y", labelsize="large")
-        ax[i].tick_params(axis="x", labelsize="large")
+
         ax[i].axvspan(11.6, 12.9, alpha=0.4, color="darkgray", zorder=0)
         ax[i].axvspan(14.5, 18, alpha=0.4, color="darkgray", zorder=0)
         ax[i].tick_params(bottom=True, top=True, left=True, right=True)
@@ -1146,6 +1262,145 @@ def Figure5_d13C():
 
     plt.savefig(figurepath + "Figure5_d13C.pdf", bbox_inches="tight")
     return
+
+
+def Figure6_discussion():
+    """
+    this figure will show two rows (one bicarbonate and one CO2 addition)
+    and three columns (North Pacific intermediate box from CYCLOPS,
+    Marchitto Box, GoC subsurface box). The columns show where the carbon
+    was added and what the ∆14C is, but the row shows what type of carbon
+    """
+    fig, ax = plt.subplots(2, 3, sharex="col", sharey="row")
+    ax = ax.flatten()
+    for i in range(6):
+        ax[i].tick_params(bottom=True, top=True, left=True, right=True)
+    for i in range(3, 6):
+        # ax[i].set_xlabel("Calendar age (kyr BP)")
+        ax[i].set_xlim(10, 20)
+
+    # plotting ∆14C
+
+    # North Pacific ∆14C. HCO3 added to North Pacific
+    ax[0].plot(
+        NP_LC_PF_RC_forward_NP_HCO3["year_kyrBP"],
+        NP_LC_PF_RC_forward_NP_HCO3["intNP_∆14C_permil"],
+        lw=2,
+        color=color_marchitto,
+    )
+    # Marchitto ∆14C. HCO3 added to Marchitto Box
+    ax[1].plot(
+        GoC_forward_marchitto_HCO3.year,
+        GoC_forward_marchitto_HCO3.D14C_mar,
+        lw=2,
+        color=color_subsurface,
+    )
+    # GoC subsurface ∆14C. HCO3 added to GoC subsurface
+    ax[2].plot(
+        GoC_forward_GoCsub_HCO3.year,
+        GoC_forward_GoCsub_HCO3.D14C_sub,
+        lw=2,
+        color=color_surface,
+    )
+    # North Pacific ∆14C. CO2 added to North Pacific
+    ax[3].plot(
+        NP_LC_PF_RC_forward_NP_CO2["year_kyrBP"],
+        NP_LC_PF_RC_forward_NP_CO2["intNP_∆14C_permil"],
+        lw=2,
+        color=color_marchitto,
+    )
+    # Marchitto ∆14C. CO2 added to Marchitto Box
+    ax[4].plot(
+        GoC_forward_marchitto_CO2.year,
+        GoC_forward_marchitto_CO2.D14C_mar,
+        lw=2,
+        color=color_subsurface,
+    )
+    # GoC subsurface ∆14C. CO2 added to GoC subsurface
+    ax[5].plot(
+        GoC_forward_GoCsub_CO2.year,
+        GoC_forward_GoCsub_CO2.D14C_sub,
+        lw=2,
+        color=color_surface,
+    )
+
+    # plotting atmospheric CO2 (always going to come from CYCLOPS)
+
+    # atmospheric CO2. HCO3 added to North Pacific
+    ax[0].plot(
+        NP_LC_PF_RC_forward_NP_HCO3.year_kyrBP,
+        NP_LC_PF_RC_forward_NP_HCO3.atmospheric_CO2_ppm,
+        lw=2,
+    )
+    # atmospheric CO2. HCO3 added to Marchitto Box
+    ax[0].plot(
+        NP_LC_PF_RC_forward_marchitto_HCO3.year_kyrBP,
+        NP_LC_PF_RC_forward_GoCsub_HCO3.atmospheric_CO2_ppm,
+        lw=2,
+    )
+    # atmospheric CO2. HCO3 added to GoC subsurface
+    ax[0].plot(
+        NP_LC_PF_RC_forward_GoCsub_HCO3.year_kyrBP,
+        NP_LC_PF_RC_forward_GoCsub_HCO3.atmospheric_CO2_ppm,
+        lw=2,
+    )
+    # atmospheric CO2. CO2 added to North Pacific
+    ax[0].plot(
+        NP_LC_PF_RC_forward_NP_CO2.year_kyrBP,
+        NP_LC_PF_RC_forward_NP_CO2.atmospheric_CO2_ppm,
+        lw=2,
+    )
+    # atmospheric CO2. CO2 added to Marchitto Box
+    ax[0].plot(
+        NP_LC_PF_RC_forward_marchitto_CO2.year_kyrBP,
+        NP_LC_PF_RC_forward_marchitto_CO2.atmospheric_CO2_ppm,
+        lw=2,
+    )
+    # atmospheric CO2. CO2 added to GoC subsurface
+    ax[0].plot(
+        NP_LC_PF_RC_forward_GoCsub_CO2.year_kyrBP,
+        NP_LC_PF_RC_forward_GoCsub_CO2.atmospheric_CO2_ppm,
+        lw=2,
+    )
+
+    # plotting CO3 concentration (Indo pacific?)(always going to come from CYCLOPS)
+
+    # deep indo-pacific CO3. HCO3 added to North Pacific
+    ax[0].plot(
+        NP_LC_PF_RC_forward_NP_HCO3.year_kyrBP,
+        NP_LC_PF_RC_forward_NP_HCO3["deep_indo_pacific_CO3_umolkg"],
+        lw=2,
+    )
+    # deep indo-pacific CO3. HCO3 added to Marchitto Box
+    ax[0].plot(
+        NP_LC_PF_RC_forward_marchitto_HCO3.year_kyrBP,
+        NP_LC_PF_RC_forward_GoCsub_HCO3["deep_indo_pacific_CO3_umolkg"],
+        lw=2,
+    )
+    # deep indo-pacific CO3. HCO3 added to GoC subsurface
+    ax[0].plot(
+        NP_LC_PF_RC_forward_GoCsub_HCO3.year_kyrBP,
+        NP_LC_PF_RC_forward_GoCsub_HCO3["deep_indo_pacific_CO3_umolkg"],
+        lw=2,
+    )
+    # deep indo-pacific CO3. CO2 added to North Pacific
+    ax[0].plot(
+        NP_LC_PF_RC_forward_NP_CO2.year_kyrBP,
+        NP_LC_PF_RC_forward_NP_CO2["deep_indo_pacific_CO3_umolkg"],
+        lw=2,
+    )
+    # deep indo-pacific CO3. CO2 added to Marchitto Box
+    ax[0].plot(
+        NP_LC_PF_RC_forward_marchitto_CO2.year_kyrBP,
+        NP_LC_PF_RC_forward_marchitto_CO2["deep_indo_pacific_CO3_umolkg"],
+        lw=2,
+    )
+    # deep indo-pacific CO3. CO2 added to GoC subsurface
+    ax[0].plot(
+        NP_LC_PF_RC_forward_GoCsub_CO2.year_kyrBP,
+        NP_LC_PF_RC_forward_GoCsub_CO2["deep_indo_pacific_CO3_umolkg"],
+        lw=2,
+    )
 
 
 def presentation_fig_anomalies():
