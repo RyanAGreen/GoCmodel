@@ -16,6 +16,7 @@ import src.inputoutput as io
 import src.circulation as circulation
 import src.product as product
 import src.carbchem as cc
+import src.figures as fig
 import time
 
 
@@ -26,7 +27,6 @@ class GoCModel:
     Intermediate depth and North Pacific Surface"""
 
     def __init__(self, geologic_d13c, ALK_DIC_ratio, optimization):
-
         self.num_box = 3
         self.num_bc = 2
         self.num_tracer = 6
@@ -121,7 +121,13 @@ class GoCModel:
         )
 
         svedrup_matrix = circulation.circ(
-            self.num_box, self.num_bc, 0.45, 0.03, 0.03, 0.03, 0.03,
+            self.num_box,
+            self.num_bc,
+            0.45,
+            0.03,
+            0.03,
+            0.03,
+            0.03,
         )
         self.transport_matrix = circulation.make_transport_matrix(
             self.num_box, self.num_bc, svedrup_matrix, self.mass
@@ -217,7 +223,12 @@ class GoCModel:
 
         # adds the boundary condition (column index of [:,4] and [:,5])
         # -> (6,5)
-        state_a = np.hstack((state_v_reshaped, self.boundary_condition,))
+        state_a = np.hstack(
+            (
+                state_v_reshaped,
+                self.boundary_condition,
+            )
+        )
         # clearing cumulative carbon tracer so that it is not affected
         # by circulation matrix mutiplication
         state_a[5, 0] = 0
@@ -260,22 +271,22 @@ class GoCModel:
 
         state_a = self.make_state_a(statev, time, "control")
 
-        time_bp = round(21000 - time)
-
         current_state = state_a[:, : self.num_box]
         self.state_copy = state_a
 
+        # round the time step to whole number and
+        time_bp = round(21000 - time)
         if self.time_copy == time_bp:
+            # counting how many steps per year
             self.counter += 1
             if self.counter > 200:
                 print("current count is ", self.counter)
         else:
             # print("This year took ", self.counter, " steps.")
             self.counter = 1
-
         self.time_copy = round(time_bp)
-        # print(self.time_copy)
 
+        # might not need this? Don't think I need to initialize each d_dt matrix
         d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
 
         if self.optimization: # inverse run
@@ -347,6 +358,7 @@ class GoCModel:
                 )
             except:
                 self.surface_rate = 0
+
             d_dt_geologic += geologic.carbon_add(
                 self.num_tracer,
                 self.num_box,
@@ -399,42 +411,42 @@ class GoCModel:
             self.export_matrix,
         )
 
-        ### Remineralization ###
-        d_dt_remin = np.zeros((self.num_tracer, self.num_box))
+          ### Remineralization ###
+          d_dt_remin = np.zeros((self.num_tracer, self.num_box))
 
-        d_dt_remin = product.remin(
-            exportP,
-            del_13_c_org,
-            del_14_c_org,
-            self.num_tracer,
-            self.num_box,
-            self.remin_matrix,
-        )
+          d_dt_remin = product.remin(
+              exportP,
+              del_13_c_org,
+              del_14_c_org,
+              self.num_tracer,
+              self.num_box,
+              self.remin_matrix,
+          )
 
-        ### Circulation ###
-        d_dt_circ = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
-        # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
+          ### Circulation ###
+          d_dt_circ = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
+          # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
 
-        ### Air-Sea Gas Exchange ###
-        d_dt_gasexchange = airsea.gas_exchange(
-            state_a[:, : self.num_box],
-            self.num_tracer,
-            self.num_box,
-            self.CO2_atm_currentyr,
-            self.d13C_atm_currentyr,
-            self.D14C_atm_currentyr,
-            self.surf_area,
-            self.mass[2],
-        )
+          ### Air-Sea Gas Exchange ###
+          d_dt_gasexchange = airsea.gas_exchange(
+              state_a[:, : self.num_box],
+              self.num_tracer,
+              self.num_box,
+              self.CO2_atm_currentyr,
+              self.d13C_atm_currentyr,
+              self.D14C_atm_currentyr,
+              self.surf_area,
+              self.mass[2],
+          )
 
-        d_dt = np.zeros((self.num_tracer, self.num_box))
+          d_dt = np.zeros((self.num_tracer, self.num_box))
 
-        # where you can turn on or off any processes
-        d_dt += d_dt_circ
-        d_dt += d_dt_geologic
-        d_dt += d_dt_export
-        d_dt += d_dt_remin
-        d_dt += d_dt_gasexchange
+          # where you can turn on or off any processes
+          d_dt += d_dt_circ
+          d_dt += d_dt_geologic
+          d_dt += d_dt_export
+          d_dt += d_dt_remin
+          d_dt += d_dt_gasexchange
 
         return d_dt.flatten()
 
@@ -476,18 +488,17 @@ class GoCModel:
         )
         io.make_plot(self.time, self.output, carb_chem, self.filename)
         # io.make_plot_interp(self.time, self.output)
-        io.save_file(self.time, self.output, self.filename)
-        # io.save_file(self.time, self.output, "control_run")
 
-    def make_AGU_plots(self):
-        io.make_carbon_rate_plot(self.filename)
-        io.save_file(self.time, self.result.y, self.filename)
+        io.save_file(self.time, self.output, self.filename)
+
 
 
 if __name__ == "__main__":
-    # AOM = GoCModel("AOM")
-    # AOM.make_AGU_plots()
-    # AOM.run_box_model(21000, 211)
+    # fig.Figure5_d13C()
+    # fig.presentation_fig_anomalies()
+    # fig.Figure5_d13C()
+    # fig.Figure4()
+
     # CO2 = GoCModel(-2.5, 1, False)
     # CO2.run_box_model(21000, 211)
     # methane = GoCModel("biogenic_methane")
@@ -496,4 +507,5 @@ if __name__ == "__main__":
     for d13C in range(-50, 16):
         model_instance = GoCModel(d13C, 1, False)
         model_instance.run_box_model(21000, 211)
+
 

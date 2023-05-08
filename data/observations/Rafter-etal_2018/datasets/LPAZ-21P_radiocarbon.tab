@@ -1,0 +1,171 @@
+/* DATA DESCRIPTION:
+Citation:	Rafter, Patrick A; Herguera, Juan-Carlos; Southon, John R (2018): Foraminifera and wood 14C in the Gulf of California from sediment core LPAZ-21P. PANGAEA, https://doi.org/10.1594/PANGAEA.896311, 
+	In supplement to: Rafter, PA et al. (2018): Extreme lowering of deglacial seawater radiocarbon recorded by both epifaunal and infaunal benthic foraminifera in a wood-dated sediment core. Climate of the Past, 14(12), 1977-1989, https://doi.org/10.5194/cp-14-1977-2018
+Coverage:	LATITUDE: 22.900000 * LONGITUDE: -109.500000
+	MINIMUM DEPTH, sediment/rock: 0.0250 m * MAXIMUM DEPTH, sediment/rock: 1.3050 m
+Event(s):	LPAZ-21P * LATITUDE: 22.900000 * LONGITUDE: -109.500000 * ELEVATION: -624.0 m * LOCATION: Gulf of California * METHOD/DEVICE: Core (CORE)
+Parameter(s):	Sample ID (Sample ID) * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu)
+	Depth, top/min [m] (Depth top) * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu)
+	Depth, bottom/max [m] (Depth bot) * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu)
+	DEPTH, sediment/rock [m] (Depth) * GEOCODE * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu)
+	Age, dated material (Dated material) * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu)
+	Age, dated [ka] (Age dated) * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu)
+	Age, dated standard error [±] (Age std e) * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu)
+	Comment (Comment) * PI: Rafter, Patrick A (https://orcid.org/0000-0002-6352-7593, prafter@uci.edu)
+License:	Creative Commons Attribution 4.0 International (CC-BY-4.0)
+Size:	923 data points
+*/
+Sample ID	Depth top [m]	Depth bot [m]	Depth [m]	Dated material	Age dated [ka]	Age std e [±]	Comment
+157546	0.020	0.030	0.0250	Bolivina spp.	5.670	0.060	
+162172	0.630	0.650	0.6400	Bolivina spp.	17.980	0.710	
+173600	0.690	0.705	0.6975	Bolivina spp.	14.610	0.180	
+173602	0.740	0.760	0.7500	Bolivina spp.	17.200	0.070	
+175792	0.770	0.790	0.7800	Bolivina spp.	18.400	0.090	
+173604	0.790	0.810	0.8000	Bolivina spp.	16.970	0.070	
+173606	0.845	0.855	0.8500	Bolivina spp.	17.880	0.150	
+175805	0.900	0.920	0.9100	Bolivina spp.	18.260	0.310	
+190597	0.940	0.950	0.9450	Bolivina spp.	18.660	0.090	
+162173	0.630	0.650	0.6400	Planulina ariminensis	15.620	0.100	
+178177	0.660	0.670	0.6650	Planulina ariminensis	16.880	0.650	
+206073	0.670	0.680	0.6750	Planulina ariminensis	16.555	0.045	
+206075	0.680	0.690	0.6850	Planulina ariminensis	14.330	0.060	
+175820	0.690	0.705	0.6975	Planulina ariminensis	15.120	0.090	
+203474	0.705	0.715	0.7100	Planulina ariminensis	15.375	0.045	
+203476	0.715	0.725	0.7200	Planulina ariminensis	15.395	0.040	
+203478	0.720	0.730	0.7250	Planulina ariminensis	17.080	0.330	
+203480	0.730	0.740	0.7350	Planulina ariminensis	16.110	0.070	
+181567	0.740	0.760	0.7500	Planulina ariminensis	15.965	0.045	
+204764	0.750	0.760	0.7550	Planulina ariminensis	15.660	0.035	
+203058	0.770	0.780	0.7750	Planulina ariminensis	16.775	0.045	
+175789	0.770	0.790	0.7800	Planulina ariminensis	16.760	0.070	
+206076	0.780	0.790	0.7850	Planulina ariminensis	17.020	0.060	
+181535	0.790	0.810	0.8000	Planulina ariminensis	16.550	0.045	
+206078	0.800	0.810	0.8050	Planulina ariminensis	15.920	0.100	
+175800	0.820	0.840	0.8300	Planulina ariminensis	17.520	0.080	
+178190	0.845	0.855	0.8500	Planulina ariminensis	16.640	0.140	
+181548	0.855	0.870	0.8625	Planulina ariminensis	17.760	0.060	
+181536	0.870	0.875	0.8725	Planulina ariminensis	17.615	0.050	
+201575	0.875	0.880	0.8775	Planulina ariminensis	17.350	0.070	
+201577	0.880	0.890	0.8850	Planulina ariminensis	17.610	0.060	
+183754	0.890	0.900	0.8950	Planulina ariminensis	18.140	0.060	
+203049	0.900	0.910	0.9050	Planulina ariminensis	18.190	0.450	
+201581	0.910	0.920	0.9150	Planulina ariminensis	19.220	0.450	
+201583	0.920	0.930	0.9250	Planulina ariminensis	16.800	0.070	
+181538	0.920	0.940	0.9300	Planulina ariminensis	16.805	0.045	
+201588	0.930	0.940	0.9350	Planulina ariminensis	16.530	0.060	
+192493	0.940	0.950	0.9450	Planulina ariminensis	16.960	0.100	
+181551	0.960	0.970	0.9650	Planulina ariminensis	20.240	0.070	
+200178	0.970	0.980	0.9750	Planulina ariminensis	19.580	0.670	
+178194, 181540	0.970	0.990	0.9800	Planulina ariminensis	20.197	0.263	
+200181	0.980	0.990	0.9850	Planulina ariminensis	20.240	0.260	
+200525	0.990	1.000	0.9950	Planulina ariminensis	20.490	0.160	
+200527	1.000	1.010	1.0050	Planulina ariminensis	20.630	0.120	
+181554	1.010	1.020	1.0150	Planulina ariminensis	20.630	0.080	
+176294	1.040	1.060	1.0500	Planulina ariminensis	21.520	0.080	
+201590	1.100	1.110	1.1050	Planulina ariminensis	22.660	0.090	
+204773	1.140	1.150	1.1450	Planulina ariminensis	25.490	0.080	
+204776	1.150	1.160	1.1550	Planulina ariminensis	25.590	0.100	
+206080	1.160	1.170	1.1650	Planulina ariminensis	27.020	0.190	
+176296	1.160	1.180	1.1700	Planulina ariminensis	26.540	0.410	
+206085	1.170	1.180	1.1750	Planulina ariminensis	26.190	0.160	
+177324	1.190	1.200	1.1950	Planulina ariminensis	27.410	0.780	
+176317	1.220	1.240	1.2300	Planulina ariminensis	28.440	0.420	
+157545	0.020	0.030	0.0250	Trifarina bradyi	5.955	0.040	
+160284	0.220	0.240	0.2300	Trifarina bradyi	7.215	0.020	
+176716	0.420	0.440	0.4300	Trifarina bradyi	8.360	0.140	
+176719	0.460	0.480	0.4700	Trifarina bradyi	9.320	0.120	
+176722	0.610	0.630	0.6200	Trifarina bradyi	9.265	0.030	
+178176	0.630	0.650	0.6400	Trifarina bradyi	12.205	0.030	
+175263	0.660	0.670	0.6650	Trifarina bradyi	15.150	0.280	
+178181	0.670	0.690	0.6800	Trifarina bradyi	13.600	0.050	
+175266	0.690	0.705	0.6975	Trifarina bradyi	14.030	0.110	
+175267	0.720	0.740	0.7300	Trifarina bradyi	15.600	0.060	
+175269	0.740	0.760	0.7500	Trifarina bradyi	15.340	0.070	
+175791	0.770	0.790	0.7800	Trifarina bradyi	15.800	0.045	
+175250	0.790	0.810	0.8000	Trifarina bradyi	14.540	0.070	
+175253	0.845	0.855	0.8500	Trifarina bradyi	14.600	0.060	
+175254	0.870	0.875	0.8725	Trifarina bradyi	15.720	0.090	
+175239	0.900	0.920	0.9100	Trifarina bradyi	18.130	0.080	
+175241	0.920	0.940	0.9300	Trifarina bradyi	16.660	0.080	
+176728	1.020	1.040	1.0300	Trifarina bradyi	20.940	0.120	
+176297	1.160	1.180	1.1700	Trifarina bradyi	26.650	0.470	
+157540, 157542, 157543	0.020	0.030	0.0250	Uvigerina peregrina	5.832	0.058	
+160284	0.220	0.240	0.2300	Uvigerina peregrina	7.215	0.020	
+160293, 176715	0.420	0.440	0.4300	Uvigerina peregrina	8.425	0.023	
+176718	0.460	0.480	0.4700	Uvigerina peregrina	9.185	0.025	
+176280	0.480	0.500	0.4900	Uvigerina peregrina	8.865	0.035	
+176282	0.520	0.550	0.5350	Uvigerina peregrina	9.075	0.035	
+176284, 181565	0.570	0.590	0.5800	Uvigerina peregrina	9.078	0.030	
+176721	0.610	0.630	0.6200	Uvigerina peregrina	9.370	0.025	
+162170, 161631.00	0.630	0.650	0.6400	Uvigerina peregrina	14.105	0.048	
+178178	0.660	0.670	0.6650	Uvigerina peregrina	15.210	0.045	
+178180	0.670	0.690	0.6800	Uvigerina peregrina	14.360	0.150	
+178182	0.690	0.705	0.6975	Uvigerina peregrina	14.870	0.170	
+203475	0.705	0.715	0.7100	Uvigerina peregrina	15.705	0.035	
+203477	0.715	0.725	0.7200	Uvigerina peregrina	16.075	0.040	
+203479	0.720	0.730	0.7250	Uvigerina peregrina	16.575	0.045	
+203481	0.730	0.740	0.7350	Uvigerina peregrina	16.830	0.050	
+181566	0.740	0.760	0.7500	Uvigerina peregrina	17.740	0.060	
+175790	0.770	0.790	0.7800	Uvigerina peregrina	17.640	0.060	
+178188	0.790	0.810	0.8000	Uvigerina peregrina	15.720	0.150	
+178777	0.820	0.840	0.8300	Uvigerina peregrina	17.620	0.070	
+181568	0.845	0.855	0.8500	Uvigerina peregrina	16.935	0.045	
+181547	0.855	0.870	0.8625	Uvigerina peregrina	18.300	0.050	
+181537	0.870	0.875	0.8725	Uvigerina peregrina	17.495	0.050	
+203046	0.875	0.880	0.8775	Uvigerina peregrina	16.755	0.040	
+203047	0.880	0.890	0.8850	Uvigerina peregrina	18.430	0.070	
+183755	0.890	0.900	0.8950	Uvigerina peregrina	15.895	0.040	
+203048	0.900	0.910	0.9050	Uvigerina peregrina	18.390	0.045	
+196212	0.900	0.920	0.9100	Uvigerina peregrina	18.175	0.050	
+203050	0.910	0.920	0.9150	Uvigerina peregrina	18.940	0.060	
+203051	0.920	0.930	0.9250	Uvigerina peregrina	17.770	0.045	
+181539	0.920	0.940	0.9300	Uvigerina peregrina	17.535	0.045	
+203052	0.930	0.940	0.9350	Uvigerina peregrina	17.980	0.050	
+178191	0.940	0.950	0.9450	Uvigerina peregrina	17.330	0.160	
+181550	0.960	0.970	0.9650	Uvigerina peregrina	19.630	0.070	
+200179	0.970	0.980	0.9750	Uvigerina peregrina	20.050	0.130	
+178193	0.970	0.990	0.9800	Uvigerina peregrina	20.280	0.310	
+200182	0.980	0.990	0.9850	Uvigerina peregrina	19.820	0.080	
+200526	0.990	1.000	0.9950	Uvigerina peregrina	20.560	0.090	
+200528	1.000	1.010	1.0050	Uvigerina peregrina	20.510	0.120	
+181553	1.010	1.020	1.0150	Uvigerina peregrina	20.600	0.070	
+176727	1.020	1.040	1.0300	Uvigerina peregrina	21.030	0.070	
+176292	1.040	1.060	1.0500	Uvigerina peregrina	22.100	0.190	
+176733	1.110	1.120	1.1150	Uvigerina peregrina	22.740	0.100	
+176295	1.160	1.180	1.1700	Uvigerina peregrina	26.820	0.330	
+177323	1.190	1.200	1.1950	Uvigerina peregrina	27.870	0.300	
+176318 & 160286	1.220	1.240	1.2300	Uvigerina peregrina	28.945	0.210	
+175262	0.630	0.650	0.6400	Globogerina bulloides	13.390	0.100	
+175264	0.660	0.670	0.6650	Globogerina bulloides	15.730	0.270	
+173605	0.845	0.855	0.8500	Globogerina bulloides	15.920	0.110	
+175255	0.870	0.875	0.8725	Globogerina bulloides	16.910	0.340	
+201576 & 203057	0.875	0.880	0.8775	Globogerina bulloides	16.210	0.075	
+201587	0.920	0.930	0.9250	Globogerina bulloides	16.520	0.120	
+175240	0.920	0.940	0.9300	Globogerina bulloides	16.650	0.160	
+201589	0.930	0.940	0.9350	Globogerina bulloides	16.210	0.100	
+175242	0.940	0.950	0.9450	Globogerina bulloides	17.060	0.110	
+181552	0.960	0.970	0.9650	Globogerina bulloides	19.660	0.070	
+200177	0.970	0.980	0.9750	Globogerina bulloides	19.470	0.070	
+175257	1.020	1.040	1.0300	Globogerina bulloides	20.970	0.190	
+176293	1.040	1.060	1.0500	Globogerina bulloides	21.810	0.210	
+201591	1.100	1.110	1.1050	Globogerina bulloides	22.780	0.140	
+176316	1.160	1.180	1.1700	Globogerina bulloides	25.520	0.320	
+203485	1.300	1.310	1.3050	Globogerina bulloides	33.070	0.180	
+181559	0.630	0.650	0.6400	terrestrial wood	10.440	0.550	
+176735	0.660	0.670	0.6650	terrestrial wood	11.065	0.030	
+181561	0.870	0.875	0.8725	terrestrial wood	13.590	0.160	
+201569	0.875	0.880	0.8775	terrestrial wood	14.390	0.190	
+201571	0.920	0.930	0.9250	terrestrial wood	15.830	0.720	
+200534	0.940	0.950	0.9450	terrestrial wood	16.170	0.090	
+181562	0.960	0.970	0.9650	terrestrial wood	18.820	0.070	
+180071	0.970	0.990	0.9800	terrestrial wood	19.120	0.880	
+180639	1.020	1.040	1.0300	terrestrial wood	19.550	0.060	
+180073	1.040	1.060	1.0500	terrestrial wood	20.690	0.330	
+182086	1.100	1.110	1.1050	terrestrial wood	21.590	0.330	
+199135	1.160	1.180	1.1700	terrestrial wood	24.020	0.790	
+177377	1.300	1.310	1.3050	terrestrial wood	30.400	0.270	
+181558	0.570	0.590	0.5800	terrestrial wood	25.660	0.130	Rejected. Does not pass 14C comparison test.
+181560	0.845	0.855	0.8500	terrestrial wood	15.890	0.045	Rejected. Does not pass 14C comparison test.
+180070	0.920	0.940	0.9300	terrestrial wood	16.760	0.190	Rejected. Does not pass 14C comparison test.
+201572	0.930	0.940	0.9350	terrestrial wood	17.870	0.480	Rejected. Does not pass 14C comparison test.
+182085	1.080	1.095	1.0875	terrestrial wood	15.920	0.210	Rejected. Possible zoophycos (or depth labeling error).

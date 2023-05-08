@@ -1,0 +1,12 @@
+axes.titlesize : 24
+axes.labelsize : "large"
+lines.linewidth : 3
+lines.markersize : 10
+xtick.labelsize : 20
+ytick.labelsize : 20
+axes.labelsize: 20
+axes.labelsize: 20
+font.weight : "bold"
+font.family : "PT Sans Narrow"
+xtick.direction = "in"
+ytick.direction = "in"

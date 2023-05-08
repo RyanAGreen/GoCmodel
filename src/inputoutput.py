@@ -3,6 +3,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import src.conversions as conversions
 from scipy.interpolate import interp1d
+import src.functions as f
+import cartopy
+import matplotlib.ticker as mticker
+import cartopy.mpl.geoaxes
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+from cartopy.util import add_cyclic_point
+import netCDF4 as nc4
+
+obspath = "data/observations/"
 
 
 def make_text(state, tracers_arr):
@@ -15,7 +26,7 @@ def save_tracers(tracers_arr):
     np.save("../results/tracers.npy", tracers_arr)
 
 
-def save_file(time, tracers, filename):
+def save_file(time, tracers, pH, filename):
     df = pd.DataFrame(
         {
             "time": time / 1000,
@@ -25,15 +36,15 @@ def save_file(time, tracers, filename):
             "mar_ALK": tracers[3, :],
             "goc_sub_ALK": tracers[4, :],
             "goc_surf_ALK": tracers[5, :],
-            # "mar_pH": carbonate_chemistry[3, 0, :],
             "mar_d13c": tracers[9, :] / tracers[0, :],
             "goc_sub_d13c": tracers[10, :] / tracers[1, :],
             "goc_surf_d13c": tracers[11, :] / tracers[2, :],
             "mar_D14c": tracers[12, :] / tracers[0, :],
             "goc_sub_D14c": tracers[13, :] / tracers[1, :],
             "goc_surf_D14c": tracers[14, :] / tracers[2, :],
-            # "goc_sub_pH": carbonate_chemistry[3, 1, :],
-            # "goc_surf_pH": carbonate_chemistry[3, 2, :],
+            "mar_pH": pH[3, 0, :],
+            "goc_sub_pH": pH[3, 1, :],
+            "goc_surf_pH": pH[3, 2, :],
             "mar_cum_carbon": tracers[15, :],
             "goc_sub_cum_carbon": tracers[16, :],
             "goc_surf_cum_carbon": tracers[17, :],
@@ -715,7 +726,6 @@ def read_d13C_atm_data(file):
 
 
 def read_files():
-    obspath = "data/observations/"
 
     Rafter_surface = pd.read_csv(obspath + "Rafter_2019.tab", sep="\t", header=24)
     Rafter_surface = Rafter_surface.loc[(Rafter_surface["Habitat"] == "planktic")]
@@ -789,3 +799,4 @@ def plot_rate():
     plt.plot(rate_geologic_carbon_to_marchitto, label="Marchitto")
     plt.legend()
     plt.show()
+
