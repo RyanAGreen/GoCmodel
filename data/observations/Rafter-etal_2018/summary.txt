@@ -1,0 +1,13 @@
+/* DATA DESCRIPTION:
+Citation:	Rafter, Patrick A; Herguera, Juan-Carlos; Southon, John R (2018): Foraminifera and wood 14C (radiocarbon) in Northeast Pacific for past 30,000 years. PANGAEA, https://doi.org/10.1594/PANGAEA.896312, 
+	Supplement to: Rafter, PA et al. (2018): Extreme lowering of deglacial seawater radiocarbon recorded by both epifaunal and infaunal benthic foraminifera in a wood-dated sediment core. Climate of the Past, 14(12), 1977-1989, https://doi.org/10.5194/cp-14-1977-2018
+Abstract:	For over a decade, oceanographers have debated the interpretation and reliability of sediment microfossil records indicating extremely low seawater radiocarbon (14C) during the last deglaciation-observations that suggest a major disruption in marine carbon cycling coincident with rising atmospheric CO2 concentrations. Possible flaws in these records include poor age model controls, utilization of mixed, infaunal foraminifera species possibly influenced by changing porewater chemistry, and bioturbation. We have addressed these concerns using a glacial-interglacial record of epifaunal benthic foraminifera 14C on an ideal sedimentary age model (wood calibrated to atmosphere 14C). Our results affirm – with important caveats – the fidelity of these microfossil archives and confirm previous observations of highly depleted seawater 14C at intermediate depths in the deglacial northeast Pacific
+Coverage:	LATITUDE: 22.900000 * LONGITUDE: -109.500000
+License:	Creative Commons Attribution 4.0 International (CC-BY-4.0)
+Size:	3 datasets
+*/
+/* TABULAR SUMMARY OF DATASETS LISTED IN THIS COLLECTION: */
+Filename	Citation of child dataset
+ET97-7T_radiocarbon.tab	Rafter, Patrick A; Herguera, Juan-Carlos; Southon, John R (2018): Foraminifera and wood 14C in the Gulf of California from sediment core ET97-7T. https://doi.org/10.1594/PANGAEA.896309
+LPAZ-21P_radiocarbon.tab	Rafter, Patrick A; Herguera, Juan-Carlos; Southon, John R (2018): Foraminifera and wood 14C in the Gulf of California from sediment core LPAZ-21P. https://doi.org/10.1594/PANGAEA.896311
+LPAZ-21PG_radiocarbon.tab	Rafter, Patrick A; Herguera, Juan-Carlos; Southon, John R (2018): Foraminifera and wood 14C in the Gulf of California from sediment core LPAZ-21PG. https://doi.org/10.1594/PANGAEA.896310
