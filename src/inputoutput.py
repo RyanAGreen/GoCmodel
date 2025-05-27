@@ -3,6 +3,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import src.conversions as conversions
 from scipy.interpolate import interp1d
+import src.functions as f
+import cartopy
+import matplotlib.ticker as mticker
+import cartopy.mpl.geoaxes
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+from cartopy.util import add_cyclic_point
+import netCDF4 as nc4
+
+obspath = "data/observations/"
 
 
 def make_text(state, tracers_arr):
@@ -11,11 +22,42 @@ def make_text(state, tracers_arr):
     return tracers_arr
 
 
+def organize_CYCLOPS(df):
+    # drop the ones that dont matter
+    df = df.drop([6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18], axis=1)
+    # reorganize
+    df = df[[0, 1, 3, 2, 23, 24, 25, 26, 4, 5, 12, 19, 20, 21, 22]]
+    df = df.rename(
+        columns={
+            0: "year_kyrBP",
+            1: "geologic_carbon_rate_PgCyr",
+            2: "alk_to_dic_ratio",
+            3: "geologic_carbon_cumulative_PgC",
+            4: "atmospheric_CO2_ppm",
+            5: "atmospheric_∆14C_permil",
+            12: "intNP_∆14C_permil",
+            19: "deep_atlantic_CO3_umolkg",
+            20: "deep_indian_CO3_umolkg",
+            21: "deep_south_pacific_CO3_umolkg",
+            22: "deep_north_pacific_CO3_umolkg",
+            23: "terrestrial_carbon_uptake_rate_PgCyr",
+            24: "terrestrial_carbon_uptake_cumulative_PgC",
+            25: "terrestrial_carbon_release_rate_PgCyr",
+            26: "terrestrial_carbon_release_cumulative_PgC",
+        }
+    )
+    df["year_kyrBP"] = df["year_kyrBP"] / 1000
+    return df
+
+
 def save_tracers(tracers_arr):
     np.save("../results/tracers.npy", tracers_arr)
 
 
-def save_file(time, tracers, filename):
+def save_file(time, tracers, pH, filename):
+    """there are no headers, so the final columns are (order always Mar,sub, surf):
+    time, DIC, ALK, d13c,D14c, pH, cumulative, carbonrate, total carbon for all boxes"""
+
     df = pd.DataFrame(
         {
             "time": time / 1000,
@@ -25,15 +67,15 @@ def save_file(time, tracers, filename):
             "mar_ALK": tracers[3, :],
             "goc_sub_ALK": tracers[4, :],
             "goc_surf_ALK": tracers[5, :],
-            # "mar_pH": carbonate_chemistry[3, 0, :],
             "mar_d13c": tracers[9, :] / tracers[0, :],
             "goc_sub_d13c": tracers[10, :] / tracers[1, :],
             "goc_surf_d13c": tracers[11, :] / tracers[2, :],
             "mar_D14c": tracers[12, :] / tracers[0, :],
             "goc_sub_D14c": tracers[13, :] / tracers[1, :],
             "goc_surf_D14c": tracers[14, :] / tracers[2, :],
-            # "goc_sub_pH": carbonate_chemistry[3, 1, :],
-            # "goc_surf_pH": carbonate_chemistry[3, 2, :],
+            "mar_pH": pH[0, :],
+            "goc_sub_pH": pH[1, :],
+            "goc_surf_pH": pH[2, :],
             "mar_cum_carbon": tracers[15, :],
             "goc_sub_cum_carbon": tracers[16, :],
             "goc_surf_cum_carbon": tracers[17, :],
@@ -43,6 +85,7 @@ def save_file(time, tracers, filename):
         }
     )
 
+    # calculate the rates for each box
     rates = [[], [], []]
     for i in range(len(rates)):
         for j in range(df.shape[0] - 1):
@@ -56,14 +99,32 @@ def save_file(time, tracers, filename):
     )
 
     np.savetxt(
-        r"results/total_GoC_rates.txt", df["total_rate"], fmt="%.2f", delimiter="\t"
+        r"results/simulations/total_GoC_rates.txt",
+        df["total_rate"],
+        fmt="%.4f",
+        delimiter="\t",
+    )
+
+    # df.to_csv(
+    #     "results/simulations/GoC_rates.txt",
+    #     columns=["mar_rate_carbon", "goc_sub_rate_carbon", "goc_surf_rate_carbon"],
+    #     header=False,
+    #     sep="\t",
+    #     index=False,
+    # )
+    np.savetxt(
+        r"results/simulations/GoC_rates.txt",
+        df[["mar_rate_carbon", "goc_sub_rate_carbon", "goc_surf_rate_carbon"]],
+        fmt="%.4f",
+        delimiter="\t",
     )
     np.savetxt(
-        "results/optimizedrun_" + str(filename) + ".txt",
+        "results/simulations/" + str(filename) + ".txt",
         df.values,
         fmt="%.2f",
         delimiter="\t",
     )
+
     return
 
 
@@ -213,7 +274,7 @@ def make_plot(time, tracers, pH, filename):
     # ax[0].plot(time, pH[3, 0, :], label="Baja California pH")
     ax[0].plot(time, pH[3, 0, :] - pH[3, 0, 0], label="subsurface pH")
     ax[0].plot(
-        d11B_obs["cal.age.kyr"].iloc[:11] * 1000,
+        d11B_obs["cal.age.kyr"].iloc[:11],
         pH_changes_obs,
         "o--",
         color="black",
@@ -399,7 +460,10 @@ def make_plot_interp(time, tracers, filename):
     f_surf, f_sub, f_mar = read_files()
     # ax[0].plot(time, carbonate_chemistry[3, 0, :], label="Baja California pH")
     ax[1].plot(
-        time, tracers[0, :], color="#706513", label="Baja California C",
+        time,
+        tracers[0, :],
+        color="#706513",
+        label="Baja California C",
     )
     # ax[2].plot(
     #     time,
@@ -408,7 +472,10 @@ def make_plot_interp(time, tracers, filename):
     # )
 
     ax[2].plot(
-        time, tracers[3, :], color="#706513", label="Baja California ALK",
+        time,
+        tracers[3, :],
+        color="#706513",
+        label="Baja California ALK",
     )
     # ax[3].plot(
     #     time,
@@ -432,10 +499,18 @@ def make_plot_interp(time, tracers, filename):
     #     label="GoC deep pH",
     # )
     ax[1].plot(
-        time, tracers[1, :], linestyle="dotted", color="#B57114", label="GoC deep C",
+        time,
+        tracers[1, :],
+        linestyle="dotted",
+        color="#B57114",
+        label="GoC deep C",
     )
     ax[2].plot(
-        time, tracers[4, :], linestyle="dotted", color="#B57114", label="GoC deep ALK",
+        time,
+        tracers[4, :],
+        linestyle="dotted",
+        color="#B57114",
+        label="GoC deep ALK",
     )
     ax[3].plot(
         time,
@@ -466,7 +541,11 @@ def make_plot_interp(time, tracers, filename):
     #     time, carbonate_chemistry[3, 2, :], linestyle="dashed", label="GoC surface pH",
     # )
     ax[1].plot(
-        time, tracers[2, :], linestyle="dashed", color="#520120", label="GoC surface C",
+        time,
+        tracers[2, :],
+        linestyle="dashed",
+        color="#520120",
+        label="GoC surface C",
     )
     ax[2].plot(
         time,
@@ -632,7 +711,6 @@ def read_cadd_scenario(file):
 
 
 def read_bc(file, row):
-
     """at some point, should try to read in as an array to make code run faster"""
     df = pd.read_table(str(file), sep="\s+", header=None)
     df = df.rename(
@@ -682,7 +760,6 @@ def read_bc(file, row):
 
 
 def read_co2_data(file):
-
     df = pd.read_table(str(file), sep="\t", header=None)
     df = df.rename(columns={0: "year", 1: "atm_co2"})
 
@@ -692,7 +769,6 @@ def read_co2_data(file):
 
 
 def read_14C_atm_data(file):
-
     df = pd.read_table(str(file), sep="\t", header=None)
     df = df.rename(columns={0: "year", 1: "14C_atm"})
 
@@ -702,7 +778,6 @@ def read_14C_atm_data(file):
 
 
 def read_d13C_atm_data(file):
-
     df = pd.read_table(str(file), sep="\t", header=None)
     df.rename(columns={0: "year", 1: "d13C_atm", 2: "stnd_dev"})
 
@@ -712,28 +787,20 @@ def read_d13C_atm_data(file):
 
 
 def read_files():
-    obspath = "data/observations/"
-
     Rafter_surface = pd.read_csv(obspath + "Rafter_2019.tab", sep="\t", header=24)
     Rafter_surface = Rafter_surface.loc[(Rafter_surface["Habitat"] == "planktic")]
     Rafter_surface["Cal age [ka BP]"] = 1000 * Rafter_surface["Cal age [ka BP]"]
     Rafter_surface = Rafter_surface.sort_values(by=["Cal age [ka BP]"])
-
-    Rafter_subsurface = pd.read_excel(
-        obspath + "prafter-2019-Gulf-CA-Data-for-Ryan.xls"
-    )
-    Rafter_subsurface = Rafter_subsurface.loc[
-        (Rafter_subsurface["species"] == "U. peregrina")
-        | (Rafter_subsurface["species"] == "Planulina ariminensis")
-        | (Rafter_subsurface["species"] == "U. peregrina ")
-    ]
-    Rafter_subsurface = Rafter_subsurface.sort_values(by=["calendar age [kyr BP]"])
-    Rafter_subsurface = Rafter_subsurface[["calendar age [kyr BP]", "D14C"]]
-    Rafter_subsurface = Rafter_subsurface.dropna(subset=["D14C"])
+    
+    rafter2024_benthic = pd.read_excel(obspath + "prafter-2024-Gulf-CA-Data-for-Ryan-3.3.xlsx")
+    Rafter_subsurface = rafter2024_benthic[rafter2024_benthic['mat.dated'] != 'terrestrial wood']
+    Rafter_subsurface = Rafter_subsurface.sort_values(by=["cal.age"])
+    Rafter_subsurface = Rafter_subsurface[['cal.age', "D14C"]]
+    # Rafter_subsurface = Rafter_subsurface.dropna(subset=["D14C"])
     Rafter_subsurface = (
-        Rafter_subsurface.groupby("calendar age [kyr BP]").mean().reset_index()
+        Rafter_subsurface.groupby("cal.age").mean().reset_index()
     )
-    Rafter_subsurface["calendar age [kyr BP]"] *= 1000
+    # Rafter_subsurface["calendar age [kyr BP]"] *= 1000
 
     Mar = pd.read_csv(obspath + "Marchitto.txt", sep="\s+")
     Mar["Cal.Age"] = 1000 * Mar["Cal.Age"]
@@ -750,13 +817,18 @@ def read_files():
         Rafter_surface["Cal age [ka BP]"], Rafter_surface["Δ14C [‰]"], kind="linear"
     )
     fSub = interp1d(
-        Rafter_subsurface["calendar age [kyr BP]"], Rafter_subsurface["D14C"]
+        Rafter_subsurface["cal.age"], Rafter_subsurface["D14C"]
     )
     fMar = interp1d(
         np.delete(np.array([Mar["Cal.Age"]]), [-3, -4]),
         np.delete(np.array([Mar["D14C"]]), [-3, -4]),
     )
     return fSurf, fSub, fMar
+
+
+def read_all_geologic_rates(file):
+    df = pd.read_csv(file, sep="\t", header=None)
+    return df.values
 
 
 def plot_rate():

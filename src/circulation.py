@@ -6,13 +6,17 @@ def circ(
     num_box, num_bc, advection, mix_np_baja, mix_baja_gulf, mix_gulf_gulf, mix_gulf_np
 ):
     """function that takes in circulation (units Sv) and populates a circulation matrix
-    with the size based on model boxes plus boundary conditions"""
+    with the size based on model boxes plus boundary conditions
+    the matrix is set up with rows = boxes and columns = boxes. for both rows and columns:
+    box 0 = Marchitto , box 1 = GoC sub, box 2 = GoC surf, box 3 = NP int, box 4 = NP surf
+    each matrix location [y, x] represents flux from x to y. so Columns flow into row
+    """
 
     advect = np.zeros((num_box + num_bc, num_box + num_bc))
-    advect[1, 0] = advection
+    advect[1, 0] = advection  # box
     advect[2, 1] = advection
-    advect[4, 2] = advection
-    advect[0, 3] = advection
+    advect[4, 2] = advection  #* 3
+    advect[0, 3] = advection  #* 3  # NP to Mar.
 
     mix_n_b = np.zeros((num_box + num_bc, num_box + num_bc))
     mix_n_b[0, 3] = mix_np_baja

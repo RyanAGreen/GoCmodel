@@ -7,7 +7,7 @@ def productivity(current_state, bc, num_tracer, num_box, num_bc, CaRatio, export
 
     state = np.hstack((current_state, bc))  # [6 x 5]
     P = state[idxP, :]  # [1 x 5]
-    offset_value = 20
+    offset_value = -20
     del_13_c_cc = state[3] / state[0]
     del_13_c_org = del_13_c_cc + offset_value
     del_14_c_cc = state[4] / state[0]

@@ -1,6 +1,5 @@
 """Gulf of California
 Regional Model
-Going to move things to modules after they work in OOP first
 """
 
 import numpy as np
@@ -17,7 +16,19 @@ import src.circulation as circulation
 import src.product as product
 import src.carbchem as cc
 import time
+import sys
+from multiprocessing import Pool, cpu_count
+import csv
 
+# Check if at least one argument is provided
+# if len(sys.argv) > 1:
+#     print(f"Arguments: {sys.argv}")
+#     argument = sys.argv[4] 
+#     print(f"The provided boundary condition is: {argument}")
+# else:
+#     print(f"Arguments: {sys.argv}")
+#     print("No boundary condition provided. Using 'coupled' by default.")
+#     argument = "coupled"
 
 class GoCModel:
     """three box ocean model with circulation, biological pump, air sea gas exchange
@@ -25,20 +36,24 @@ class GoCModel:
     Gulf of California-Deep, Gulf of California-Surface, North Pacific-
     Intermediate depth and North Pacific Surface"""
 
-    def __init__(self, geologic_d13c_source):
-
+    def __init__(self, geologic_d13c, ALK_DIC_ratio, experiment, boundary_condition, marchitto_mass, mixing_rate):
         self.num_box = 3
         self.num_bc = 2
         self.num_tracer = 6
 
         # kg,calculated from GoC volume
-        self.goc_mass = 1.38e14 * 1026.8
+        # 1.45e14 m3 from Rebekah K. Nix. "The Gulf of California: A Physical, Geological, and Biological Study" (PDF). University of Texas at Dallas. Retrieved April 10, 2010.
+        self.goc_mass = 1.45e14 * 1026.8
+        # 550 km length * 150 m width * 200 m depth
         self.goc_surface_mass = 1.65e13 * 1026.8  # kg
+        # 550 km length * 150 m width * 400 m depth
         self.goc_subsurface_mass = 3.3e13 * 1026.8  # kg
-        self.goc_source_mass = self.goc_mass * 10  # kg
+
+        self.goc_source_mass = marchitto_mass
         self.np_surf_mass = self.goc_source_mass * 20  # kg
         self.np_mid_mass = self.np_surf_mass * 2  # kg
 
+        # array of water masses for each box
         self.mass = np.array(
             [
                 self.goc_source_mass,
@@ -53,14 +68,14 @@ class GoCModel:
         self.surf_volume = 1.65e13  # m^3
         self.surf_area = self.surf_volume / 200  # m^2
 
-        # data we will compare model to
+        # reconstructed data we compare to simulated data
         self.CO2_atm = io.read_co2_data("data/observations/CO2data.txt")
         self.D14C_atm = io.read_14C_atm_data("data/observations/D14Cdata.txt")
         self.d13C_atm = io.read_d13C_atm_data(
             "data/observations/d13Cdata_500yearsnotadded.txt"
         )
 
-        # Setting up inital values
+        # Setting up inital values for model
         self.carbon = np.array([2350, 2300, 2100])  # umol/kg
         self.alkalinity = np.array([2420, 2420, 2410])  # umol/kg
         self.phosphorus = np.array([30, 30, 30])  # umol/kg
@@ -71,26 +86,16 @@ class GoCModel:
             np.array([0.1, 0.1, 0.1]) * self.carbon
         )  # delta [permil] * concentration
 
-        if geologic_d13c_source == "AOM":
-            self.geologic_d13c = -12  # same d13C as organic matter
-            self.filename = "AOM_source"
-        elif geologic_d13c_source == "CO2_dissolving_carbonates":
-            self.geologic_d13c = -2.5  # CO2 is -5, CaCO3 is SW 0
-            self.filename = "CO2carbonate_source"
-        elif geologic_d13c_source == "biogenic_methane":
-            self.geologic_d13c = -50
-            self.filename = "methane_source"
-        else:
-            print(
-                "This is not a correct geochemical pathway of geologic carbon addition."
-            )
-            exit()
-
+        self.geologic_d13c = geologic_d13c
+        self.ALK_DIC_ratio = ALK_DIC_ratio
+        self.filename = "d13c-" + str(geologic_d13c)
+        self.filename += "_ALK_DIC-" + str(self.ALK_DIC_ratio) + "_"
+        self.experiment = experiment
+        self.filename += experiment
         self.cum_geologic_carbon_to_marchitto = 0
         self.cum_geologic_carbon_to_goc_sub = 0
         self.cum_geologic_carbon_to_goc_surf = 0
         self.cum_geologic_carbon = np.array([0, 0, 0])
-
         self.CaRatio = 0.4
 
         # Packing initial conditions in matrixes
@@ -111,13 +116,43 @@ class GoCModel:
         # self.boundary_condition = io.read_bc(
         #     "data/NoISchange/ForwardRun/control.txt", 0
         # )
-        self.boundary_condition = io.read_bc(
-            "data/NoISchange/ForwardRun/CoupledRun.txt", 0
-        )
+        # normal boundary condition
+        self.filename += "_" + boundary_condition
+        # ALL CYCLOPS BOUNDARY CONDITIONS ARE BASED ON NP+LC+PF instead of 
+        if boundary_condition == "coupled":
+            """carbon added to CYCLOPS based on GoC optimization"""
+            self.boundary_condition = io.read_bc("data/model/CoupledRun.txt", 0)
+            self.bc = "coupled"
 
+        elif boundary_condition == "CYCLOPS_control":
+            """No carbon to CYCLOPS added and it uses the NP+LC+PF scenario
+            """
+            self.boundary_condition = io.read_bc("data/model/Control_noheaders.txt", 0)
+            self.bc = "CYCLOPS_control"
+
+        # boundary condition for discussion figure
+        # self.boundary_condition = io.read_bc(
+        #     "data/model/NP_LC_PF_forward_NP_CO2.txt", 0
+        # )
+        # this is for increased mixing from NP to Marchitto
         svedrup_matrix = circulation.circ(
-            self.num_box, self.num_bc, 0.45, 0.03, 0.03, 0.03, 0.03,
+            self.num_box,
+            self.num_bc,
+            0.45,
+            mixing_rate,
+            0.03,
+            0.03,
+            0.03,
         )
+        # svedrup_matrix = circulation.circ(
+        #     self.num_box,
+        #     self.num_bc,
+        #     0.45,
+        #     0.03,
+        #     0.03,
+        #     0.03,
+        #     0.03,
+        # )
         self.transport_matrix = circulation.make_transport_matrix(
             self.num_box, self.num_bc, svedrup_matrix, self.mass
         )
@@ -156,8 +191,12 @@ class GoCModel:
         self.marchitto_idx = 0
         self.subsurface_idx = 1
         self.surface_idx = 2
+        if mixing_rate > 1:
+            self.filename = "low_isolation_control_HCO3_d13c-" + str(geologic_d13c)
+        else:
+            self.filename = "high_isolation_control_HCO3_d13c-" + str(geologic_d13c)
 
-    def make_state_a(self, state_v, time, bc):
+    def make_state_a(self, state_v, time):
         """Gets called every year and makes new state in matrix format. Boxes are in columns and tracers are in
         rows.
         example:
@@ -166,32 +205,40 @@ class GoCModel:
         we feed in time evolving boundary condition from CYCLOPS every 100 years
         """
         time_rounded = int(time)
-
         spinuptime = 1000
 
-        if bc == "control":
+        # this is not actually GoC control, this is no carbon added in CYCLOPS
+        if self.bc == "CYCLOPS_control":
+            # after spin up, update every 100 years
             if (time_rounded % 100 == 0) and (time_rounded >= spinuptime):
                 self.boundary_condition = io.read_bc(
-                    "data/NoISchange/ForwardRun/control.txt",
+                    "data/model/Control_noheaders.txt",
                     ((time_rounded - spinuptime) / 100),
                 )
+            # during spin up time
             elif time_rounded < spinuptime:
-                # self.boundary_condition = io.read_bc(
-                #     "data/NoISchange/ForwardRun/control.txt", 0
-                # )
                 self.boundary_condition = io.read_bc(
-                    "data/NoISchange/ForwardRun/CoupledRun.txt", 0
+                    "data/model/Control_noheaders.txt", 0
                 )
+        elif self.bc == "coupled":
+            # after spin up, update every 100 years
+            if (time_rounded % 100 == 0) and (time_rounded >= spinuptime):
+                self.boundary_condition = io.read_bc(
+                    "data/model/CoupledRun.txt", ((time_rounded - spinuptime) / 100)
+                )
+            # during spin up time
+            elif time_rounded < spinuptime:
+                self.boundary_condition = io.read_bc("data/model/CoupledRun.txt", 0)
 
-        if bc == "2dinversion":
+        if self.bc == "discussionfig":
             if (time_rounded % 100 == 0) and (time_rounded >= spinuptime):
                 self.boundary_condition = io.read_bc(
-                    "data/ISchange/2Dinversion/Powell2Dinversion.txt",
+                    "data/model/NP_LC_PF_forward_NP_CO2.txt",
                     ((time_rounded - spinuptime) / 100),
                 )
             elif time_rounded < spinuptime:
                 self.boundary_condition = io.read_bc(
-                    "data/ISchange/2Dinversion/Powell2Dinversion.txt", 0
+                    "data/model/NP_LC_PF_forward_NP_CO2.txt", 0
                 )
 
         if (time_rounded % 100 == 0) and (time_rounded >= spinuptime):
@@ -212,7 +259,12 @@ class GoCModel:
 
         # adds the boundary condition (column index of [:,4] and [:,5])
         # -> (6,5)
-        state_a = np.hstack((state_v_reshaped, self.boundary_condition,))
+        state_a = np.hstack(
+            (
+                state_v_reshaped,
+                self.boundary_condition,
+            )
+        )
         # clearing cumulative carbon tracer so that it is not affected
         # by circulation matrix mutiplication
         state_a[5, 0] = 0
@@ -225,7 +277,7 @@ class GoCModel:
         """
         Rules:
         1. Algorithm to stop running when misfit < tolerance (0.1)
-        2. No removal of carbon (geologic_carbon_rate =! 0)
+        2. No removal of carbon (geologic_carbon_rate =!  0)
         """
 
         # convert PgC to model concentration units (umol/kg)
@@ -253,28 +305,29 @@ class GoCModel:
         for a given time step (d_dt). d_dt is returned to the ODE solver.
         """
 
-        state_a = self.make_state_a(statev, time, "control")
-
-        time_bp = round(21000 - time)
+        state_a = self.make_state_a(statev, time)
 
         current_state = state_a[:, : self.num_box]
         self.state_copy = state_a
 
+        # round the time step to whole number and
+        time_bp = round(21000 - time)
         if self.time_copy == time_bp:
+            # counting how many steps per year
             self.counter += 1
-            if self.counter > 200:
+            if self.counter > 500:
                 print("current count is ", self.counter)
+                # stop the code here
+                exit()
         else:
             # print("This year took ", self.counter, " steps.")
             self.counter = 1
-
         self.time_copy = round(time_bp)
-        # print(self.time_copy)
 
+        # might not need this? Don't think I need to initialize each d_dt matrix
         d_dt_geologic = np.zeros((self.num_tracer, self.num_box))
 
-        optimization = "true"
-        if optimization == "true":
+        if self.experiment == "optimization":  # inverse run
             # Marchitto
             try:
                 self.obs_d14c = self.f_mar(self.time_copy)
@@ -296,6 +349,7 @@ class GoCModel:
                 "marchitto",
                 self.mass,
                 self.geologic_d13c,
+                self.ALK_DIC_ratio,
             )
 
             # Subsurface
@@ -322,6 +376,7 @@ class GoCModel:
                 "subsurface",
                 self.mass,
                 self.geologic_d13c,
+                self.ALK_DIC_ratio,
             )
 
             # Surface
@@ -341,14 +396,70 @@ class GoCModel:
                 )
             except:
                 self.surface_rate = 0
-        d_dt_geologic += geologic.carbon_add(
-            self.num_tracer,
-            self.num_box,
-            self.surface_rate,
-            "surface",
-            self.mass,
-            self.geologic_d13c,
-        )
+
+            d_dt_geologic += geologic.carbon_add(
+                self.num_tracer,
+                self.num_box,
+                self.surface_rate,
+                "surface",
+                self.mass,
+                self.geologic_d13c,
+                self.ALK_DIC_ratio,
+            )
+
+        elif self.experiment == "control":
+            d_dt_geologic = 0
+        elif self.experiment == "forward":  # forward run
+            if int(time) > 1000:  # accounting for spin up time
+                geologic_rates = io.read_all_geologic_rates(
+                    "results/simulations/GoC_rates.txt"
+                )
+                # geologic_rates_total = io.read_all_geologic_rates(
+                #     "results/total_GoC_rates.txt"
+                # )
+
+                # adding all to marchitto for the experiments in disucssion figure 6
+                # d_dt_geologic += geologic.carbon_add(
+                #     self.num_tracer,
+                #     self.num_box,
+                #     geologic_rates_total[int((time - 1000) / 100), 0],
+                #     "subsurface",
+                #     self.mass,
+                #     self.geologic_d13c,
+                #     self.ALK_DIC_ratio,
+                # )
+
+                d_dt_geologic += geologic.carbon_add(
+                    self.num_tracer,
+                    self.num_box,
+                    geologic_rates[int((time - 1000) / 100), 0],
+                    "marchitto",
+                    self.mass,
+                    self.geologic_d13c,
+                    self.ALK_DIC_ratio,
+                )
+
+                d_dt_geologic += geologic.carbon_add(
+                    self.num_tracer,
+                    self.num_box,
+                    geologic_rates[int((time - 1000) / 100), 1],
+                    "subsurface",
+                    self.mass,
+                    self.geologic_d13c,
+                    self.ALK_DIC_ratio,
+                )
+                d_dt_geologic += geologic.carbon_add(
+                    self.num_tracer,
+                    self.num_box,
+                    geologic_rates[int((time - 1000) / 100), 2],
+                    "surface",
+                    self.mass,
+                    self.geologic_d13c,
+                    self.ALK_DIC_ratio,
+                )
+        else:
+            print("please provide a correct experiment argument.")
+            exit()
 
         ### Biological Productivity (Soft Tissue + Carbonate) ###
         d_dt_export, exportP, del_13_c_org, del_14_c_org = product.productivity(
@@ -375,7 +486,7 @@ class GoCModel:
 
         ### Circulation ###
         d_dt_circ = (self.transport_matrix @ state_a.T).T[:, : self.num_box]
-        # [5 x 5] x [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
+        # [5 x 5] * [5 x 6] = [5 x 6] --> [6 x 5] --> [6 x 3]
 
         ### Air-Sea Gas Exchange ###
         d_dt_gasexchange = airsea.gas_exchange(
@@ -390,7 +501,8 @@ class GoCModel:
         )
 
         d_dt = np.zeros((self.num_tracer, self.num_box))
-
+        # if time_bp % 500 == 0:
+        #     print("the year is ", time_bp)
         # where you can turn on or off any processes
         d_dt += d_dt_circ
         d_dt += d_dt_geologic
@@ -399,6 +511,16 @@ class GoCModel:
         d_dt += d_dt_gasexchange
 
         return d_dt.flatten()
+    
+    def CheckRate(self,filename):
+        df = pd.read_table(
+            "~/GoCmodel/results/simulations/" + filename,
+            sep="\s+",
+            header=None,
+        )
+        total_carbon_added = df[16][200] + df[17][200] + df[18][200]
+        print("TOTAL CARBON IS: ", total_carbon_added)
+        return total_carbon_added
 
     def run_box_model(self, tmax, num_steps):
         """runs the box model with ODE solver giving stateV0 as initial condition"""
@@ -424,37 +546,142 @@ class GoCModel:
         self.time = self.time[10:]  # we dont care about the spin up
         self.output = self.result.y[:, 10:]  # we dont care about the spin up
 
-        # total_carbon_added = (
-        #     self.output[15][200] + self.output[16][200] + self.output[17][200]
-        # )
-        # print("TOTAL CARBON IS: ", total_carbon_added)
-
         carb_chem = cc.carb_chem(self.output)  # shape = [tracer,box,year]
         pH = carb_chem[3, :, :]
 
         print(
-            "This solver took {:.2f} seconds for a ".format(end - start),
+            "This solver (d13C = "
+            + str(self.geologic_d13c)
+            + ", ALK/DIC = "
+            + str(self.ALK_DIC_ratio)
+            + ") took {:.2f} seconds for a".format(end - start),
             tmax,
-            " year simulation.",
+            "year simulation.",
         )
-        io.make_plot(self.time, self.output, carb_chem, self.filename)
-        # io.make_plot_interp(self.time, self.output)
-        # io.save_rates_GoC_file(self.time, self.output, self.filename)
-        # io.save_file(self.time, self.output, self.filename)
-        io.save_file(self.time, self.output, "control_run")
 
-    def make_AGU_plots(self):
-        io.make_carbon_rate_plot(self.filename)
-        io.save_file(self.time, self.result.y, self.carbonate_chemistry)
-        io.save_rates_GoC_file(self.time, self.result.y, self.carbonate_chemistry)
+        io.save_file(self.time, self.output, pH, self.filename)
+        # new_total_carbon = self.CheckRate("d13c--1_ALK_DIC-1_optimization_coupled.txt")
+        # Calculate total carbon rate directly from self.output
+        # Extract cumulative carbon values and calculate total carbon adfded from the last time step
+        mar_cum_carbon = self.output[15, -1]
+        goc_sub_cum_carbon = self.output[16, -1]
+        goc_surf_cum_carbon = self.output[17, -1]
 
+        # Calculate total carbon added over the 20,000-year period
+        total_carbon_added = mar_cum_carbon + goc_sub_cum_carbon + goc_surf_cum_carbon
+
+
+        # print("total rate is ", total_carbon_added)
+        # io.save_file(self.time, self.output, pH, "NoRegionalIsolation")
+        # io.save_file(self.time, self.output, pH, "NoRegionalIsolation_optimized_test")
+        return total_carbon_added
+def convert_per_sec_to_per_year(per_sec):
+    per_year = per_sec * 60 * 60 * 24 * 365
+    return per_year
+
+def calc_tau(volume, inflow):
+    # all units are m3 and years
+    # fluxes are is in m3/year
+    tau = volume / inflow
+    print("tau is ", tau)
+    return tau
+
+    
+def run_simulation(params):
+    volume_factor, mixing_rate = params
+    # volume_factor = 5
+    # mixing_rate = 5
+    goc_volume = 1.45e14  # in m^3
+    marchitto_mass = volume_factor * goc_volume * 1026.8  # Convert to kg
+    # geologic_d13c = -2.5
+    geologic_d13c = -8.9
+
+    ALK_DIC_ratio = 1
+    # ALK_DIC_ratio = 0
+    experiment = "optimization"
+    boundary_condition = "coupled"
+    
+    model = GoCModel(geologic_d13c, ALK_DIC_ratio, experiment, boundary_condition, marchitto_mass, mixing_rate)
+    new_total_carbon = model.run_box_model(21000, 211)
+    marchitto_volume = marchitto_mass / 1026.8
+    inflow = 0.48e6 + mixing_rate * 1e6  # m3/s # double check why its 0.48e6 instead of 0.45e6
+    inflow = convert_per_sec_to_per_year(inflow)
+    tau = calc_tau(marchitto_volume, inflow)
+    # print("simulation complete")
+    return (volume_factor, mixing_rate, new_total_carbon,tau)
 
 if __name__ == "__main__":
-    # AOM = GoCModel("AOM")
-    # AOM.make_AGU_plots()
-    # AOM.run_box_model(21000, 211)
-    CO2 = GoCModel("CO2_dissolving_carbonates")
-    CO2.run_box_model(21000, 211)
-    # methane = GoCModel("biogenic_methane")
-    # methane.run_box_model(21000, 211)
+    ###### to run a single simulation
+    # Example parameters
+    # volume_factor = 10.86
+    # mixing_rate = 4.29
+    # # volume_factor = 15
+    # # mixing_rate = 0.01
+
+    # # Run the simulation with specific parameters
+    # result = run_simulation((volume_factor, mixing_rate))       
+
+    ###### to run 2 simulations at once
+    # params = [
+    # (10.86, 4.29),         # volume_factor = 10.86, mixing_rate = 4.29 m^3/s
+    # (15, 0.01)       # volume_factor = 15, mixing_rate = 0.01 Sv converted to m^3/s
+    # ]
+    params = [
+    (5.6, 4.7),         # volume_factor = 10.86, mixing_rate = 4.29 m^3/s
+    (9.65, 0.5)       # volume_factor = 15, mixing_rate = 0.01 Sv converted to m^3/s
+    ]
+    with Pool(32) as pool:
+        results = pool.map(run_simulation, params)
+    print("All simulations complete")
+
+    # to run for many parameters
+    # num_samples = 10  # For example
+    # volume_factors = np.linspace(0.5, 15, num_samples)  # From 1x to 1000x
+    # mixing_rates = np.linspace(0.01, 10, num_samples)  # From 0.1 Sv to 500 Sv
+
+    # params = [(v, m) for v in volume_factors for m in mixing_rates]
+
+    # # Run simulations in parallel
+    # # num_cores = max(1, cpu_count() - 5)  # Leave 5 cores open
+    # # print("cores: ", cpu_count())
+    # with Pool(32) as pool:
+    #     results = pool.map(run_simulation, params)
+    # print("All simulations complete")
+
+    # # Save results to a CSV file
+    # with open('results.csv', 'w', newline='') as csvfile:
+    #     fieldnames = ['volume_factor', 'mixing_rate', 'total_carbon_added', 'tau']
+    #     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    #     writer.writeheader()
+    #     for res in results:
+    #         writer.writerow({'volume_factor': res[0], 'mixing_rate': res[1], 'total_carbon_added': res[2], 'tau': res[3]})
+
+    # print("results saved to results.csv")
+    # Extract results
+    # volume_factors = np.array([res[0] for res in results])
+    # mixing_rates = np.array([res[1] for res in results])
+    # total_carbons = np.array([res[2] for res in results])
+
+    # # Reshape results for contour plotting
+    # volume_factors = volume_factors.reshape((num_samples, num_samples))
+    # mixing_rates = mixing_rates.reshape((num_samples, num_samples))
+    # total_carbons = total_carbons.reshape((num_samples, num_samples))
+
+    # # Plot the results
+    # plt.contourf(volume_factors, mixing_rates, total_carbons, cmap='viridis')
+    # plt.colorbar(label='Total Carbon Added')
+    # plt.xlabel('Volume Factor')
+    # plt.ylabel('Mixing Rate (Sv)')
+    # plt.xscale('log')
+    # plt.yscale('log')
+    # plt.title('Total Carbon Added vs. Volume Factor and Mixing Rate')
+    # plt.show()
+
+#     def run_simulation(self, params):
+#         volume_factor, mixing_rate = params
+#         marchitto_mass = volume_factor * self.goc_mass * 1026.8  # Convert to kg
+#         model = GoCModel(-2.5, 1, "optimization", "coupled", marchitto_mass, mixing_rate)
+#         model.run_box_model(21000, 211) # 21000 years, 211 steps
+#         return (volume_factor, mixing_rate, model.cum_geologic_carbon)
+
 
