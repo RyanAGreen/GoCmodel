@@ -133,4 +133,20 @@ dmypy.json
 # Desktop services 
 .DS_Store
 scripts/.vscode/settings.json
-Untitled.ipynb
+*.ipynb
+
+results/figures/*
+data/observations/GLODAPv2.2023_Merged_Master_File.csv
+data/observations/woa18_all_o00_01.nc
+data/observations/mercatorglorys12v1_gl12_mean_1993_2016_06.nc
+
+font_setup.py
+plot_style.py
+presentation.mplstyle
+
+tobeimplemented.py 
+
+scripts/plotting/old/*
+scripts/analysis/*
+
+*.nc
