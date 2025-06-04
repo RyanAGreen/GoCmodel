@@ -35,7 +35,7 @@ for col in ['Crate_surf', 'Crate_sub', 'Crate_mar']:
     GoC_high_iso[col] = np.where(GoC_high_iso[col] == 0, np.nan, GoC_high_iso[col])
 
 # === Load Observational Data ===
-rafter2024_benthic = pd.read_excel(obspath + "prafter-2024-Gulf-CA-Data-for-Ryan-3.3.xlsx")
+rafter2024_benthic = pd.read_excel(obspath + "D14C_PP.xlsx")
 rafter2024_benthic = rafter2024_benthic[rafter2024_benthic['mat.dated'] != 'terrestrial wood']
 rafter2024_benthic = rafter2024_benthic.sort_values(by='cal.age')
 

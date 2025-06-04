@@ -25,7 +25,6 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-results/
 MANIFEST
 
 # PyInstaller
@@ -149,5 +148,5 @@ tobeimplemented.py
 scripts/plotting/old/*
 scripts/analysis/*
 
-data/*
+
 *.nc
