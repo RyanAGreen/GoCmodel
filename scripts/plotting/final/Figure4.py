@@ -13,7 +13,7 @@ except ImportError:
     pass  # font_setup and/or plot_style modules not found. Using default settings.
 
 # Load data for contour plot
-df = pd.read_csv('data/preprocessed/results.csv')
+df = pd.read_csv('results/simulations/results.csv')
 
 # Extract columns for contour plot
 volume_factor = df['volume_factor'].values
@@ -21,17 +21,8 @@ mixing_rate = df['mixing_rate'].values
 total_carbon_added = df['total_carbon_added'].values
 tau = df['tau'].values
 
-# Load d11B data for scatter plot
-d11B_data = pd.read_excel("data/observations/d11B_dpH_benthic_planktic_cleaned_RAG.xlsx")
-benthic_DD14C = d11B_data['benthic_DD14C']
-
-planktic_DD14C = d11B_data['planktic_DD14C']
-# drop rows with NaN values from planktic_DD14C
-planktic_DD14C = planktic_DD14C.dropna()
-
-
 # Read the Excel file
-file_path = "data/observations/d11B_D14C_RAG_cleaned.xlsx"
+file_path = "data/observations/d11B_PP.xlsx"
 benthic_df = pd.read_excel(file_path, sheet_name="Benthic",skiprows=1)
 planktic_df = pd.read_excel(file_path, sheet_name="Planktic",skiprows=1)
 
@@ -39,10 +30,12 @@ planktic_df = pd.read_excel(file_path, sheet_name="Planktic",skiprows=1)
 benthic_cal_age = benthic_df["cal.age"]/1000
 benthic_dpH = benthic_df["Delta pH"]
 benthic_sigma_pH = benthic_df["1 Sigma pH"]
+benthic_DD14C = benthic_df['DD14C']
 
 planktic_cal_age = planktic_df["cal.age"]/1000
 planktic_dpH = planktic_df["Delta pH"]
 planktic_sigma_pH = planktic_df["1 Sigma pH"]
+planktic_DD14C = planktic_df['DD14C']
 
 color_low_iso = "#FF2A00"
 color_high_iso = "#FFD500"

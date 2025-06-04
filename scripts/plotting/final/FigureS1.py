@@ -12,7 +12,7 @@ except ImportError:
     pass  # font_setup and/or plot_style modules not found. Using default settings.
 
 # File paths
-GoC_modelpath = "/home/rygreen/GoCmodel/results/simulations/"
+modelpath = "/home/rygreen/GoCmodel/results/simulations/"
 obspath = "/home/rygreen/GoCmodel/data/observations/"
 
 # Colors for plotting
@@ -24,33 +24,50 @@ marker_surf = "^"
 markert_sub = "s"
 
 # Load d11B dpH data
-d11B_data = pd.read_excel(obspath + "d11B_dpH_benthic_planktic_cleaned_RAG.xlsx")
-benthic_dpH = d11B_data['benthic_dpH']
-benthic_age = d11B_data['benthic_cal_age'] / 1000  # Age in thousands of years
-planktic_dpH = d11B_data['planktic_dpH']
-planktic_age = d11B_data['planktic_cal_age'] / 1000  # Age in thousands of years
+file_path = "data/observations/d11B_PP.xlsx"
+benthic_df = pd.read_excel(file_path, sheet_name="Benthic",skiprows=1)
+planktic_df = pd.read_excel(file_path, sheet_name="Planktic",skiprows=1)
 
-# Load d13C data for benthic forams in GoC
-d13C_benthic_GoC = pd.read_excel(obspath + "prafter-2024-Gulf-CA-Data-for-Ryan-2.0.xls", skiprows=1)
-d13C_benthic_GoC = d13C_benthic_GoC[d13C_benthic_GoC["P.ariminensis d13C"].notna()]
-d13C_benthic_GoC = d13C_benthic_GoC.sort_values(by=["calendar age [yr BP]"])
-LGM_value = d13C_benthic_GoC["P.ariminensis d13C"].iloc[-1]
-d13C_benthic_GoC["P.ariminensis d13C diff"] = d13C_benthic_GoC["P.ariminensis d13C"] - LGM_value
+# Extract relevant columns
+benthic_age = benthic_df["cal.age"]/1000
+benthic_dpH = benthic_df["Delta pH"]
+
+planktic_age = planktic_df["cal.age"]/1000
+planktic_dpH = planktic_df["Delta pH"]
+
+
+# Load cleaned δ13C data
+d13C_benthic_GoC = pd.read_excel(obspath + "d13C_PP.xlsx", header=0,skiprows=[1, 2])
+
+# Filter to ages ≤ 20445.8 yr BP
+d13C_benthic_GoC = d13C_benthic_GoC[d13C_benthic_GoC["cal.age"] <= 20445.8]
+
+# Sort by calendar age
+d13C_benthic_GoC = d13C_benthic_GoC.sort_values(by="cal.age")
+
+# Use the oldest (deepest in time) value as LGM reference
+LGM_value = d13C_benthic_GoC["δ¹³C (‰, VPDB)"].iloc[-1]
+
+# Compute anomaly relative to LGM
+# LGM_value = -0.17
+
+# Add delta relative to LGM
+d13C_benthic_GoC["δ13C diff from LGM"] = d13C_benthic_GoC["δ¹³C (‰, VPDB)"] - LGM_value
 
 # Load model data
-GoC_low_iso_d13C_negative_89 = pd.read_table(GoC_modelpath + "low_isolation_control_CO2_d13c--8.9.txt", header=None, sep="\s+")
+GoC_low_iso_d13C_negative_89 = pd.read_table(modelpath + "low_isolation_control_CO2_d13c--8.9.txt", header=None, sep="\s+")
 GoC_low_iso_d13C_negative_89 = f.organizedata_goc(GoC_low_iso_d13C_negative_89)
 
-GoC_control_high_isolation = pd.read_table(GoC_modelpath + "high_isolation_control.txt", header=None, sep="\s+")
+GoC_control_high_isolation = pd.read_table(modelpath + "high_isolation_control.txt", header=None, sep="\s+")
 GoC_control_high_isolation = f.organizedata_goc(GoC_control_high_isolation)
 
-GoC_control_low_isolation = pd.read_table(GoC_modelpath + "low_isolation_control.txt", header=None, sep="\s+")
+GoC_control_low_isolation = pd.read_table(modelpath + "low_isolation_control.txt", header=None, sep="\s+")
 GoC_control_low_isolation = f.organizedata_goc(GoC_control_low_isolation)
 
 # Load Gulf of California data adding bicarbonate (these use d13C of -2.5)
-GoC_high_iso = pd.read_table(GoC_modelpath + "high_isolation_optimization.txt", header=None, sep="\s+")
+GoC_high_iso = pd.read_table(modelpath + "high_isolation_optimization.txt", header=None, sep="\s+")
 GoC_high_iso = f.organizedata_goc(GoC_high_iso)
-GoC_low_iso = pd.read_table(GoC_modelpath + "low_isolation_optimization.txt", header=None, sep="\s+")
+GoC_low_iso = pd.read_table(modelpath + "low_isolation_optimization.txt", header=None, sep="\s+")
 GoC_low_iso = f.organizedata_goc(GoC_low_iso)
 
 pH_effect_high_iso_subsurface = (GoC_high_iso["pH_sub"] - GoC_control_high_isolation["pH_sub"])
@@ -60,9 +77,9 @@ pH_effect_high_iso_surface = (GoC_high_iso["pH_surf"] - GoC_control_high_isolati
 pH_effect_low_iso_surface = (GoC_low_iso["pH_surf"] - GoC_control_low_isolation["pH_surf"])
 
 # Load Gulf of California data adding CO2
-GoC_high_iso_CO2 = pd.read_table(GoC_modelpath + "high_isolation_optimization_CO2.txt", header=None, sep="\s+")
+GoC_high_iso_CO2 = pd.read_table(modelpath + "high_isolation_optimization_CO2.txt", header=None, sep="\s+")
 GoC_high_iso_CO2 = f.organizedata_goc(GoC_high_iso_CO2)
-GoC_low_iso_CO2 = pd.read_table(GoC_modelpath + "low_isolation_optimization_CO2.txt", header=None, sep="\s+")
+GoC_low_iso_CO2 = pd.read_table(modelpath + "low_isolation_optimization_CO2.txt", header=None, sep="\s+")
 GoC_low_iso_CO2 = f.organizedata_goc(GoC_low_iso_CO2)
 
 pH_effect_high_iso_subsurface_CO2 = (GoC_high_iso_CO2["pH_sub"] - GoC_control_high_isolation["pH_sub"])
@@ -72,11 +89,11 @@ pH_effect_high_iso_surface_CO2 = (GoC_high_iso_CO2["pH_surf"] - GoC_control_high
 pH_effect_low_iso_surface_CO2 = (GoC_low_iso_CO2["pH_surf"] - GoC_control_low_isolation["pH_surf"])
 
 # load CYCLOPS to show CO2 effects
-CYCLOPS_high_iso_CO2 = pd.read_table("data/model/CoupledRun_high_isolation_CO2.txt", sep="\s+", header=None)
-CYCLOPS_high_iso_HCO3 = pd.read_table("data/model/CoupledRun_high_isolation.txt", sep="\s+", header=None)
-CYCLOPS_low_iso = pd.read_table("data/model/CoupledRun_low_isolation_ratio1.txt", sep="\s+", header=None)
-CYCLOPS_control = pd.read_table("data/model/ControlRun.txt", sep="\s+", header=None)
-bereiter2015_atmCO2 = pd.read_csv("data/observations/CO2data1.txt", sep="\t")
+CYCLOPS_high_iso_CO2 = pd.read_table(modelpath + "CoupledRun_high_isolation_CO2.txt", sep="\s+", header=None)
+CYCLOPS_high_iso_HCO3 = pd.read_table(modelpath + "CoupledRun_high_isolation.txt", sep="\s+", header=None)
+CYCLOPS_low_iso = pd.read_table(modelpath + "CoupledRun_low_isolation_ratio1.txt", sep="\s+", header=None)
+CYCLOPS_control = pd.read_table(modelpath + "ControlRun.txt", sep="\s+", header=None)
+bereiter2015_atmCO2 = pd.read_csv(obspath + "CO2data.txt", sep="\t")
 bereiter2015_atmCO2["year"] = bereiter2015_atmCO2["year"] / 1000
 
 
@@ -116,7 +133,7 @@ d13C_model_subsurface_neg89 = GoC_low_iso_d13C_negative_89["d13C_sub"] - GoC_low
 axs[2].plot(GoC_high_iso["year"], d13C_model_subsurface_neg89, '--', lw=2, color="black")
 
 # d13C observational data (benthic forams)
-axs[2].plot(d13C_benthic_GoC["calendar age [yr BP]"] / 1000, d13C_benthic_GoC["P.ariminensis d13C diff"],
+axs[2].plot(d13C_benthic_GoC["cal.age"] / 1000, d13C_benthic_GoC["δ13C diff from LGM"],
             's', markersize=7, markeredgecolor="black", markerfacecolor=color_obs, linestyle=" ", lw=1)
 
 # Formatting second plot
@@ -138,6 +155,6 @@ proxy_HCO3_addition = mlines.Line2D([], [], color=color_HCO3_addition, lw=2, lin
 axs[0].legend(handles=[proxy_CO2,proxy_benthic_dpH, proxy_planktic_dpH, proxy_CO2_addition, proxy_HCO3_addition], loc='best',frameon=False)
 
 # Show the plot
-# plt.savefig("results/figures/FigureS1.pdf", bbox_inches='tight')
+plt.savefig("results/figures/FigureS1.pdf", bbox_inches='tight')
 
-plt.show()
+# plt.show()

@@ -19,7 +19,7 @@ except ImportError:
 
 # === File Paths ===
 GoC_modelpath = "results/simulations/"
-obs_file_path = "data/observations/d11B_D14C_RAG_cleaned.xlsx"
+obs_file_path = "data/observations/d11B_PP.xlsx"
 
 # === Color Definitions ===
 color_low_iso = "#FF2A00"
@@ -64,7 +64,7 @@ pH_effect_high_iso_CO2_subsurface = GoC_high_iso_CO2["pH_sub"] - GoC_control_hig
 pH_effect_low_iso_CO2_subsurface = GoC_low_iso_CO2["pH_sub"] - GoC_control_low_iso["pH_sub"]
 
 # === Load Additional Observations ===
-rafter2024_benthic = pd.read_excel("data/observations/prafter-2024-Gulf-CA-Data-for-Ryan-3.3.xlsx")
+rafter2024_benthic = pd.read_excel("data/observations/D14C_PP.xlsx")
 rafter2024_wood = rafter2024_benthic[rafter2024_benthic['mat.dated'] == 'terrestrial wood']
 rafter2024_benthic = rafter2024_benthic[rafter2024_benthic['mat.dated'] != 'terrestrial wood'].sort_values(by='cal.age')
 rafter2024_benthic["year"] = rafter2024_benthic["cal.age"] / 1000
